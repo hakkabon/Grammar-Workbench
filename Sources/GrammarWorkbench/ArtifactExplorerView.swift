@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-struct ArtifactExplorerView: View {
+public struct ArtifactExplorerView: View {
     @State private var store = ExplorerStore()
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
@@ -11,7 +11,7 @@ struct ArtifactExplorerView: View {
         var id: Self { self }
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationSplitView {
             sourceSidebar
         } content: {

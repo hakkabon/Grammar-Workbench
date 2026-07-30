@@ -6,6 +6,8 @@ public struct ArtifactExplorerView: View {
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
 
+    public init() {}
+    
     enum ExplorerTab: String, CaseIterable, Identifiable {
         case automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
         var id: Self { self }

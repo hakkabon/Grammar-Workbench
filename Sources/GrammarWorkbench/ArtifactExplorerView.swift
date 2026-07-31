@@ -7,11 +7,11 @@ public struct ArtifactExplorerView: View {
     @State private var exportMessage: String?
 
     public init() {}
-<<<<<<< HEAD
-    
-=======
-
->>>>>>> dev-branch
+//<<<<<<< HEAD
+//    
+//=======
+//
+//>>>>>>> dev-branch
     enum ExplorerTab: String, CaseIterable, Identifiable {
         case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
         var id: Self { self }

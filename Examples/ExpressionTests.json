@@ -1,0 +1,27 @@
+{
+  "algorithm" : "LALR(1)",
+  "samples" : [
+    {
+      "id" : "74AE51D7-D846-469E-9F87-501A278F08E0",
+      "input" : "alpha + beta * gamma",
+      "name" : "Expression"
+    }
+  ],
+  "schemaVersion" : 1,
+  "selectedSampleID" : "74AE51D7-D846-469E-9F87-501A278F08E0",
+  "source" : "%start E\n%token ID /[A-Za-z_][A-Za-z0-9_]*/\n%skip /\\s+/\n%left '+'\n%left '*'\n\nE : E '+' E\n  | E '*' E\n  | ID\n  ;",
+  "tests" : [
+    {
+      "expectation" : "Accept",
+      "id" : "6656897E-E289-4160-BCAA-D94EA13A621A",
+      "input" : "alpha + beta * gamma",
+      "name" : "Valid expression"
+    },
+    {
+      "expectation" : "Reject",
+      "id" : "AC75CB9D-858E-42AD-A7EB-30D0A13AACF8",
+      "input" : "alpha +",
+      "name" : "Missing operand"
+    }
+  ]
+}

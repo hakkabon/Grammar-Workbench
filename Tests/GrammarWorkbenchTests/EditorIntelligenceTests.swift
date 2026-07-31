@@ -53,3 +53,13 @@ import Testing
     store.select(.state(.init(rawValue: 0)))
     #expect(store.sourceSelection != nil)
 }
+
+@Test func undefinedSymbolQuickFixAddsTokenDeclaration() throws {
+    let source = "%start S\n%token ID\nS : ID Missing ;"
+    let result = GrammarFrontEnd.process(source)
+    let diagnostic = try #require(result.diagnostics.first { $0.code == "undefined-symbol" })
+    let fix = try #require(GrammarEditorIntelligence.quickFixes(for: diagnostic, source: source).first)
+    let fixed = fix.applying(to: source)
+    #expect(fixed.hasPrefix("%token Missing\n"))
+    #expect(!GrammarFrontEnd.process(fixed).hasErrors)
+}

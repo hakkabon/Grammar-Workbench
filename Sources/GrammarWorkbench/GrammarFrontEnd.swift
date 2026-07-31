@@ -30,12 +30,14 @@ public struct GrammarDiagnostic: Identifiable, Hashable, Codable, Sendable {
 
     public let id: Int
     public let severity: Severity
+    public let code: String
     public let message: String
     public let range: SourceRange
 
-    public init(id: Int, severity: Severity, message: String, range: SourceRange) {
+    public init(id: Int, severity: Severity, code: String = "syntax", message: String, range: SourceRange) {
         self.id = id
         self.severity = severity
+        self.code = code
         self.message = message
         self.range = range
     }
@@ -65,12 +67,27 @@ public struct GrammarProduction: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
+public struct TokenDeclaration: Identifiable, Hashable, Codable, Sendable {
+    public let id: Int
+    public let name: String
+    public let range: SourceRange
+}
+
+public struct GrammarSymbolReference: Hashable, Codable, Sendable {
+    public let name: String
+    public let range: SourceRange
+}
+
 public struct ParsedGrammar: Hashable, Codable, Sendable {
     public let startSymbol: String
     public let nonterminals: [String]
     public let terminals: [String]
     public let productions: [GrammarProduction]
     public let precedence: [PrecedenceDeclaration]
+    public let tokenDeclarations: [TokenDeclaration]
+    public let undeclaredSymbols: [GrammarSymbolReference]
+
+    public var usesExplicitTokens: Bool { !tokenDeclarations.isEmpty }
 }
 
 public struct GrammarAnalysis: Hashable, Codable, Sendable {
@@ -93,14 +110,14 @@ public enum GrammarFrontEnd {
         let lexed = GrammarLexer(source: source).scan()
         var parser = GrammarParser(tokens: lexed.tokens, diagnostics: lexed.diagnostics)
         let parsed = parser.parse()
-        let grammar = parser.diagnostics.contains { $0.severity == .error } ? nil : parsed
-        let analysis = grammar.map(GrammarAnalyzer.analyze)
-        let semanticDiagnostics = grammar.map {
+        let syntacticallyValidGrammar = parser.diagnostics.contains { $0.severity == .error } ? nil : parsed
+        let analysis = syntacticallyValidGrammar.map(GrammarAnalyzer.analyze)
+        let semanticDiagnostics = syntacticallyValidGrammar.map {
             GrammarValidator.validate($0, startingAt: parser.diagnostics.count)
         } ?? []
         return GrammarFrontEndResult(
             source: source,
-            grammar: grammar,
+            grammar: syntacticallyValidGrammar,
             analysis: analysis,
             diagnostics: parser.diagnostics + semanticDiagnostics
         )
@@ -127,7 +144,7 @@ private enum GrammarValidator {
         }
         for symbol in grammar.nonterminals where !reachable.contains(symbol) {
             if let range = productionsByLHS[symbol]?.first?.range {
-                append(.warning, "Nonterminal ‘\(symbol)’ is unreachable from the start symbol.", range, to: &diagnostics, firstID: firstID)
+                append(.warning, "unreachable-nonterminal", "Nonterminal ‘\(symbol)’ is unreachable from the start symbol.", range, to: &diagnostics, firstID: firstID)
             }
         }
 
@@ -142,7 +159,7 @@ private enum GrammarValidator {
         }
         for symbol in grammar.nonterminals where !productive.contains(symbol) {
             if let range = productionsByLHS[symbol]?.first?.range {
-                append(.warning, "Nonterminal ‘\(symbol)’ cannot derive a terminal string.", range, to: &diagnostics, firstID: firstID)
+                append(.warning, "unproductive-nonterminal", "Nonterminal ‘\(symbol)’ cannot derive a terminal string.", range, to: &diagnostics, firstID: firstID)
             }
         }
 
@@ -150,25 +167,109 @@ private enum GrammarValidator {
         for production in grammar.productions {
             let key = "\(production.lhs)\u{0}\(production.rhs.joined(separator: "\u{0}"))"
             if !seenProductions.insert(key).inserted {
-                append(.warning, "Duplicate production ‘\(production.text)’.", production.range, to: &diagnostics, firstID: firstID)
+                append(.warning, "duplicate-production", "Duplicate production ‘\(production.text)’.", production.range, to: &diagnostics, firstID: firstID)
             }
         }
 
         let usedSymbols = Set(grammar.productions.flatMap(\.rhs))
+        let declaredTokens = Set(grammar.tokenDeclarations.map(\.name))
+        for reference in grammar.undeclaredSymbols {
+            append(.error, "undefined-symbol", "Symbol ‘\(reference.name)’ is neither a nonterminal nor declared with %token.", reference.range, to: &diagnostics, firstID: firstID)
+        }
+        var seenTokens: Set<String> = []
+        for declaration in grammar.tokenDeclarations {
+            if declaration.name.isEmpty {
+                append(.error, "empty-terminal", "Token names cannot be empty.", declaration.range, to: &diagnostics, firstID: firstID)
+            }
+            if declaration.name == "$" {
+                append(.warning, "reserved-symbol", "‘$’ is reserved for end-of-input.", declaration.range, to: &diagnostics, firstID: firstID)
+            }
+            if !seenTokens.insert(declaration.name).inserted {
+                append(.warning, "duplicate-token", "Token ‘\(declaration.name)’ is declared more than once.", declaration.range, to: &diagnostics, firstID: firstID)
+            }
+            if nonterminals.contains(declaration.name) {
+                append(.error, "symbol-collision", "Symbol ‘\(declaration.name)’ is declared as both a token and a nonterminal.", declaration.range, to: &diagnostics, firstID: firstID)
+            } else if !usedSymbols.contains(declaration.name) {
+                append(.warning, "unused-token", "Declared token ‘\(declaration.name)’ is never used.", declaration.range, to: &diagnostics, firstID: firstID)
+            }
+        }
+
+        var precedenceOwners: [String: PrecedenceDeclaration] = [:]
         for declaration in grammar.precedence {
-            for symbol in declaration.symbols where !usedSymbols.contains(symbol) {
-                append(.warning, "Precedence symbol ‘\(symbol)’ is never used in a production.", declaration.range, to: &diagnostics, firstID: firstID)
+            for symbol in declaration.symbols {
+                if precedenceOwners.updateValue(declaration, forKey: symbol) != nil {
+                    append(.warning, "duplicate-precedence", "Precedence for ‘\(symbol)’ is declared more than once.", declaration.range, to: &diagnostics, firstID: firstID)
+                }
+                if !usedSymbols.contains(symbol) {
+                    append(.warning, "unused-precedence", "Precedence symbol ‘\(symbol)’ is never used in a production.", declaration.range, to: &diagnostics, firstID: firstID)
+                }
+                if grammar.usesExplicitTokens && !declaredTokens.contains(symbol) && !grammar.terminals.contains(symbol) {
+                    append(.error, "invalid-precedence-symbol", "Precedence symbol ‘\(symbol)’ is not a declared terminal.", declaration.range, to: &diagnostics, firstID: firstID)
+                }
             }
         }
         if grammar.terminals.contains("$"),
            let production = grammar.productions.first(where: { $0.rhs.contains("$") }) {
-            append(.warning, "‘$’ is reserved for end-of-input.", production.range, to: &diagnostics, firstID: firstID)
+            append(.warning, "reserved-symbol", "‘$’ is reserved for end-of-input.", production.range, to: &diagnostics, firstID: firstID)
+        }
+        if grammar.terminals.contains(""),
+           let production = grammar.productions.first(where: { $0.rhs.contains("") }) {
+            append(.error, "empty-terminal", "Terminal literals cannot be empty; use an empty alternative for ε.", production.range, to: &diagnostics, firstID: firstID)
+        }
+
+        let nullable = nullableSymbols(grammar)
+        let nullableGraph = nullableDependencyGraph(grammar, nullable: nullable)
+        for symbol in grammar.nonterminals where participatesInCycle(symbol, graph: nullableGraph) {
+            if let range = productionsByLHS[symbol]?.first?.range {
+                append(.warning, "nullable-cycle", "Nonterminal ‘\(symbol)’ participates in a nullable cycle.", range, to: &diagnostics, firstID: firstID)
+            }
         }
         return diagnostics
     }
 
+    private static func nullableSymbols(_ grammar: ParsedGrammar) -> Set<String> {
+        let nonterminals = Set(grammar.nonterminals)
+        var nullable: Set<String> = []
+        var changed = true
+        while changed {
+            changed = false
+            for production in grammar.productions
+            where production.rhs.allSatisfy({ nonterminals.contains($0) && nullable.contains($0) }) {
+                changed = nullable.insert(production.lhs).inserted || changed
+            }
+        }
+        return nullable
+    }
+
+    private static func nullableDependencyGraph(
+        _ grammar: ParsedGrammar,
+        nullable: Set<String>
+    ) -> [String: Set<String>] {
+        let nonterminals = Set(grammar.nonterminals)
+        var graph: [String: Set<String>] = [:]
+        for production in grammar.productions
+        where !production.rhs.isEmpty
+            && production.rhs.allSatisfy({ nonterminals.contains($0) && nullable.contains($0) }) {
+            graph[production.lhs, default: []].formUnion(production.rhs)
+        }
+        return graph
+    }
+
+    private static func participatesInCycle(_ origin: String, graph: [String: Set<String>]) -> Bool {
+        var pending = Array(graph[origin, default: []])
+        var visited: Set<String> = []
+        while let symbol = pending.popLast() {
+            if symbol == origin { return true }
+            if visited.insert(symbol).inserted {
+                pending.append(contentsOf: graph[symbol, default: []])
+            }
+        }
+        return false
+    }
+
     private static func append(
         _ severity: GrammarDiagnostic.Severity,
+        _ code: String,
         _ message: String,
         _ range: SourceRange,
         to diagnostics: inout [GrammarDiagnostic],
@@ -177,6 +278,7 @@ private enum GrammarValidator {
         diagnostics.append(.init(
             id: firstID + diagnostics.count,
             severity: severity,
+            code: code,
             message: message,
             range: range
         ))
@@ -311,7 +413,8 @@ private struct GrammarParser {
     private var index = 0
     private var requestedStart: String?
     private var precedence: [PrecedenceDeclaration] = []
-    private var drafts: [(lhs: String, rhs: [(name: String, explicitTerminal: Bool)], range: SourceRange)] = []
+    private var tokenDeclarations: [TokenDeclaration] = []
+    private var drafts: [(lhs: String, rhs: [(name: String, explicitTerminal: Bool, range: SourceRange)], range: SourceRange)] = []
 
     init(tokens: [GrammarToken], diagnostics: [GrammarDiagnostic]) {
         self.tokens = tokens
@@ -335,9 +438,18 @@ private struct GrammarParser {
         }
         let nonterminals = unique(drafts.map(\.lhs))
         let nonterminalSet = Set(nonterminals)
-        let terminals = unique(drafts.flatMap(\.rhs).compactMap { symbol in
-            symbol.explicitTerminal || !nonterminalSet.contains(symbol.name) ? symbol.name : nil
-        })
+        let explicitTerminals = drafts.flatMap(\.rhs).filter(\.explicitTerminal).map(\.name)
+        let inferredTerminals = drafts.flatMap(\.rhs).filter {
+            !$0.explicitTerminal && !nonterminalSet.contains($0.name)
+        }
+        let terminals = tokenDeclarations.isEmpty
+            ? unique(explicitTerminals + inferredTerminals.map(\.name))
+            : unique(tokenDeclarations.map(\.name) + explicitTerminals)
+        let undeclaredSymbols = tokenDeclarations.isEmpty ? [] : inferredTerminals.map {
+            GrammarSymbolReference(name: $0.name, range: $0.range)
+        }.filter { reference in
+            !tokenDeclarations.contains { $0.name == reference.name }
+        }
         let start = requestedStart ?? nonterminals[0]
         if !nonterminalSet.contains(start) {
             report("Start symbol ‘\(start)’ has no production.", at: tokens.first?.range ?? current.range)
@@ -350,7 +462,9 @@ private struct GrammarParser {
             nonterminals: nonterminals,
             terminals: terminals,
             productions: productions,
-            precedence: precedence
+            precedence: precedence,
+            tokenDeclarations: tokenDeclarations,
+            undeclaredSymbols: undeclaredSymbols
         )
     }
 
@@ -358,11 +472,30 @@ private struct GrammarParser {
         let directiveToken = advance()
         guard case .directive(let name) = directiveToken.kind else { return }
         if name == "start" {
+            if requestedStart != nil {
+                report("Duplicate %start directive; the last declaration is used.", at: directiveToken.range, severity: .warning, code: "duplicate-start")
+            }
             if case .identifier(let symbol) = current.kind {
                 requestedStart = symbol
                 _ = advance()
             } else {
                 report("Expected a nonterminal after %start.", at: current.range)
+            }
+        } else if name == "token" {
+            var foundToken = false
+            while !isNewline && !isEOF {
+                switch current.kind {
+                case .identifier(let value), .terminal(let value):
+                    tokenDeclarations.append(.init(id: tokenDeclarations.count, name: value, range: current.range))
+                    foundToken = true
+                    _ = advance()
+                default:
+                    report("Expected a token name in %token declaration.", at: current.range)
+                    _ = advance()
+                }
+            }
+            if !foundToken {
+                report("%token requires at least one token name.", at: directiveToken.range)
             }
         } else if ["left", "right", "nonassoc"].contains(name) {
             let associativity: Associativity = name == "left" ? .left : (name == "right" ? .right : .nonassociative)
@@ -405,15 +538,15 @@ private struct GrammarParser {
             return
         }
         _ = advance()
-        var rhs: [(name: String, explicitTerminal: Bool)] = []
+        var rhs: [(name: String, explicitTerminal: Bool, range: SourceRange)] = []
         var alternativeStart = start
         var lastEnd = current.range.end
         while true {
             switch current.kind {
             case .identifier(let value):
-                rhs.append((value, false)); lastEnd = current.range.end; _ = advance()
+                rhs.append((value, false, current.range)); lastEnd = current.range.end; _ = advance()
             case .terminal(let value):
-                rhs.append((value, true)); lastEnd = current.range.end; _ = advance()
+                rhs.append((value, true, current.range)); lastEnd = current.range.end; _ = advance()
             case .newline:
                 _ = advance()
             case .pipe:
@@ -456,8 +589,13 @@ private struct GrammarParser {
         while current.kind != .semicolon && !isEOF { _ = advance() }
         if current.kind == .semicolon { _ = advance() }
     }
-    private mutating func report(_ message: String, at range: SourceRange) {
-        diagnostics.append(.init(id: diagnostics.count, severity: .error, message: message, range: range))
+    private mutating func report(
+        _ message: String,
+        at range: SourceRange,
+        severity: GrammarDiagnostic.Severity = .error,
+        code: String = "syntax"
+    ) {
+        diagnostics.append(.init(id: diagnostics.count, severity: severity, code: code, message: message, range: range))
     }
     private func unique(_ values: [String]) -> [String] {
         var seen: Set<String> = []

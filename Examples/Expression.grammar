@@ -1,0 +1,10 @@
+%start E
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%skip /\s+/
+%left '+'
+%left '*'
+
+E : E '+' E
+  | E '*' E
+  | ID
+  ;

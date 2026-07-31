@@ -6,11 +6,13 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
-        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"])
+        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
+        .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"])
     ],
     targets: [
-        .target(name: "GrammarWorkbench"),
+        .target(name: "GrammarWorkbench", resources: [.process("Resources")]),
         .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
+        .executableTarget(name: "GrammarWorkbenchCLI", dependencies: ["GrammarWorkbench"]),
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"])
     ]
 )

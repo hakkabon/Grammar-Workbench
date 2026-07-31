@@ -41,6 +41,9 @@ final class ExplorerStore {
            let decision = artifact.decisions.first(where: { $0.cell == cell }) {
             resolvedIdentity = .decision(decision.id)
         }
+        if case .decision = resolvedIdentity {
+            selectedBranch = 0
+        }
         selection = resolvedIdentity
         sourceSelection = sourceRange(for: resolvedIdentity)
     }

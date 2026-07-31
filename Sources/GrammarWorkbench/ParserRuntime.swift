@@ -263,7 +263,27 @@ enum LRParserRuntime {
 }
 
 enum ConflictWitnessGenerator {
-    static func enrich(_ artifact: GrammarArtifact, maxLength: Int = 7, candidateLimit: Int = 20_000) -> GrammarArtifact {
+    private struct SearchConfiguration: Hashable {
+        let stack: [StateID]
+        let tokens: [String]
+
+        static func == (lhs: SearchConfiguration, rhs: SearchConfiguration) -> Bool {
+            lhs.stack == rhs.stack && lhs.tokens == rhs.tokens
+        }
+
+        func hash(into hasher: inout Hasher) {
+            hasher.combine(stack)
+            hasher.combine(tokens)
+        }
+    }
+
+    private enum AdvanceResult {
+        case shifted([StateID])
+        case conflict(CellID)
+        case stopped
+    }
+
+    static func enrich(_ artifact: GrammarArtifact, maxLength: Int = 12, candidateLimit: Int = 50_000) -> GrammarArtifact {
         let decisions = artifact.decisions.map { decision in
             guard artifact.cell(decision.cell)?.isConflict == true,
                   let witness = shortestWitness(
@@ -275,21 +295,38 @@ enum ConflictWitnessGenerator {
                   let actions = artifact.cell(decision.cell)?.actions else {
                 return decision
             }
-            let branches = actions.map { action in
+            let counterexample = minimalCommonCounterexample(
+                witness: witness,
+                cell: decision.cell,
+                actions: actions,
+                artifact: artifact,
+                maxSuffixLength: 4,
+                candidateLimit: min(candidateLimit, 3_000)
+            ) ?? witness
+            let branchAnalyses = actions.map { action in
                 let branch = LRParserRuntime.parse(
-                    witness,
+                    counterexample,
                     artifact: artifact,
                     forcing: (decision.cell, action)
                 )
-                return branch.frames + [
+                return ConflictBranchAnalysis(
+                    id: "\(decision.id.rawValue)-\(action.label)",
+                    action: action,
+                    outcome: branchClassification(branch.outcome),
+                    tree: branch.tree?.rendered(),
+                    trace: branch.frames
+                )
+            }
+            let branches = branchAnalyses.map { analysis in
+                analysis.trace + [
                     ReplayFrame(
-                        index: branch.frames.count,
-                        stack: branch.frames.last?.stack ?? ["I0"],
-                        remainingInput: branch.frames.last?.remainingInput ?? [],
-                        action: branchClassification(branch.outcome),
-                        state: branch.frames.last?.state,
-                        cell: branch.frames.last?.cell,
-                        production: branch.frames.last?.production
+                        index: analysis.trace.count,
+                        stack: analysis.trace.last?.stack ?? ["I0"],
+                        remainingInput: analysis.trace.last?.remainingInput ?? [],
+                        action: analysis.outcome,
+                        state: analysis.trace.last?.state,
+                        cell: analysis.trace.last?.cell,
+                        production: analysis.trace.last?.production
                     )
                 ]
             }
@@ -297,9 +334,12 @@ enum ConflictWitnessGenerator {
                 id: decision.id,
                 cell: decision.cell,
                 title: decision.title,
-                explanation: decision.explanation + " The witness was verified by parser replay.",
-                witness: witness,
-                branches: branches
+                explanation: decision.explanation + " The minimal counterexample was verified by parser replay after configuration search.",
+                witness: counterexample,
+                branches: branches,
+                provenance: decision.provenance,
+                branchAnalyses: branchAnalyses,
+                isExpected: decision.isExpected
             )
         }
         return GrammarArtifact(
@@ -312,7 +352,8 @@ enum ConflictWitnessGenerator {
             transitions: artifact.transitions,
             cells: artifact.cells,
             decisions: decisions,
-            sample: artifact.sample
+            sample: artifact.sample,
+            conflictExpectation: artifact.conflictExpectation
         )
     }
 
@@ -335,20 +376,83 @@ enum ConflictWitnessGenerator {
         maxLength: Int,
         candidateLimit: Int
     ) -> [String]? {
-        let terminals = artifact.terminals.filter { $0 != "$" }
-        var queue: [[String]] = [[]]
+        let terminals = artifact.terminals.sorted()
+        var queue = [SearchConfiguration(stack: [.init(rawValue: 0)], tokens: [])]
+        var visited: Set<[StateID]> = [[.init(rawValue: 0)]]
         var cursor = 0
         while cursor < queue.count, cursor < candidateLimit {
-            let candidate = queue[cursor]
+            let configuration = queue[cursor]
             cursor += 1
-            if case .conflict(let cell) = LRParserRuntime.parse(candidate, artifact: artifact).outcome,
-               cell == target {
+            guard configuration.tokens.count < maxLength else { continue }
+            for terminal in terminals {
+                switch advance(configuration.stack, lookahead: terminal, artifact: artifact) {
+                case .conflict(let cell) where cell == target:
+                    return terminal == "$" ? configuration.tokens : configuration.tokens + [terminal]
+                case .shifted(let stack) where terminal != "$":
+                    if visited.insert(stack).inserted {
+                        queue.append(.init(stack: stack, tokens: configuration.tokens + [terminal]))
+                    }
+                default:
+                    break
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func advance(
+        _ initialStack: [StateID],
+        lookahead: String,
+        artifact: GrammarArtifact
+    ) -> AdvanceResult {
+        var stack = initialStack
+        for _ in 0..<1_000 {
+            guard let state = stack.last,
+                  let cell = artifact.cell(.init(state: state, symbol: lookahead)),
+                  !cell.actions.isEmpty else { return .stopped }
+            if cell.actions.count > 1 { return .conflict(cell.id) }
+            switch cell.actions[0] {
+            case .shift(let target):
+                stack.append(target)
+                return .shifted(stack)
+            case .reduce(let productionID):
+                guard let production = artifact.productions.first(where: { $0.id == productionID }),
+                      production.rhs.count < stack.count else { return .stopped }
+                if !production.rhs.isEmpty { stack.removeLast(production.rhs.count) }
+                guard let gotoState = stack.last,
+                      let gotoCell = artifact.cell(.init(state: gotoState, symbol: production.lhs)),
+                      case .goTo(let target) = gotoCell.actions.first else { return .stopped }
+                stack.append(target)
+            case .accept, .goTo:
+                return .stopped
+            }
+        }
+        return .stopped
+    }
+
+    private static func minimalCommonCounterexample(
+        witness: [String],
+        cell: CellID,
+        actions: [TableAction],
+        artifact: GrammarArtifact,
+        maxSuffixLength: Int,
+        candidateLimit: Int
+    ) -> [String]? {
+        let terminals = artifact.terminals.filter { $0 != "$" }.sorted()
+        var suffixes: [[String]] = [[]]
+        var cursor = 0
+        while cursor < suffixes.count, cursor < candidateLimit {
+            let suffix = suffixes[cursor]
+            cursor += 1
+            let candidate = witness + suffix
+            let results = actions.map {
+                LRParserRuntime.parse(candidate, artifact: artifact, forcing: (cell, $0))
+            }
+            if results.allSatisfy({ $0.outcome == .accepted }) {
                 return candidate
             }
-            if candidate.count < maxLength {
-                for terminal in terminals {
-                    queue.append(candidate + [terminal])
-                }
+            if suffix.count < maxSuffixLength {
+                suffixes.append(contentsOf: terminals.map { suffix + [$0] })
             }
         }
         return nil

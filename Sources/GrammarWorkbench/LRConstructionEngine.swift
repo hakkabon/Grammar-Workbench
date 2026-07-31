@@ -31,6 +31,7 @@ enum LRConstructionEngine {
     private struct Resolution {
         let actions: [TableAction]
         let explanation: String?
+        let provenance: ConflictProvenance
     }
 
     static func construct(
@@ -74,6 +75,23 @@ enum LRConstructionEngine {
             rules: rules,
             machine: machine
         )
+        let actualConflicts = table.cells.filter(\.isConflict).count
+        let expectation = grammar.conflictExpectation.map {
+            ConflictExpectation(expected: $0.count, actual: actualConflicts, matches: $0.count == actualConflicts, range: $0.range)
+        }
+        let decisions = table.decisions.map { decision in
+            ConflictDecision(
+                id: decision.id,
+                cell: decision.cell,
+                title: decision.title,
+                explanation: decision.explanation,
+                witness: decision.witness,
+                branches: decision.branches,
+                provenance: decision.provenance,
+                branchAnalyses: decision.branchAnalyses,
+                isExpected: expectation?.matches == true && artifactCellIsConflict(decision.cell, cells: table.cells)
+            )
+        }
         let artifact = GrammarArtifact(
             algorithm: algorithm,
             grammarSource: source,
@@ -83,8 +101,9 @@ enum LRConstructionEngine {
             states: states,
             transitions: machine.transitions,
             cells: table.cells,
-            decisions: table.decisions,
-            sample: ParseSample(input: "", tree: "Choose a sample input in a future parsing milestone.", trace: [])
+            decisions: decisions,
+            sample: ParseSample(input: "", tree: "Choose a sample input in a future parsing milestone.", trace: []),
+            conflictExpectation: expectation
         )
         return ConflictWitnessGenerator.enrich(artifact)
     }
@@ -293,7 +312,8 @@ enum LRConstructionEngine {
                     id: id,
                     original: original,
                     resolved: resolution.actions,
-                    explanation: resolution.explanation
+                    explanation: resolution.explanation,
+                    provenance: resolution.provenance
                 ))
             }
         }
@@ -313,21 +333,54 @@ enum LRConstructionEngine {
               let shiftPrecedence = precedence[lookahead],
               let productionSymbol = rules[productionID.rawValue].rhs.reversed().first(where: { precedence[$0] != nil }),
               let reducePrecedence = precedence[productionSymbol] else {
-            return Resolution(actions: actions, explanation: nil)
+            let production = actions.compactMap { action -> ProductionID? in
+                if case .reduce(let id) = action { return id }
+                return nil
+            }.first
+            return Resolution(
+                actions: actions,
+                explanation: nil,
+                provenance: .init(
+                    kind: .unresolved, lookahead: lookahead, lookaheadLevel: precedence[lookahead]?.level,
+                    production: production, productionSymbol: nil, productionLevel: nil,
+                    associativity: precedence[lookahead]?.associativity, selectedAction: nil
+                )
+            )
         }
         if shiftPrecedence.level > reducePrecedence.level {
-            return Resolution(actions: [shift], explanation: "Resolved as shift: ‘\(lookahead)’ has higher precedence than production \(productionID.rawValue).")
+            return Resolution(
+                actions: [shift],
+                explanation: "Resolved as shift: ‘\(lookahead)’ has higher precedence than production \(productionID.rawValue).",
+                provenance: provenance(.shift, selected: shift)
+            )
         }
         if shiftPrecedence.level < reducePrecedence.level {
-            return Resolution(actions: [reduce], explanation: "Resolved as reduce: production \(productionID.rawValue) has higher precedence than ‘\(lookahead)’.")
+            return Resolution(
+                actions: [reduce],
+                explanation: "Resolved as reduce: production \(productionID.rawValue) has higher precedence than ‘\(lookahead)’.",
+                provenance: provenance(.reduce, selected: reduce)
+            )
         }
         switch shiftPrecedence.associativity {
         case .left:
-            return Resolution(actions: [reduce], explanation: "Resolved as reduce by left associativity.")
+            return Resolution(actions: [reduce], explanation: "Resolved as reduce by left associativity.", provenance: provenance(.reduce, selected: reduce))
         case .right:
-            return Resolution(actions: [shift], explanation: "Resolved as shift by right associativity.")
+            return Resolution(actions: [shift], explanation: "Resolved as shift by right associativity.", provenance: provenance(.shift, selected: shift))
         case .nonassociative:
-            return Resolution(actions: [], explanation: "Resolved as an error entry by nonassociativity.")
+            return Resolution(actions: [], explanation: "Resolved as an error entry by nonassociativity.", provenance: provenance(.nonassociativeError, selected: nil))
+        }
+
+        func provenance(_ kind: ConflictResolutionKind, selected: TableAction?) -> ConflictProvenance {
+            ConflictProvenance(
+                kind: kind,
+                lookahead: lookahead,
+                lookaheadLevel: shiftPrecedence.level,
+                production: productionID,
+                productionSymbol: productionSymbol,
+                productionLevel: reducePrecedence.level,
+                associativity: shiftPrecedence.associativity,
+                selectedAction: selected
+            )
         }
     }
 
@@ -335,7 +388,8 @@ enum LRConstructionEngine {
         id: CellID,
         original: [TableAction],
         resolved: [TableAction],
-        explanation: String?
+        explanation: String?,
+        provenance: ConflictProvenance
     ) -> ConflictDecision {
         let kinds = original.map(\.label).joined(separator: " / ")
         let status = explanation ?? "No precedence rule resolves these alternatives."
@@ -364,7 +418,8 @@ enum LRConstructionEngine {
             title: "\(resolved.count <= 1 && explanation != nil ? "Resolved decision" : "Conflict") in \(id.state) on ‘\(id.symbol)’",
             explanation: "\(kinds). \(status)",
             witness: witness,
-            branches: branches
+            branches: branches,
+            provenance: provenance
         )
     }
 
@@ -413,5 +468,9 @@ enum LRConstructionEngine {
 
     private static func actionOrder(_ lhs: TableAction, _ rhs: TableAction) -> Bool {
         lhs.label < rhs.label
+    }
+
+    private static func artifactCellIsConflict(_ id: CellID, cells: [TableCell]) -> Bool {
+        cells.first { $0.id == id }?.isConflict == true
     }
 }

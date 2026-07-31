@@ -120,6 +120,64 @@ struct ConflictDecision: Identifiable, Codable, Sendable {
     let explanation: String
     let witness: [String]
     let branches: [[ReplayFrame]]
+    let provenance: ConflictProvenance?
+    let branchAnalyses: [ConflictBranchAnalysis]
+    let isExpected: Bool
+
+    init(
+        id: DecisionID,
+        cell: CellID,
+        title: String,
+        explanation: String,
+        witness: [String],
+        branches: [[ReplayFrame]],
+        provenance: ConflictProvenance? = nil,
+        branchAnalyses: [ConflictBranchAnalysis] = [],
+        isExpected: Bool = false
+    ) {
+        self.id = id
+        self.cell = cell
+        self.title = title
+        self.explanation = explanation
+        self.witness = witness
+        self.branches = branches
+        self.provenance = provenance
+        self.branchAnalyses = branchAnalyses
+        self.isExpected = isExpected
+    }
+}
+
+enum ConflictResolutionKind: String, Codable, Sendable {
+    case unresolved
+    case shift
+    case reduce
+    case nonassociativeError
+}
+
+struct ConflictProvenance: Codable, Sendable {
+    let kind: ConflictResolutionKind
+    let lookahead: String
+    let lookaheadLevel: Int?
+    let production: ProductionID?
+    let productionSymbol: String?
+    let productionLevel: Int?
+    let associativity: Associativity?
+    let selectedAction: TableAction?
+}
+
+struct ConflictBranchAnalysis: Identifiable, Codable, Sendable {
+    let id: String
+    let action: TableAction
+    let outcome: String
+    let tree: String?
+    let trace: [ReplayFrame]
+}
+
+struct ConflictExpectation: Codable, Sendable {
+    let expected: Int
+    let actual: Int
+    let matches: Bool
+    let range: SourceRange
 }
 
 struct ParseSample: Codable, Sendable {
@@ -139,6 +197,33 @@ struct GrammarArtifact: Codable, Sendable {
     let cells: [TableCell]
     let decisions: [ConflictDecision]
     let sample: ParseSample
+    let conflictExpectation: ConflictExpectation?
+
+    init(
+        algorithm: LRAlgorithm,
+        grammarSource: String,
+        terminals: [String],
+        nonterminals: [String],
+        productions: [Production],
+        states: [AutomatonState],
+        transitions: [Transition],
+        cells: [TableCell],
+        decisions: [ConflictDecision],
+        sample: ParseSample,
+        conflictExpectation: ConflictExpectation? = nil
+    ) {
+        self.algorithm = algorithm
+        self.grammarSource = grammarSource
+        self.terminals = terminals
+        self.nonterminals = nonterminals
+        self.productions = productions
+        self.states = states
+        self.transitions = transitions
+        self.cells = cells
+        self.decisions = decisions
+        self.sample = sample
+        self.conflictExpectation = conflictExpectation
+    }
 
     func state(_ id: StateID) -> AutomatonState? { states.first { $0.id == id } }
     func cell(_ id: CellID) -> TableCell? { cells.first { $0.id == id } }

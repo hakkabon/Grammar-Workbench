@@ -16,6 +16,8 @@ Use `%token NAME ...` to enable explicit-terminal mode and undefined-symbol vali
 
 The automaton view uses a deterministic layered layout with routed cyclic edges, state/item/transition search, decision-state filtering, adaptive compact rendering, pan and zoom, Fit controls, and a minimap. Large graphs render a bounded state window while preserving the selected state.
 
+Conflict analysis uses parser-configuration search to find short witnesses and bounded suffix search to produce a common accepting counterexample where possible. Decisions include side-by-side branch trees, replay traces, exact precedence provenance, and `%expect N` matching for intentional unresolved conflicts.
+
 ## Architecture
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.

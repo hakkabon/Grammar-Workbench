@@ -14,6 +14,8 @@ The native grammar editor provides syntax highlighting, line numbers, Find, symb
 
 Use `%token NAME ...` to enable explicit-terminal mode and undefined-symbol validation. Grammars without `%token` remain compatible and infer unquoted terminals.
 
+Attach a regular expression to a token with `%token NAME /pattern/` and declare ignored input with `%skip /pattern/`. Samples then accept raw source text; the deterministic lexer uses maximal munch, preserves lexemes and source locations, and feeds token identities into the LR parser. Tokens without patterns continue to match their literal spelling. Grammars without lexer rules retain the whitespace-separated token input mode.
+
 The automaton view uses a deterministic layered layout with routed cyclic edges, state/item/transition search, decision-state filtering, adaptive compact rendering, pan and zoom, Fit controls, and a minimap. Large graphs render a bounded state window while preserving the selected state.
 
 Conflict analysis uses parser-configuration search to find short witnesses and bounded suffix search to produce a common accepting counterexample where possible. Decisions include side-by-side branch trees, replay traces, exact precedence provenance, and `%expect N` matching for intentional unresolved conflicts.
@@ -23,7 +25,8 @@ Conflict analysis uses parser-configuration search to find short witnesses and b
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
-- `ParserRuntime.swift`: input tokenization, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.
+- `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.
+- `ParserRuntime.swift`: legacy token input, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.
 - `GrammarWorkbenchDocument.swift`: native document persistence and the public document-hosting view.
 - `GrammarEditor.swift`: native AppKit-backed editor, source decoration, completion, line numbering, and quick fixes.
 - `SampleArtifact.swift`: replaceable sample artifact provider.

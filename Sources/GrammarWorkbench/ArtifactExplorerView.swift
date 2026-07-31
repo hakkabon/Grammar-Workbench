@@ -134,8 +134,22 @@ public struct ArtifactExplorerView: View {
                     LabeledContent("Start symbol", value: grammar.startSymbol)
                     LabeledContent(
                         "Terminal mode",
-                        value: grammar.usesExplicitTokens ? "Explicit (%token)" : "Inferred (legacy)"
+                        value: grammar.lexerRules.isEmpty
+                            ? (grammar.usesExplicitTokens ? "Explicit tokens" : "Inferred (legacy)")
+                            : "Integrated lexer"
                     )
+                    if !grammar.lexerRules.isEmpty {
+                        Text("Lexer rules (declaration order)").font(.headline)
+                        Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
+                            GridRow { Text("Emits").bold(); Text("Pattern").bold() }
+                            ForEach(grammar.lexerRules) { rule in
+                                GridRow {
+                                    Text(rule.token ?? "skip").foregroundStyle(rule.isSkipped ? .secondary : .primary)
+                                    Text("/\(rule.pattern)/").font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                                }
+                            }
+                        }
+                    }
                     Text("Productions").font(.headline)
                     ForEach(grammar.productions) { production in
                         Button(production.text) {
@@ -290,7 +304,7 @@ public struct ArtifactExplorerView: View {
                         .font(.subheadline.bold())
                 }
                 HStack {
-                    TextField("Whitespace-separated terminal tokens", text: sampleInputBinding)
+                    TextField(store.lexerResult == nil ? "Whitespace-separated terminal tokens" : "Raw source text", text: sampleInputBinding)
                         .font(.system(.body, design: .monospaced))
                         .onSubmit { store.parseSample() }
                     Button("Parse", systemImage: "play.fill") { store.parseSample() }
@@ -300,6 +314,22 @@ public struct ArtifactExplorerView: View {
                 if case .rejected(_, let expected) = store.runtimeResult.outcome, !expected.isEmpty {
                     Text("Expected: \(expected.joined(separator: ", "))")
                         .font(.caption).foregroundStyle(.secondary)
+                }
+                if let lexer = store.lexerResult {
+                    Text("Lexer tokens").font(.headline)
+                    if lexer.tokens.isEmpty {
+                        Text(lexer.hasErrors ? "No tokens emitted." : "Empty token stream.").foregroundStyle(.secondary)
+                    } else {
+                        Table(lexer.tokens) {
+                            TableColumn("Token") { Text($0.kind).font(.system(.body, design: .monospaced)) }
+                            TableColumn("Lexeme") { Text($0.lexeme).font(.system(.body, design: .monospaced)) }
+                            TableColumn("Location") { Text("\($0.range.start.line):\($0.range.start.column)") }
+                        }.frame(minHeight: 100, maxHeight: 180)
+                    }
+                    ForEach(lexer.diagnostics) { diagnostic in
+                        Label("\(diagnostic.range.start.line):\(diagnostic.range.start.column) \(diagnostic.message)", systemImage: "xmark.octagon.fill")
+                            .font(.caption).foregroundStyle(.red)
+                    }
                 }
                 Divider()
                 Text("Parse tree").font(.headline)
@@ -468,7 +498,7 @@ public struct ArtifactExplorerView: View {
     private func exportHTML() {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "grammar-artifact.html"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
+        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult, lexer: store.lexerResult).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
         catch { exportMessage = "Could not export: \(error.localizedDescription)" }
     }
 

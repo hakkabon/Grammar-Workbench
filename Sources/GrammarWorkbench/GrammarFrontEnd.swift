@@ -73,6 +73,15 @@ public struct TokenDeclaration: Identifiable, Hashable, Codable, Sendable {
     public let range: SourceRange
 }
 
+public struct LexerRuleDeclaration: Identifiable, Hashable, Codable, Sendable {
+    public let id: Int
+    public let token: String?
+    public let pattern: String
+    public let range: SourceRange
+
+    public var isSkipped: Bool { token == nil }
+}
+
 public struct GrammarSymbolReference: Hashable, Codable, Sendable {
     public let name: String
     public let range: SourceRange
@@ -90,6 +99,7 @@ public struct ParsedGrammar: Hashable, Codable, Sendable {
     public let productions: [GrammarProduction]
     public let precedence: [PrecedenceDeclaration]
     public let tokenDeclarations: [TokenDeclaration]
+    public let lexerRules: [LexerRuleDeclaration]
     public let undeclaredSymbols: [GrammarSymbolReference]
     public let conflictExpectation: ConflictExpectationDeclaration?
 
@@ -200,6 +210,17 @@ private enum GrammarValidator {
             }
         }
 
+        for rule in grammar.lexerRules {
+            if rule.pattern.isEmpty {
+                append(.error, "empty-lexer-pattern", "Lexer patterns must not be empty.", rule.range, to: &diagnostics, firstID: firstID)
+            } else if (try? NSRegularExpression(pattern: "(?:\(rule.pattern))")) == nil {
+                append(.error, "invalid-lexer-pattern", "‘/\(rule.pattern)/’ is not a valid regular expression.", rule.range, to: &diagnostics, firstID: firstID)
+            } else if let expression = try? NSRegularExpression(pattern: "^(?:\(rule.pattern))$"),
+                      expression.firstMatch(in: "", range: NSRange(location: 0, length: 0)) != nil {
+                append(.error, "empty-lexer-match", "Lexer patterns must not match an empty string.", rule.range, to: &diagnostics, firstID: firstID)
+            }
+        }
+
         var precedenceOwners: [String: PrecedenceDeclaration] = [:]
         for declaration in grammar.precedence {
             for symbol in declaration.symbols {
@@ -295,6 +316,7 @@ private struct GrammarToken {
     enum Kind: Equatable {
         case identifier(String)
         case terminal(String)
+        case pattern(String)
         case directive(String)
         case colon
         case pipe
@@ -353,6 +375,25 @@ private struct GrammarLexer {
             } else if character == "#"
                         || (character == "/" && peek(1) == "/") {
                 while let current = peek(), current != "\n" { advance() }
+            } else if character == "/" {
+                advance()
+                var value = ""
+                var terminated = false
+                var escaped = false
+                while let current = peek() {
+                    if current == "\n" { break }
+                    if current == "/" && !escaped {
+                        advance(); terminated = true; break
+                    }
+                    value.append(current)
+                    if current == "\\" && !escaped { escaped = true } else { escaped = false }
+                    advance()
+                }
+                if terminated {
+                    tokens.append(.init(kind: .pattern(value), range: range(from: start)))
+                } else {
+                    diagnostics.append(.init(id: diagnostics.count, severity: .error, code: "unterminated-pattern", message: "Unterminated lexer pattern.", range: range(from: start)))
+                }
             } else if character == ":" {
                 advance(); tokens.append(.init(kind: .colon, range: range(from: start)))
             } else if character == "|" {
@@ -420,6 +461,7 @@ private struct GrammarParser {
     private var requestedStart: String?
     private var precedence: [PrecedenceDeclaration] = []
     private var tokenDeclarations: [TokenDeclaration] = []
+    private var lexerRules: [LexerRuleDeclaration] = []
     private var conflictExpectation: ConflictExpectationDeclaration?
     private var drafts: [(lhs: String, rhs: [(name: String, explicitTerminal: Bool, range: SourceRange)], range: SourceRange)] = []
 
@@ -471,6 +513,7 @@ private struct GrammarParser {
             productions: productions,
             precedence: precedence,
             tokenDeclarations: tokenDeclarations,
+            lexerRules: lexerRules,
             undeclaredSymbols: undeclaredSymbols,
             conflictExpectation: conflictExpectation
         )
@@ -497,6 +540,10 @@ private struct GrammarParser {
                     tokenDeclarations.append(.init(id: tokenDeclarations.count, name: value, range: current.range))
                     foundToken = true
                     _ = advance()
+                    if case .pattern(let pattern) = current.kind {
+                        lexerRules.append(.init(id: lexerRules.count, token: value, pattern: pattern, range: .init(start: directiveToken.range.start, end: current.range.end)))
+                        _ = advance()
+                    }
                 default:
                     report("Expected a token name in %token declaration.", at: current.range)
                     _ = advance()
@@ -504,6 +551,13 @@ private struct GrammarParser {
             }
             if !foundToken {
                 report("%token requires at least one token name.", at: directiveToken.range)
+            }
+        } else if name == "skip" {
+            if case .pattern(let pattern) = current.kind {
+                lexerRules.append(.init(id: lexerRules.count, token: nil, pattern: pattern, range: .init(start: directiveToken.range.start, end: current.range.end)))
+                _ = advance()
+            } else {
+                report("Expected a /pattern/ after %skip.", at: current.range, code: "invalid-lexer-rule")
             }
         } else if name == "expect" {
             if conflictExpectation != nil {
@@ -579,7 +633,7 @@ private struct GrammarParser {
                 _ = advance()
                 drafts.append((lhs, rhs, .init(start: alternativeStart, end: lastEnd)))
                 return
-            case .directive, .colon:
+            case .directive, .colon, .pattern:
                 report("Unexpected token in production.", at: current.range)
                 _ = advance()
             case .eof:

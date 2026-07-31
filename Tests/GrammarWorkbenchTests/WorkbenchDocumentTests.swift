@@ -19,6 +19,7 @@ import Testing
     #expect(decoded.algorithm == "Canonical LR(1)")
     #expect(decoded.samples == document.samples)
     #expect(decoded.selectedSampleID == selectedID)
+    #expect(decoded.tests == document.tests)
 }
 
 @Test func documentNormalizesMissingSamplesAndSelection() {

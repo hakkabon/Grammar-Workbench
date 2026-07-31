@@ -5,10 +5,19 @@ let package = Package(
     name: "GrammarWorkbench",
     platforms: [.macOS(.v14)],
     products: [
-        .executable(name: "GrammarWorkbench", targets: ["GrammarWorkbench"])
+        .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchApp"]),
+        .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
     ],
     targets: [
-        .executableTarget(name: "GrammarWorkbench"),
+        .target(
+            name: "GrammarWorkbench",
+            dependencies: []
+        ),
+        .executableTarget(
+            name: "GrammarWorkbenchApp",
+            dependencies: ["GrammarWorkbench"],
+            path: "Sources/App"
+        ),
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"])
     ]
 )

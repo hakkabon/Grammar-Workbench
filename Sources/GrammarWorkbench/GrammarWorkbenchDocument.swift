@@ -33,7 +33,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         source: String = Self.defaultSource,
         algorithm: String = "LALR(1)",
         samples: [WorkbenchSample] = [
-            WorkbenchSample(name: "Expression", input: "id + id * id")
+            WorkbenchSample(name: "Expression", input: "alpha + beta * gamma")
         ],
         selectedSampleID: UUID? = nil
     ) {
@@ -79,12 +79,14 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
 
     public static let defaultSource = """
     %start E
+    %token ID /[A-Za-z_][A-Za-z0-9_]*/
+    %skip /\\s+/
     %left '+'
     %left '*'
 
     E : E '+' E
       | E '*' E
-      | 'id'
+      | ID
       ;
     """
 }

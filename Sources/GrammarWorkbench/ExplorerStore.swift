@@ -9,6 +9,7 @@ final class ExplorerStore {
     private(set) var documentName = "Expression grammar"
     var sampleInput = "id + id * id"
     private(set) var runtimeResult: ParserRuntimeResult
+    private(set) var lexerResult: LexerResult?
     private(set) var isRegenerating = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
@@ -30,8 +31,15 @@ final class ExplorerStore {
         self.algorithm = algorithm
         self.sampleInput = sampleInput
         self.documentName = documentName
-        let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
-        self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
+        if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
+            let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
+            self.lexerResult = lexed
+            self.runtimeResult = Self.runtimeResult(for: lexed, artifact: artifact)
+        } else {
+            self.lexerResult = nil
+            let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
+            self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
+        }
     }
 
     func select(_ identity: ArtifactIdentity) {
@@ -77,6 +85,14 @@ final class ExplorerStore {
     }
 
     func parseSample() {
+        if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
+            let result = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
+            lexerResult = result
+            runtimeResult = Self.runtimeResult(for: result, artifact: artifact)
+            replayIndex = 0
+            return
+        }
+        lexerResult = nil
         switch SampleInputTokenizer.tokenize(sampleInput) {
         case .success(let tokens):
             runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
@@ -89,6 +105,16 @@ final class ExplorerStore {
             )
         }
         replayIndex = 0
+    }
+
+    private static func runtimeResult(for lexer: LexerResult, artifact: GrammarArtifact) -> ParserRuntimeResult {
+        guard let diagnostic = lexer.diagnostics.first else {
+            return LRParserRuntime.parse(lexer.tokens.map(\.kind), artifact: artifact)
+        }
+        return ParserRuntimeResult(
+            tokens: lexer.tokens.map(\.kind), tree: nil, frames: [],
+            outcome: .rejected(message: "Lexing failed at \(diagnostic.range.start.line):\(diagnostic.range.start.column): \(diagnostic.message)", expected: [])
+        )
     }
 
     func selectReplayFrame(_ frame: ReplayFrame, index: Int) {

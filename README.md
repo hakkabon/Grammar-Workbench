@@ -8,15 +8,16 @@ A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 swift run GrammarWorkbenchApp
 ```
 
-The initial milestone ships with a self-contained expression-grammar artifact. Select an LR algorithm, click automaton states or parsing-table cells, inspect decisions and conflicts, replay witness branches, follow a sample parse trace, and export the current artifact as standalone HTML. Open a UTF-8 grammar file to inspect productions, diagnostics, nullable symbols, FIRST sets, and FOLLOW sets.
+The workbench ships with a self-contained expression grammar. Select SLR(1), LALR(1), or canonical LR(1) to construct its automaton and parsing table, click states or cells, inspect conflicts and precedence decisions, and export the artifact as standalone HTML. Open a UTF-8 grammar file to inspect productions, diagnostics, nullable symbols, FIRST/FOLLOW sets, and its generated LR artifacts.
 
 ## Architecture
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
+- `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `SampleArtifact.swift`: replaceable sample artifact provider.
 - `ExplorerStore.swift`: cross-view selection and replay state.
 - `ArtifactExplorerView.swift`: native master/detail explorer.
 - `HTMLExporter.swift`: dependency-free standalone report export.
 
-The UI consumes `GrammarArtifact` values rather than generator internals, allowing a future grammar/parser service to publish snapshots without changing inspection views.
+The UI consumes immutable `GrammarArtifact` values rather than construction internals, keeping artifact identities and inspection views independent from the algorithms that produce them.

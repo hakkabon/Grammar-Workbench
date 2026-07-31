@@ -97,23 +97,14 @@ enum FrontEndArtifact {
                 decisions: fallback.decisions, sample: fallback.sample
             )
         }
-        let productions = grammar.productions.map {
-            Production(id: .init(rawValue: $0.id), lhs: $0.lhs, rhs: $0.rhs)
+        guard let analysis = result.analysis else {
+            return SampleArtifact.make(algorithm: algorithm)
         }
-        let initialItems = productions.map {
-            LRItem(id: "front-\($0.id.rawValue)", production: $0.id, text: "\($0.lhs) → • \($0.rhs.isEmpty ? "ε" : $0.rhs.joined(separator: " "))")
-        }
-        return GrammarArtifact(
-            algorithm: algorithm,
-            grammarSource: result.source,
-            terminals: grammar.terminals + ["$"],
-            nonterminals: grammar.nonterminals,
-            productions: productions,
-            states: [AutomatonState(id: .init(rawValue: 0), items: initialItems)],
-            transitions: [],
-            cells: [],
-            decisions: [],
-            sample: ParseSample(input: "", tree: "LR construction pending", trace: [])
+        return LRConstructionEngine.construct(
+            grammar: grammar,
+            analysis: analysis,
+            source: result.source,
+            algorithm: algorithm
         )
     }
 }

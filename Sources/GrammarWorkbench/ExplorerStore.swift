@@ -5,7 +5,10 @@ import SwiftUI
 final class ExplorerStore {
     var algorithm: LRAlgorithm = .lalr { didSet { reload() } }
     private(set) var frontEnd = GrammarFrontEnd.process(SampleArtifact.grammarSource)
-    private(set) var artifact = SampleArtifact.make(algorithm: .lalr)
+    private(set) var artifact = FrontEndArtifact.make(
+        result: GrammarFrontEnd.process(SampleArtifact.grammarSource),
+        algorithm: .lalr
+    )
     private(set) var documentName = "Expression grammar"
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     var selectedBranch = 0
@@ -29,9 +32,7 @@ final class ExplorerStore {
     }
 
     private func reload() {
-        artifact = documentName == "Expression grammar"
-            ? SampleArtifact.make(algorithm: algorithm)
-            : FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
+        artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
         resetSelection()
     }
 

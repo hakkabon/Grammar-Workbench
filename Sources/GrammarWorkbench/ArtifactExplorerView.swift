@@ -7,14 +7,6 @@ public struct ArtifactExplorerView: View {
     @State private var exportMessage: String?
     private var document: Binding<GrammarWorkbenchDocument>?
 
-<<<<<<< HEAD
-    public init() {}
-//<<<<<<< HEAD
-//    
-//=======
-//
-//>>>>>>> dev-branch
-=======
     public init() {
         self.document = nil
         self._store = State(initialValue: ExplorerStore())
@@ -32,7 +24,6 @@ public struct ArtifactExplorerView: View {
         ))
     }
 
->>>>>>> dev-branch
     enum ExplorerTab: String, CaseIterable, Identifiable {
         case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
         var id: Self { self }

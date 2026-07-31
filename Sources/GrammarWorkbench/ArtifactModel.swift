@@ -90,7 +90,27 @@ struct ReplayFrame: Identifiable, Codable, Sendable {
     let remainingInput: [String]
     let action: String
     let state: StateID?
+    let cell: CellID?
+    let production: ProductionID?
     var id: Int { index }
+
+    init(
+        index: Int,
+        stack: [String],
+        remainingInput: [String],
+        action: String,
+        state: StateID?,
+        cell: CellID? = nil,
+        production: ProductionID? = nil
+    ) {
+        self.index = index
+        self.stack = stack
+        self.remainingInput = remainingInput
+        self.action = action
+        self.state = state
+        self.cell = cell
+        self.production = production
+    }
 }
 
 struct ConflictDecision: Identifiable, Codable, Sendable {

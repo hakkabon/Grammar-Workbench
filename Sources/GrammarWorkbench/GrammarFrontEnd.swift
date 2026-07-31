@@ -78,6 +78,11 @@ public struct GrammarSymbolReference: Hashable, Codable, Sendable {
     public let range: SourceRange
 }
 
+public struct ConflictExpectationDeclaration: Hashable, Codable, Sendable {
+    public let count: Int
+    public let range: SourceRange
+}
+
 public struct ParsedGrammar: Hashable, Codable, Sendable {
     public let startSymbol: String
     public let nonterminals: [String]
@@ -86,6 +91,7 @@ public struct ParsedGrammar: Hashable, Codable, Sendable {
     public let precedence: [PrecedenceDeclaration]
     public let tokenDeclarations: [TokenDeclaration]
     public let undeclaredSymbols: [GrammarSymbolReference]
+    public let conflictExpectation: ConflictExpectationDeclaration?
 
     public var usesExplicitTokens: Bool { !tokenDeclarations.isEmpty }
 }
@@ -414,6 +420,7 @@ private struct GrammarParser {
     private var requestedStart: String?
     private var precedence: [PrecedenceDeclaration] = []
     private var tokenDeclarations: [TokenDeclaration] = []
+    private var conflictExpectation: ConflictExpectationDeclaration?
     private var drafts: [(lhs: String, rhs: [(name: String, explicitTerminal: Bool, range: SourceRange)], range: SourceRange)] = []
 
     init(tokens: [GrammarToken], diagnostics: [GrammarDiagnostic]) {
@@ -464,7 +471,8 @@ private struct GrammarParser {
             productions: productions,
             precedence: precedence,
             tokenDeclarations: tokenDeclarations,
-            undeclaredSymbols: undeclaredSymbols
+            undeclaredSymbols: undeclaredSymbols,
+            conflictExpectation: conflictExpectation
         )
     }
 
@@ -496,6 +504,17 @@ private struct GrammarParser {
             }
             if !foundToken {
                 report("%token requires at least one token name.", at: directiveToken.range)
+            }
+        } else if name == "expect" {
+            if conflictExpectation != nil {
+                report("Duplicate %expect directive; the last declaration is used.", at: directiveToken.range, severity: .warning, code: "duplicate-expect")
+            }
+            if case .identifier(let value) = current.kind, let count = Int(value), count >= 0 {
+                let range = SourceRange(start: directiveToken.range.start, end: current.range.end)
+                conflictExpectation = .init(count: count, range: range)
+                _ = advance()
+            } else {
+                report("Expected a non-negative integer after %expect.", at: current.range, code: "invalid-expect")
             }
         } else if ["left", "right", "nonassoc"].contains(name) {
             let associativity: Associativity = name == "left" ? .left : (name == "right" ? .right : .nonassociative)

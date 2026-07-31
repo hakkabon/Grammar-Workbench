@@ -226,14 +226,43 @@ public struct ArtifactExplorerView: View {
     }
 
     private var decisionsView: some View {
-        List(store.artifact.decisions) { decision in
-            Button { store.select(.decision(decision.id)) } label: {
-                VStack(alignment: .leading, spacing: 5) {
-                    Label(decision.title, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                    Text("Witness: \(decision.witness.joined(separator: " "))").font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
-                }.padding(.vertical, 5)
-            }.buttonStyle(.plain)
-        }.overlay { if store.artifact.decisions.isEmpty { ContentUnavailableView("No conflicts", systemImage: "checkmark.seal") } }
+        VStack(spacing: 0) {
+            if let expectation = store.artifact.conflictExpectation {
+                Label(
+                    expectation.matches
+                        ? "%expect \(expectation.expected) matches generated conflicts"
+                        : "%expect \(expectation.expected), but generated \(expectation.actual)",
+                    systemImage: expectation.matches ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+                )
+                .foregroundStyle(expectation.matches ? .green : .orange)
+                .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+                Divider()
+            }
+            List(store.artifact.decisions) { decision in
+                Button { store.select(.decision(decision.id)) } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Label(decision.title, systemImage: decisionIcon(decision))
+                            .foregroundStyle(decisionColor(decision))
+                        if !decision.witness.isEmpty {
+                            Text("Counterexample: \(decision.witness.joined(separator: " "))")
+                                .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
+                        }
+                    }.padding(.vertical, 5)
+                }.buttonStyle(.plain)
+            }.overlay { if store.artifact.decisions.isEmpty { ContentUnavailableView("No conflicts", systemImage: "checkmark.seal") } }
+        }
+    }
+
+    private func decisionIcon(_ decision: ConflictDecision) -> String {
+        if decision.isExpected { return "checkmark.seal.fill" }
+        if let kind = decision.provenance?.kind, kind != .unresolved { return "arrow.triangle.branch" }
+        return "exclamationmark.triangle.fill"
+    }
+
+    private func decisionColor(_ decision: ConflictDecision) -> Color {
+        if decision.isExpected { return .green }
+        if let kind = decision.provenance?.kind, kind != .unresolved { return .blue }
+        return .orange
     }
 
     private var sampleView: some View {
@@ -331,12 +360,64 @@ public struct ArtifactExplorerView: View {
             if let decision = store.artifact.decision(id) {
                 Label(decision.title, systemImage: "point.3.connected.trianglepath.dotted").font(.title3.bold())
                 Text(decision.explanation)
+                if decision.isExpected {
+                    Label("Suppressed by matching %expect", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
+                }
+                if let provenance = decision.provenance {
+                    provenanceView(provenance)
+                }
                 conflictGraphic(decision)
-                Text("Witness: \(decision.witness.joined(separator: " "))").font(.system(.body, design: .monospaced))
+                Text("Minimal counterexample: \(decision.witness.joined(separator: " "))").font(.system(.body, design: .monospaced))
+                if !decision.branchAnalyses.isEmpty {
+                    branchTrees(decision.branchAnalyses)
+                }
                 Picker("Branch", selection: $store.selectedBranch) { ForEach(decision.branches.indices, id: \.self) { Text("Branch \($0 + 1)").tag($0) } }.pickerStyle(.segmented)
                 replayView(frames: decision.branches[min(store.selectedBranch, decision.branches.count - 1)])
             }
         case .traceStep(let index): Text("Trace step \(index)")
+        }
+    }
+
+    private func provenanceView(_ provenance: ConflictProvenance) -> some View {
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
+            GridRow { Text("Resolution").foregroundStyle(.secondary); Text(provenance.kind.rawValue) }
+            GridRow { Text("Lookahead").foregroundStyle(.secondary); Text("‘\(provenance.lookahead)’ · level \(provenance.lookaheadLevel.map(String.init) ?? "none")") }
+            if let production = provenance.production {
+                GridRow {
+                    Text("Production").foregroundStyle(.secondary)
+                    Text("\(production.rawValue) via \(provenance.productionSymbol ?? "no precedence symbol") · level \(provenance.productionLevel.map(String.init) ?? "none")")
+                }
+            }
+            if let associativity = provenance.associativity {
+                GridRow { Text("Associativity").foregroundStyle(.secondary); Text(associativity.rawValue) }
+            }
+            if let selected = provenance.selectedAction {
+                GridRow { Text("Selected action").foregroundStyle(.secondary); Text(selected.label) }
+            }
+        }
+        .font(.caption)
+        .padding(10)
+        .background(Color(nsColor: .controlBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func branchTrees(_ analyses: [ConflictBranchAnalysis]) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            ForEach(analyses) { analysis in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(analysis.action.label).font(.headline)
+                    Text(analysis.outcome).font(.caption).foregroundStyle(.secondary)
+                    ScrollView([.horizontal, .vertical]) {
+                        Text(analysis.tree ?? "No accepting tree.")
+                            .font(.system(.caption, design: .monospaced))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(minHeight: 100, maxHeight: 220)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(.secondary.opacity(0.35)))
+            }
         }
     }
 

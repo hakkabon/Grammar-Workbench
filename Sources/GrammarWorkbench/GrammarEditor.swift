@@ -22,7 +22,7 @@ struct GrammarQuickFix: Identifiable, Equatable {
 
 enum GrammarEditorIntelligence {
     static func completions(for result: GrammarFrontEndResult) -> [String] {
-        let directives = ["%start", "%token", "%left", "%right", "%nonassoc"]
+        let directives = ["%start", "%token", "%left", "%right", "%nonassoc", "%expect"]
         return Array(Set(directives + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
     }
 
@@ -50,7 +50,7 @@ enum GrammarEditorIntelligence {
         }
         if diagnostic.message.hasPrefix("Unknown directive") {
             let range = diagnostic.range.start.offset..<diagnostic.range.end.offset
-            return ["%start", "%left", "%right", "%nonassoc"].map {
+            return ["%start", "%token", "%left", "%right", "%nonassoc", "%expect"].map {
                 .init(id: "replace-directive-\($0)", title: "Replace with \($0)", replacementRange: range, replacement: $0)
             }
         }

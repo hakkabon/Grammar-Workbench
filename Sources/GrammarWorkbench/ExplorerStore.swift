@@ -11,6 +11,7 @@ final class ExplorerStore {
     private(set) var runtimeResult: ParserRuntimeResult
     private(set) var isRegenerating = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
+    private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
     var replayIndex = 0
 
@@ -34,12 +35,18 @@ final class ExplorerStore {
     }
 
     func select(_ identity: ArtifactIdentity) {
-        selection = identity
+        var resolvedIdentity = identity
         replayIndex = 0
         if case .cell(let cell) = identity,
            let decision = artifact.decisions.first(where: { $0.cell == cell }) {
-            selection = .decision(decision.id)
+            resolvedIdentity = .decision(decision.id)
         }
+        selection = resolvedIdentity
+        sourceSelection = sourceRange(for: resolvedIdentity)
+    }
+
+    func selectDiagnostic(_ diagnostic: GrammarDiagnostic) {
+        sourceSelection = diagnostic.range
     }
 
     func load(source: String, documentName: String) {
@@ -58,6 +65,7 @@ final class ExplorerStore {
     func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
         regenerationTask?.cancel()
         isRegenerating = true
+        sourceSelection = nil
         regenerationTask = Task { [weak self] in
             try? await Task.sleep(nanoseconds: debounceNanoseconds)
             guard !Task.isCancelled, let self else { return }
@@ -81,16 +89,14 @@ final class ExplorerStore {
     }
 
     func selectReplayFrame(_ frame: ReplayFrame, index: Int) {
-        replayIndex = index
         if let production = frame.production {
-            selection = .production(production)
+            select(.production(production))
         } else if let cell = frame.cell {
-            selection = artifact.decisions.contains(where: { $0.cell == cell })
-                ? .decision(artifact.decisions.first(where: { $0.cell == cell })!.id)
-                : .cell(cell)
+            select(.cell(cell))
         } else if let state = frame.state {
-            selection = .state(state)
+            select(.state(state))
         }
+        replayIndex = index
     }
 
     private func reload() {
@@ -113,7 +119,33 @@ final class ExplorerStore {
 
     private func resetSelection() {
         selection = .state(.init(rawValue: 0))
+        sourceSelection = sourceRange(for: selection!)
         selectedBranch = 0
         replayIndex = 0
+    }
+
+    private func sourceRange(for identity: ArtifactIdentity) -> SourceRange? {
+        guard let grammar = frontEnd.grammar else { return nil }
+        func productionRange(_ id: ProductionID) -> SourceRange? {
+            guard id.rawValue > 0 else { return nil }
+            return grammar.productions.first { $0.id == id.rawValue - 1 }?.range
+        }
+        func stateRange(_ id: StateID) -> SourceRange? {
+            guard let state = artifact.state(id),
+                  let production = state.items.map(\.production).first(where: { $0.rawValue > 0 }) else { return nil }
+            return productionRange(production)
+        }
+        switch identity {
+        case .production(let id):
+            return productionRange(id)
+        case .state(let id):
+            return stateRange(id)
+        case .cell(let id):
+            return stateRange(id.state)
+        case .decision(let id):
+            return artifact.decision(id).flatMap { stateRange($0.cell.state) }
+        case .traceStep:
+            return nil
+        }
     }
 }

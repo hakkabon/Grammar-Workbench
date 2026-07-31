@@ -70,25 +70,46 @@ public struct ArtifactExplorerView: View {
     private var sourceSidebar: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(store.documentName, systemImage: "doc.text").font(.headline).padding(.horizontal)
-            TextEditor(text: sourceBinding)
-                .font(.system(.body, design: .monospaced))
-                .scrollContentBackground(.hidden)
-                .padding(8).background(Color(nsColor: .textBackgroundColor))
-                .disabled(document == nil)
+            GrammarSourceEditor(
+                text: sourceBinding,
+                diagnostics: store.frontEnd.diagnostics,
+                selectedRange: store.sourceSelection,
+                completions: GrammarEditorIntelligence.completions(for: store.frontEnd),
+                isEditable: document != nil
+            )
+                .frame(minHeight: 280)
                 .accessibilityLabel(document == nil ? "Read-only grammar source" : "Editable grammar source")
             Text("\(store.artifact.productions.count) productions · \(store.artifact.states.count) states")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             if !store.frontEnd.diagnostics.isEmpty {
                 Divider()
-                Text("Diagnostics").font(.headline).padding(.horizontal)
-                ForEach(store.frontEnd.diagnostics) { diagnostic in
-                    VStack(alignment: .leading, spacing: 2) {
-                        Label(diagnostic.message, systemImage: diagnostic.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
-                            .foregroundStyle(diagnostic.severity == .error ? .red : .orange)
-                        Text("Line \(diagnostic.range.start.line), column \(diagnostic.range.start.column)")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }.font(.caption).padding(.horizontal)
+                HStack {
+                    Text("Diagnostics").font(.headline)
+                    Spacer()
+                    Text("\(store.frontEnd.diagnostics.count)").foregroundStyle(.secondary)
+                }.padding(.horizontal)
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 9) {
+                        ForEach(store.frontEnd.diagnostics) { diagnostic in
+                            Button { store.selectDiagnostic(diagnostic) } label: {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Label(diagnostic.message, systemImage: diagnostic.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                                        .foregroundStyle(diagnostic.severity == .error ? .red : .orange)
+                                    Text("Line \(diagnostic.range.start.line), column \(diagnostic.range.start.column)")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }.frame(maxWidth: .infinity, alignment: .leading)
+                            }.buttonStyle(.plain)
+                            let fixes = GrammarEditorIntelligence.quickFixes(for: diagnostic, source: sourceBinding.wrappedValue)
+                            if !fixes.isEmpty, document != nil {
+                                ForEach(fixes) { fix in
+                                    Button(fix.title, systemImage: "wand.and.stars") { applyQuickFix(fix) }
+                                        .buttonStyle(.link).font(.caption)
+                                }
+                            }
+                        }
+                    }.padding(.horizontal)
                 }
+                .frame(maxHeight: 190)
             }
         }.padding(.vertical)
     }
@@ -111,7 +132,11 @@ public struct ArtifactExplorerView: View {
                     LabeledContent("Start symbol", value: grammar.startSymbol)
                     Text("Productions").font(.headline)
                     ForEach(grammar.productions) { production in
-                        Text(production.text).font(.system(.body, design: .monospaced))
+                        Button(production.text) {
+                            store.select(.production(.init(rawValue: production.id + 1)))
+                        }
+                        .buttonStyle(.plain)
+                        .font(.system(.body, design: .monospaced))
                     }
                     Divider()
                     Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
@@ -459,6 +484,11 @@ public struct ArtifactExplorerView: View {
         document.wrappedValue = updated
         store.sampleInput = updated.samples.first { $0.id == updated.selectedSampleID }?.input ?? ""
         store.parseSample()
+    }
+
+    private func applyQuickFix(_ fix: GrammarQuickFix) {
+        let updated = fix.applying(to: sourceBinding.wrappedValue)
+        sourceBinding.wrappedValue = updated
     }
 }
 

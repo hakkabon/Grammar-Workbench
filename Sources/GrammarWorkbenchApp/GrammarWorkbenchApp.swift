@@ -1,4 +1,5 @@
 import SwiftUI
+import GrammarWorkbench
 
 @main
 struct GrammarWorkbenchApp: App {

@@ -1,17 +1,19 @@
 import SwiftUI
 import AppKit
 
-struct ArtifactExplorerView: View {
+public struct ArtifactExplorerView: View {
     @State private var store = ExplorerStore()
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
 
+    public init() {}
+
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
+        case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
         var id: Self { self }
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationSplitView {
             sourceSidebar
         } content: {
@@ -28,6 +30,9 @@ struct ArtifactExplorerView: View {
         }
         .toolbar {
             ToolbarItem {
+                Button("Open Grammar", systemImage: "folder", action: openGrammar)
+            }
+            ToolbarItem {
                 Picker("LR algorithm", selection: $store.algorithm) { ForEach(LRAlgorithm.allCases) { Text($0.rawValue).tag($0) } }
                     .frame(width: 180)
             }
@@ -40,7 +45,7 @@ struct ArtifactExplorerView: View {
 
     private var sourceSidebar: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Grammar source", systemImage: "doc.text").font(.headline).padding(.horizontal)
+            Label(store.documentName, systemImage: "doc.text").font(.headline).padding(.horizontal)
             TextEditor(text: .constant(store.artifact.grammarSource))
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
@@ -48,17 +53,77 @@ struct ArtifactExplorerView: View {
                 .disabled(true).accessibilityLabel("Read-only grammar source")
             Text("\(store.artifact.productions.count) productions · \(store.artifact.states.count) states")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
+            if !store.frontEnd.diagnostics.isEmpty {
+                Divider()
+                Text("Diagnostics").font(.headline).padding(.horizontal)
+                ForEach(store.frontEnd.diagnostics) { diagnostic in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Label(diagnostic.message, systemImage: diagnostic.severity == .error ? "xmark.octagon.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(diagnostic.severity == .error ? .red : .orange)
+                        Text("Line \(diagnostic.range.start.line), column \(diagnostic.range.start.column)")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }.font(.caption).padding(.horizontal)
+                }
+            }
         }.padding(.vertical)
     }
 
     @ViewBuilder private var selectedTab: some View {
         switch tab {
+        case .analysis: analysisView
         case .automaton:
             AutomatonView(artifact: store.artifact, selection: store.selection) { store.select(.state($0)) }
         case .table: tableView
         case .decisions: decisionsView
         case .sample: sampleView
         }
+    }
+
+    private var analysisView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if let grammar = store.frontEnd.grammar, let analysis = store.frontEnd.analysis {
+                    LabeledContent("Start symbol", value: grammar.startSymbol)
+                    Text("Productions").font(.headline)
+                    ForEach(grammar.productions) { production in
+                        Text(production.text).font(.system(.body, design: .monospaced))
+                    }
+                    Divider()
+                    Grid(alignment: .leading, horizontalSpacing: 20, verticalSpacing: 8) {
+                        GridRow {
+                            Text("Symbol").bold()
+                            Text("Nullable").bold()
+                            Text("FIRST").bold()
+                            Text("FOLLOW").bold()
+                        }
+                        ForEach(grammar.nonterminals, id: \.self) { symbol in
+                            GridRow {
+                                Text(symbol).font(.system(.body, design: .monospaced))
+                                Image(systemName: analysis.nullable.contains(symbol) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(analysis.nullable.contains(symbol) ? .green : .secondary)
+                                setText(analysis.first[symbol, default: []])
+                                setText(analysis.follow[symbol, default: []])
+                            }
+                        }
+                    }
+                    if !grammar.precedence.isEmpty {
+                        Divider()
+                        Text("Precedence (low to high)").font(.headline)
+                        ForEach(grammar.precedence, id: \.level) { declaration in
+                            LabeledContent("\(declaration.level). \(declaration.associativity.rawValue)", value: declaration.symbols.joined(separator: ", "))
+                        }
+                    }
+                } else {
+                    ContentUnavailableView("Grammar has errors", systemImage: "exclamationmark.triangle", description: Text("Correct the listed diagnostics before analysis can continue."))
+                }
+            }.padding().frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func setText(_ values: Set<String>) -> some View {
+        Text("{ \(values.sorted().joined(separator: ", ")) }")
+            .font(.system(.body, design: .monospaced))
+            .textSelection(.enabled)
     }
 
     private var tableView: some View {
@@ -169,5 +234,20 @@ struct ArtifactExplorerView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { try HTMLExporter.render(store.artifact).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
         catch { exportMessage = "Could not export: \(error.localizedDescription)" }
+    }
+
+    private func openGrammar() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.plainText]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let source = try String(contentsOf: url, encoding: .utf8)
+            store.load(source: source, documentName: url.lastPathComponent)
+            tab = .analysis
+        } catch {
+            exportMessage = "Could not open \(url.lastPathComponent): \(error.localizedDescription)"
+        }
     }
 }

@@ -22,11 +22,24 @@ struct GrammarQuickFix: Identifiable, Equatable {
 
 enum GrammarEditorIntelligence {
     static func completions(for result: GrammarFrontEndResult) -> [String] {
-        let directives = ["%start", "%left", "%right", "%nonassoc"]
+        let directives = ["%start", "%token", "%left", "%right", "%nonassoc"]
         return Array(Set(directives + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
     }
 
     static func quickFixes(for diagnostic: GrammarDiagnostic, source: String) -> [GrammarQuickFix] {
+        if diagnostic.code == "undefined-symbol",
+           diagnostic.range.start.offset < diagnostic.range.end.offset,
+           diagnostic.range.end.offset <= source.count,
+           let start = source.index(source.startIndex, offsetBy: diagnostic.range.start.offset, limitedBy: source.endIndex),
+           let end = source.index(source.startIndex, offsetBy: diagnostic.range.end.offset, limitedBy: source.endIndex) {
+            let symbol = String(source[start..<end])
+            return [.init(
+                id: "declare-token-\(symbol)",
+                title: "Declare ‘\(symbol)’ with %token",
+                replacementRange: 0..<0,
+                replacement: "%token \(symbol)\n"
+            )]
+        }
         if diagnostic.message.hasPrefix("Expected ‘;’") {
             let offset = min(diagnostic.range.start.offset, source.count)
             return [.init(id: "insert-semicolon-\(offset)", title: "Insert missing ‘;’", replacementRange: offset..<offset, replacement: ";")]

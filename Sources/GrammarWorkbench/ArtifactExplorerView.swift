@@ -129,7 +129,13 @@ public struct ArtifactExplorerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 if let grammar = store.frontEnd.grammar, let analysis = store.frontEnd.analysis {
+                    validationSummary(grammar)
+                    Divider()
                     LabeledContent("Start symbol", value: grammar.startSymbol)
+                    LabeledContent(
+                        "Terminal mode",
+                        value: grammar.usesExplicitTokens ? "Explicit (%token)" : "Inferred (legacy)"
+                    )
                     Text("Productions").font(.headline)
                     ForEach(grammar.productions) { production in
                         Button(production.text) {
@@ -167,6 +173,21 @@ public struct ArtifactExplorerView: View {
                     ContentUnavailableView("Grammar has errors", systemImage: "exclamationmark.triangle", description: Text("Correct the listed diagnostics before analysis can continue."))
                 }
             }.padding().frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func validationSummary(_ grammar: ParsedGrammar) -> some View {
+        let errors = store.frontEnd.diagnostics.filter { $0.severity == .error }.count
+        let warnings = store.frontEnd.diagnostics.filter { $0.severity == .warning }.count
+        return HStack(spacing: 18) {
+            Label(errors == 0 ? "Valid grammar" : "\(errors) errors",
+                  systemImage: errors == 0 ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                .foregroundStyle(errors == 0 ? .green : .red)
+            Label("\(warnings) warnings", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(warnings == 0 ? Color.secondary : Color.orange)
+            Spacer()
+            Text("\(grammar.nonterminals.count) nonterminals · \(grammar.terminals.count) terminals")
+                .foregroundStyle(.secondary)
         }
     }
 

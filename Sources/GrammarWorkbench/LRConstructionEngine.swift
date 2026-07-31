@@ -74,7 +74,7 @@ enum LRConstructionEngine {
             rules: rules,
             machine: machine
         )
-        return GrammarArtifact(
+        let artifact = GrammarArtifact(
             algorithm: algorithm,
             grammarSource: source,
             terminals: grammar.terminals + ["$"],
@@ -86,6 +86,7 @@ enum LRConstructionEngine {
             decisions: table.decisions,
             sample: ParseSample(input: "", tree: "Choose a sample input in a future parsing milestone.", trace: [])
         )
+        return ConflictWitnessGenerator.enrich(artifact)
     }
 
     private static func lr0Machine(grammar: ParsedGrammar, rules: [Rule]) -> Machine {

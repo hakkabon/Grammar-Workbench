@@ -167,8 +167,49 @@ public struct ArtifactExplorerView: View {
 
     private var sampleView: some View {
         HSplitView {
-            VStack(alignment: .leading) { Text("Input").font(.headline); Text(store.artifact.sample.input).font(.system(.body, design: .monospaced)); Divider(); Text("Parse tree").font(.headline); Text(store.artifact.sample.tree).font(.system(.body, design: .monospaced)); Spacer() }.padding()
-            replayView(frames: store.artifact.sample.trace)
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Sample input").font(.headline)
+                HStack {
+                    TextField("Whitespace-separated terminal tokens", text: $store.sampleInput)
+                        .font(.system(.body, design: .monospaced))
+                        .onSubmit { store.parseSample() }
+                    Button("Parse", systemImage: "play.fill") { store.parseSample() }
+                }
+                Label(store.runtimeResult.outcome.label, systemImage: outcomeIcon)
+                    .foregroundStyle(outcomeColor)
+                if case .rejected(_, let expected) = store.runtimeResult.outcome, !expected.isEmpty {
+                    Text("Expected: \(expected.joined(separator: ", "))")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Divider()
+                Text("Parse tree").font(.headline)
+                ScrollView {
+                    Text(store.runtimeResult.tree?.rendered() ?? "No accepted parse tree.")
+                        .font(.system(.body, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Spacer()
+            }.padding()
+            replayView(frames: store.runtimeResult.frames)
+        }
+    }
+
+    private var outcomeIcon: String {
+        switch store.runtimeResult.outcome {
+        case .accepted: "checkmark.circle.fill"
+        case .rejected: "xmark.octagon.fill"
+        case .conflict: "arrow.triangle.branch"
+        case .looping: "repeat.circle.fill"
+        }
+    }
+
+    private var outcomeColor: Color {
+        switch store.runtimeResult.outcome {
+        case .accepted: .green
+        case .rejected: .red
+        case .conflict: .orange
+        case .looping: .purple
         }
     }
 
@@ -211,20 +252,43 @@ public struct ArtifactExplorerView: View {
     private func conflictGraphic(_ decision: ConflictDecision) -> some View {
         VStack(spacing: 8) {
             Text(decision.cell.state.description).padding(8).background(.blue.opacity(0.2)).clipShape(Capsule())
-            HStack { ForEach(decision.branches.indices, id: \.self) { index in Text(index == 0 ? "Shift" : "Reduce").frame(maxWidth: .infinity).padding(8).background(index == 0 ? .green.opacity(0.2) : .orange.opacity(0.2)).clipShape(RoundedRectangle(cornerRadius: 8)) } }
+            HStack {
+                ForEach(decision.branches.indices, id: \.self) { index in
+                    Text((store.artifact.cell(decision.cell)?.actions[safe: index])?.label ?? "Branch \(index + 1)")
+                        .frame(maxWidth: .infinity).padding(8)
+                        .background(index == 0 ? .green.opacity(0.2) : .orange.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                }
+            }
         }.padding().overlay(RoundedRectangle(cornerRadius: 10).stroke(.secondary.opacity(0.3)))
     }
 
     private func replayView(frames: [ReplayFrame]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Replay").font(.headline)
-            Slider(value: Binding(get: { Double(min(store.replayIndex, max(0, frames.count - 1))) }, set: { store.replayIndex = Int($0) }), in: 0...Double(max(1, frames.count - 1)), step: 1)
+            Slider(
+                value: Binding(
+                    get: { Double(min(store.replayIndex, max(0, frames.count - 1))) },
+                    set: {
+                        let index = Int($0)
+                        if frames.indices.contains(index) {
+                            store.selectReplayFrame(frames[index], index: index)
+                        }
+                    }
+                ),
+                in: 0...Double(max(1, frames.count - 1)),
+                step: 1
+            )
             if !frames.isEmpty {
                 let frame = frames[min(store.replayIndex, frames.count - 1)]
                 LabeledContent("Stack", value: frame.stack.joined(separator: " "))
                 LabeledContent("Input", value: frame.remainingInput.joined(separator: " "))
                 LabeledContent("Action", value: frame.action)
-                if let state = frame.state { Button("Inspect \(state)") { store.select(.state(state)) }.buttonStyle(.link) }
+                HStack {
+                    if let state = frame.state { Button("State \(state)") { store.select(.state(state)) }.buttonStyle(.link) }
+                    if let cell = frame.cell { Button("Cell \(cell.symbol)") { store.select(.cell(cell)) }.buttonStyle(.link) }
+                    if let production = frame.production { Button("Production \(production.rawValue)") { store.select(.production(production)) }.buttonStyle(.link) }
+                }
             }
         }.padding()
     }
@@ -232,7 +296,7 @@ public struct ArtifactExplorerView: View {
     private func exportHTML() {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "grammar-artifact.html"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try HTMLExporter.render(store.artifact).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
+        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
         catch { exportMessage = "Could not export: \(error.localizedDescription)" }
     }
 
@@ -249,5 +313,11 @@ public struct ArtifactExplorerView: View {
         } catch {
             exportMessage = "Could not open \(url.lastPathComponent): \(error.localizedDescription)"
         }
+    }
+}
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
     }
 }

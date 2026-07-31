@@ -2,11 +2,27 @@ import SwiftUI
 import AppKit
 
 public struct ArtifactExplorerView: View {
-    @State private var store = ExplorerStore()
+    @State private var store: ExplorerStore
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
+    private var document: Binding<GrammarWorkbenchDocument>?
 
-    public init() {}
+    public init() {
+        self.document = nil
+        self._store = State(initialValue: ExplorerStore())
+    }
+
+    public init(document: Binding<GrammarWorkbenchDocument>, documentName: String = "Untitled") {
+        self.document = document
+        let value = document.wrappedValue
+        let selectedInput = value.samples.first { $0.id == value.selectedSampleID }?.input ?? ""
+        self._store = State(initialValue: ExplorerStore(
+            source: value.source,
+            algorithm: LRAlgorithm(rawValue: value.algorithm) ?? .lalr,
+            sampleInput: selectedInput,
+            documentName: documentName
+        ))
+    }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
         case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
@@ -29,28 +45,37 @@ public struct ArtifactExplorerView: View {
                 .navigationTitle("Inspector")
         }
         .toolbar {
-            ToolbarItem {
-                Button("Open Grammar", systemImage: "folder", action: openGrammar)
+            if document == nil {
+                ToolbarItem {
+                    Button("Open Grammar", systemImage: "folder", action: openGrammar)
+                }
             }
             ToolbarItem {
-                Picker("LR algorithm", selection: $store.algorithm) { ForEach(LRAlgorithm.allCases) { Text($0.rawValue).tag($0) } }
+                Picker("LR algorithm", selection: algorithmBinding) { ForEach(LRAlgorithm.allCases) { Text($0.rawValue).tag($0) } }
                     .frame(width: 180)
+            }
+            if store.isRegenerating {
+                ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
         }
         .alert("Export", isPresented: Binding(get: { exportMessage != nil }, set: { if !$0 { exportMessage = nil } })) {
             Button("OK") { exportMessage = nil }
         } message: { Text(exportMessage ?? "") }
+        .onChange(of: document?.wrappedValue.source) { _, source in
+            if let source { store.updateSource(source) }
+        }
     }
 
     private var sourceSidebar: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(store.documentName, systemImage: "doc.text").font(.headline).padding(.horizontal)
-            TextEditor(text: .constant(store.artifact.grammarSource))
+            TextEditor(text: sourceBinding)
                 .font(.system(.body, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .padding(8).background(Color(nsColor: .textBackgroundColor))
-                .disabled(true).accessibilityLabel("Read-only grammar source")
+                .disabled(document == nil)
+                .accessibilityLabel(document == nil ? "Read-only grammar source" : "Editable grammar source")
             Text("\(store.artifact.productions.count) productions · \(store.artifact.states.count) states")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             if !store.frontEnd.diagnostics.isEmpty {
@@ -168,9 +193,29 @@ public struct ArtifactExplorerView: View {
     private var sampleView: some View {
         HSplitView {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Sample input").font(.headline)
                 HStack {
-                    TextField("Whitespace-separated terminal tokens", text: $store.sampleInput)
+                    Text("Sample input").font(.headline)
+                    Spacer()
+                    if document != nil {
+                        Picker("Sample", selection: selectedSampleBinding) {
+                            ForEach(document?.wrappedValue.samples ?? []) { sample in
+                                Text(sample.name).tag(sample.id)
+                            }
+                        }
+                        .labelsHidden().frame(maxWidth: 180)
+                        Button("Add Sample", systemImage: "plus", action: addSample).labelStyle(.iconOnly)
+                        Button("Delete Sample", systemImage: "minus", action: deleteSelectedSample)
+                            .labelStyle(.iconOnly)
+                        .disabled((document?.wrappedValue.samples.count ?? 0) <= 1)
+                    }
+                }
+                if document != nil {
+                    TextField("Sample name", text: selectedSampleNameBinding)
+                        .textFieldStyle(.plain)
+                        .font(.subheadline.bold())
+                }
+                HStack {
+                    TextField("Whitespace-separated terminal tokens", text: sampleInputBinding)
                         .font(.system(.body, design: .monospaced))
                         .onSubmit { store.parseSample() }
                     Button("Parse", systemImage: "play.fill") { store.parseSample() }
@@ -313,6 +358,107 @@ public struct ArtifactExplorerView: View {
         } catch {
             exportMessage = "Could not open \(url.lastPathComponent): \(error.localizedDescription)"
         }
+    }
+
+    private var sourceBinding: Binding<String> {
+        guard let document else { return .constant(store.artifact.grammarSource) }
+        return Binding(
+            get: { document.wrappedValue.source },
+            set: { value in
+                var updated = document.wrappedValue
+                updated.source = value
+                document.wrappedValue = updated
+                store.updateSource(value)
+            }
+        )
+    }
+
+    private var algorithmBinding: Binding<LRAlgorithm> {
+        Binding(
+            get: { store.algorithm },
+            set: { value in
+                store.algorithm = value
+                guard let document else { return }
+                var updated = document.wrappedValue
+                updated.algorithm = value.rawValue
+                document.wrappedValue = updated
+            }
+        )
+    }
+
+    private var selectedSampleBinding: Binding<UUID> {
+        Binding(
+            get: {
+                document?.wrappedValue.selectedSampleID
+                    ?? document?.wrappedValue.samples.first?.id
+                    ?? UUID()
+            },
+            set: { id in
+                guard let document else { return }
+                var updated = document.wrappedValue
+                updated.selectedSampleID = id
+                document.wrappedValue = updated
+                store.sampleInput = updated.samples.first { $0.id == id }?.input ?? ""
+                store.parseSample()
+            }
+        )
+    }
+
+    private var sampleInputBinding: Binding<String> {
+        Binding(
+            get: { store.sampleInput },
+            set: { value in
+                store.sampleInput = value
+                guard let document else { return }
+                var updated = document.wrappedValue
+                if let index = updated.samples.firstIndex(where: { $0.id == updated.selectedSampleID }) {
+                    updated.samples[index].input = value
+                    document.wrappedValue = updated
+                }
+            }
+        )
+    }
+
+    private var selectedSampleNameBinding: Binding<String> {
+        Binding(
+            get: {
+                guard let document else { return "" }
+                return document.wrappedValue.samples.first {
+                    $0.id == document.wrappedValue.selectedSampleID
+                }?.name ?? ""
+            },
+            set: { value in
+                guard let document else { return }
+                var updated = document.wrappedValue
+                if let index = updated.samples.firstIndex(where: { $0.id == updated.selectedSampleID }) {
+                    updated.samples[index].name = value
+                    document.wrappedValue = updated
+                }
+            }
+        )
+    }
+
+    private func addSample() {
+        guard let document else { return }
+        var updated = document.wrappedValue
+        let sample = WorkbenchSample(name: "Sample \(updated.samples.count + 1)", input: "")
+        updated.samples.append(sample)
+        updated.selectedSampleID = sample.id
+        document.wrappedValue = updated
+        store.sampleInput = ""
+        store.parseSample()
+    }
+
+    private func deleteSelectedSample() {
+        guard let document else { return }
+        var updated = document.wrappedValue
+        guard updated.samples.count > 1,
+              let index = updated.samples.firstIndex(where: { $0.id == updated.selectedSampleID }) else { return }
+        updated.samples.remove(at: index)
+        updated.selectedSampleID = updated.samples[min(index, updated.samples.count - 1)].id
+        document.wrappedValue = updated
+        store.sampleInput = updated.samples.first { $0.id == updated.selectedSampleID }?.input ?? ""
+        store.parseSample()
     }
 }
 

@@ -9,16 +9,28 @@ final class ExplorerStore {
     private(set) var documentName = "Expression grammar"
     var sampleInput = "id + id * id"
     private(set) var runtimeResult: ParserRuntimeResult
+    private(set) var isRegenerating = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     var selectedBranch = 0
     var replayIndex = 0
 
-    init() {
-        let frontEnd = GrammarFrontEnd.process(SampleArtifact.grammarSource)
-        let artifact = FrontEndArtifact.make(result: frontEnd, algorithm: .lalr)
+    @ObservationIgnored private var regenerationTask: Task<Void, Never>?
+
+    init(
+        source: String = SampleArtifact.grammarSource,
+        algorithm: LRAlgorithm = .lalr,
+        sampleInput: String = "id + id * id",
+        documentName: String = "Expression grammar"
+    ) {
+        let frontEnd = GrammarFrontEnd.process(source)
+        let artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
         self.frontEnd = frontEnd
         self.artifact = artifact
-        self.runtimeResult = LRParserRuntime.parse(["id", "+", "id", "*", "id"], artifact: artifact)
+        self.algorithm = algorithm
+        self.sampleInput = sampleInput
+        self.documentName = documentName
+        let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
+        self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
     }
 
     func select(_ identity: ArtifactIdentity) {
@@ -31,13 +43,26 @@ final class ExplorerStore {
     }
 
     func load(source: String, documentName: String) {
+        regenerationTask?.cancel()
         let result = GrammarFrontEnd.process(source)
         frontEnd = result
         self.documentName = documentName
-        artifact = FrontEndArtifact.make(result: result, algorithm: algorithm)
+        if !result.hasErrors {
+            artifact = FrontEndArtifact.make(result: result, algorithm: algorithm)
+        }
         sampleInput = result.grammar?.terminals.first ?? ""
         parseSample()
         resetSelection()
+    }
+
+    func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
+        regenerationTask?.cancel()
+        isRegenerating = true
+        regenerationTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            guard !Task.isCancelled, let self else { return }
+            self.regenerate(source)
+        }
     }
 
     func parseSample() {
@@ -69,9 +94,21 @@ final class ExplorerStore {
     }
 
     private func reload() {
+        guard !frontEnd.hasErrors else { return }
         artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
         parseSample()
         resetSelection()
+    }
+
+    private func regenerate(_ source: String) {
+        let result = GrammarFrontEnd.process(source)
+        frontEnd = result
+        if !result.hasErrors {
+            artifact = FrontEndArtifact.make(result: result, algorithm: algorithm)
+            parseSample()
+            resetSelection()
+        }
+        isRegenerating = false
     }
 
     private func resetSelection() {

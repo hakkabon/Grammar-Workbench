@@ -1,0 +1,56 @@
+import Foundation
+import Testing
+@testable import GrammarWorkbench
+
+@Test func documentRoundTripPreservesWorkbenchState() throws {
+    let selectedID = UUID()
+    let document = GrammarWorkbenchDocument(
+        source: "%start S\nS : 'value' ;",
+        algorithm: "Canonical LR(1)",
+        samples: [
+            WorkbenchSample(id: selectedID, name: "Valid", input: "value"),
+            WorkbenchSample(name: "Invalid", input: "other")
+        ],
+        selectedSampleID: selectedID
+    )
+    let data = try JSONEncoder().encode(document)
+    let decoded = try JSONDecoder().decode(GrammarWorkbenchDocument.self, from: data)
+    #expect(decoded.source == document.source)
+    #expect(decoded.algorithm == "Canonical LR(1)")
+    #expect(decoded.samples == document.samples)
+    #expect(decoded.selectedSampleID == selectedID)
+}
+
+@Test func documentNormalizesMissingSamplesAndSelection() {
+    let document = GrammarWorkbenchDocument(
+        source: "",
+        samples: [],
+        selectedSampleID: UUID()
+    )
+    #expect(document.samples.count == 1)
+    #expect(document.selectedSampleID == document.samples[0].id)
+}
+
+@MainActor
+@Test func debouncedEditingRegeneratesOnlyTheLatestValidSource() async throws {
+    let store = ExplorerStore()
+    let first = "%start S\nS : 'first' ;"
+    let second = "%start S\nS : 'second' ;"
+    store.updateSource(first, debounceNanoseconds: 30_000_000)
+    store.updateSource(second, debounceNanoseconds: 30_000_000)
+    try await Task.sleep(nanoseconds: 100_000_000)
+    #expect(store.frontEnd.source == second)
+    #expect(store.artifact.grammarSource == second)
+    #expect(store.artifact.terminals.contains("second"))
+    #expect(!store.isRegenerating)
+}
+
+@MainActor
+@Test func invalidEditKeepsLastValidArtifact() async throws {
+    let store = ExplorerStore()
+    let validSource = store.artifact.grammarSource
+    store.updateSource("Broken 'token' ;", debounceNanoseconds: 10_000_000)
+    try await Task.sleep(nanoseconds: 50_000_000)
+    #expect(store.frontEnd.hasErrors)
+    #expect(store.artifact.grammarSource == validSource)
+}

@@ -1,0 +1,221 @@
+import Foundation
+
+public enum WorkbenchTestExpectation: String, CaseIterable, Codable, Identifiable, Sendable {
+    case accept = "Accept"
+    case reject = "Reject"
+    case conflict = "Conflict"
+    public var id: Self { self }
+}
+
+public struct WorkbenchTestCase: Identifiable, Hashable, Codable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var input: String
+    public var expectation: WorkbenchTestExpectation
+    public var expectedTree: String?
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        input: String,
+        expectation: WorkbenchTestExpectation,
+        expectedTree: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.input = input
+        self.expectation = expectation
+        self.expectedTree = expectedTree
+    }
+}
+
+public enum WorkbenchTestStatus: String, Codable, Sendable {
+    case passed
+    case failed
+    case invalid
+}
+
+public struct WorkbenchTestResult: Identifiable, Sendable {
+    public let id: UUID
+    public let name: String
+    public let status: WorkbenchTestStatus
+    public let expected: WorkbenchTestExpectation
+    public let actual: String
+    public let message: String
+    public let tokens: [String]
+    public let tree: String?
+}
+
+public struct WorkbenchTestReport: Sendable {
+    public let results: [WorkbenchTestResult]
+    public var passed: Int { results.count { $0.status == .passed } }
+    public var failed: Int { results.count { $0.status != .passed } }
+    public var allPassed: Bool { !results.isEmpty && failed == 0 }
+}
+
+public enum GrammarTestRunner {
+    public static func run(
+        _ tests: [WorkbenchTestCase],
+        source: String,
+        algorithm: String = "LALR(1)"
+    ) -> WorkbenchTestReport {
+        let frontEnd = GrammarFrontEnd.process(source)
+        guard let grammar = frontEnd.grammar, let analysis = frontEnd.analysis,
+              let selectedAlgorithm = LRAlgorithm(rawValue: algorithm) else {
+            let message = frontEnd.diagnostics.first(where: { $0.severity == .error })?.message
+                ?? "Unknown LR algorithm ‘\(algorithm)’."
+            return .init(results: tests.map {
+                .init(id: $0.id, name: $0.name, status: .invalid, expected: $0.expectation,
+                      actual: "Not run", message: message, tokens: [], tree: nil)
+            })
+        }
+        let artifact = LRConstructionEngine.construct(
+            grammar: grammar, analysis: analysis, source: source, algorithm: selectedAlgorithm
+        )
+        return run(tests, grammar: grammar, artifact: artifact)
+    }
+
+    static func run(
+        _ tests: [WorkbenchTestCase],
+        grammar: ParsedGrammar,
+        artifact: GrammarArtifact
+    ) -> WorkbenchTestReport {
+        .init(results: tests.map { test in
+            let tokens: [String]
+            if !grammar.lexerRules.isEmpty {
+                let lexed = GrammarLexerRuntime.lex(test.input, grammar: grammar)
+                if let diagnostic = lexed.diagnostics.first {
+                    return WorkbenchTestResult(
+                        id: test.id, name: test.name, status: .failed, expected: test.expectation,
+                        actual: "Lexical error", message: "\(diagnostic.range.start.line):\(diagnostic.range.start.column): \(diagnostic.message)",
+                        tokens: lexed.tokens.map(\.kind), tree: nil
+                    )
+                }
+                tokens = lexed.tokens.map(\.kind)
+            } else {
+                switch SampleInputTokenizer.tokenize(test.input) {
+                case .success(let values): tokens = values
+                case .failure(let error):
+                    return WorkbenchTestResult(
+                        id: test.id, name: test.name, status: .failed, expected: test.expectation,
+                        actual: "Tokenization error", message: error.message, tokens: [], tree: nil
+                    )
+                }
+            }
+            let runtime = LRParserRuntime.parse(tokens, artifact: artifact)
+            let actualExpectation: WorkbenchTestExpectation?
+            switch runtime.outcome {
+            case .accepted: actualExpectation = .accept
+            case .rejected: actualExpectation = .reject
+            case .conflict: actualExpectation = .conflict
+            case .looping: actualExpectation = nil
+            }
+            let tree = runtime.tree?.rendered()
+            let outcomeMatches = actualExpectation == test.expectation
+            let expectedTree = test.expectedTree?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let treeMatches = expectedTree?.isEmpty != false || tree == expectedTree
+            let status: WorkbenchTestStatus = outcomeMatches && treeMatches ? .passed : .failed
+            let message: String
+            if !outcomeMatches {
+                message = "Expected \(test.expectation.rawValue.lowercased()), got \(runtime.outcome.label)."
+            } else if !treeMatches {
+                message = "The parse outcome matched, but the parse tree differs from the snapshot."
+            } else {
+                message = "Expectation matched."
+            }
+            return .init(
+                id: test.id, name: test.name, status: status, expected: test.expectation,
+                actual: runtime.outcome.label, message: message, tokens: tokens, tree: tree
+            )
+        })
+    }
+}
+
+public struct GrammarWorkbenchInterchange: Codable, Sendable {
+    public static let currentSchemaVersion = 1
+    public let schemaVersion: Int
+    public let source: String
+    public let algorithm: String
+    public let samples: [WorkbenchSample]
+    public let selectedSampleID: UUID
+    public let tests: [WorkbenchTestCase]
+
+    public init(document: GrammarWorkbenchDocument) {
+        schemaVersion = Self.currentSchemaVersion
+        source = document.source
+        algorithm = document.algorithm
+        samples = document.samples
+        selectedSampleID = document.selectedSampleID
+        tests = document.tests
+    }
+}
+
+public enum GrammarInterchangeError: Error, LocalizedError {
+    case unsupportedVersion(Int)
+    case invalidAlgorithm(String)
+    case invalidGrammar(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .unsupportedVersion(let version): "Unsupported interchange schema version \(version)."
+        case .invalidAlgorithm(let value): "Unknown LR algorithm ‘\(value)’ in interchange data."
+        case .invalidGrammar(let message): "The imported grammar is invalid: \(message)"
+        }
+    }
+}
+
+public enum GrammarInterchangeCodec {
+    private struct ArtifactEnvelope: Codable {
+        let schemaVersion: Int
+        let kind: String
+        let generatedAt: Date
+        let artifact: GrammarArtifact
+    }
+
+    public static func encode(_ document: GrammarWorkbenchDocument) throws -> Data {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(GrammarWorkbenchInterchange(document: document))
+    }
+
+    public static func encodeArtifact(source: String, algorithm: String = "LALR(1)") throws -> Data {
+        guard let selectedAlgorithm = LRAlgorithm(rawValue: algorithm) else {
+            throw GrammarInterchangeError.invalidAlgorithm(algorithm)
+        }
+        let result = GrammarFrontEnd.process(source)
+        guard let grammar = result.grammar, let analysis = result.analysis else {
+            throw GrammarInterchangeError.invalidGrammar(
+                result.diagnostics.first(where: { $0.severity == .error })?.message ?? "Unknown grammar error."
+            )
+        }
+        let artifact = LRConstructionEngine.construct(
+            grammar: grammar, analysis: analysis, source: source, algorithm: selectedAlgorithm
+        )
+        let envelope = ArtifactEnvelope(
+            schemaVersion: GrammarWorkbenchInterchange.currentSchemaVersion,
+            kind: "grammar-workbench-artifact", generatedAt: Date(), artifact: artifact
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(envelope)
+    }
+
+    public static func decode(_ data: Data) throws -> GrammarWorkbenchDocument {
+        let value = try JSONDecoder().decode(GrammarWorkbenchInterchange.self, from: data)
+        guard value.schemaVersion == GrammarWorkbenchInterchange.currentSchemaVersion else {
+            throw GrammarInterchangeError.unsupportedVersion(value.schemaVersion)
+        }
+        guard LRAlgorithm(rawValue: value.algorithm) != nil else {
+            throw GrammarInterchangeError.invalidAlgorithm(value.algorithm)
+        }
+        let result = GrammarFrontEnd.process(value.source)
+        if let diagnostic = result.diagnostics.first(where: { $0.severity == .error }) {
+            throw GrammarInterchangeError.invalidGrammar(diagnostic.message)
+        }
+        return GrammarWorkbenchDocument(
+            source: value.source, algorithm: value.algorithm, samples: value.samples,
+            selectedSampleID: value.selectedSampleID, tests: value.tests
+        )
+    }
+}

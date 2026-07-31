@@ -10,6 +10,7 @@ final class ExplorerStore {
     var sampleInput = "id + id * id"
     private(set) var runtimeResult: ParserRuntimeResult
     private(set) var lexerResult: LexerResult?
+    private(set) var testReport: WorkbenchTestReport?
     private(set) var isRegenerating = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
@@ -40,6 +41,7 @@ final class ExplorerStore {
             let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
             self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
         }
+        self.testReport = nil
     }
 
     func select(_ identity: ArtifactIdentity) {
@@ -71,7 +73,18 @@ final class ExplorerStore {
         sampleInput = result.grammar?.terminals.first ?? ""
         parseSample()
         resetSelection()
+        testReport = nil
     }
+
+    func runTests(_ tests: [WorkbenchTestCase]) {
+        guard let grammar = frontEnd.grammar, !frontEnd.hasErrors else {
+            testReport = GrammarTestRunner.run(tests, source: frontEnd.source, algorithm: algorithm.rawValue)
+            return
+        }
+        testReport = GrammarTestRunner.run(tests, grammar: grammar, artifact: artifact)
+    }
+
+    func clearTestReport() { testReport = nil }
 
     func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
         regenerationTask?.cancel()
@@ -133,6 +146,7 @@ final class ExplorerStore {
         artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
         parseSample()
         resetSelection()
+        testReport = nil
     }
 
     private func regenerate(_ source: String) {
@@ -144,6 +158,7 @@ final class ExplorerStore {
             resetSelection()
         }
         isRegenerating = false
+        testReport = nil
     }
 
     private func resetSelection() {

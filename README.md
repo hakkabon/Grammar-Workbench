@@ -20,6 +20,8 @@ The automaton view uses a deterministic layered layout with routed cyclic edges,
 
 Conflict analysis uses parser-configuration search to find short witnesses and bounded suffix search to produce a common accepting counterexample where possible. Decisions include side-by-side branch trees, replay traces, exact precedence provenance, and `%expect N` matching for intentional unresolved conflicts.
 
+The Tests workspace persists named accept, reject, and conflict cases with optional exact parse-tree snapshots. Batch runs use the same lexer and LR artifact as interactive samples, report expectation or lexical failures, and can be included in standalone HTML reports. Versioned project JSON round-trips grammar source, algorithm, samples, selection, and tests with validation on import; generated artifact JSON provides an immutable machine-readable snapshot of states, tables, decisions, and replay data. Older `.grammarworkbench` documents decode with an empty test suite.
+
 ## Architecture
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
@@ -33,5 +35,6 @@ Conflict analysis uses parser-configuration search to find short witnesses and b
 - `ExplorerStore.swift`: cross-view selection and replay state.
 - `ArtifactExplorerView.swift`: native master/detail explorer.
 - `HTMLExporter.swift`: dependency-free standalone report export.
+- `TestingAndInterchange.swift`: persistent test cases, batch execution, and versioned project/artifact JSON interchange.
 
 The UI consumes immutable `GrammarArtifact` values rather than construction internals, keeping artifact identities and inspection views independent from the algorithms that produce them.

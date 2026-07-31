@@ -5,6 +5,7 @@ public struct ArtifactExplorerView: View {
     @State private var store: ExplorerStore
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
+    @State private var selectedTestID: UUID?
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -25,7 +26,7 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample"
+        case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", tests = "Tests"
         var id: Self { self }
     }
 
@@ -58,6 +59,15 @@ public struct ArtifactExplorerView: View {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
+            if document != nil {
+                ToolbarItem {
+                    Menu("Interchange", systemImage: "arrow.left.arrow.right") {
+                        Button("Export Project JSON…", action: exportInterchange)
+                        Button("Export Artifact JSON…", action: exportArtifactInterchange)
+                        Button("Import Project JSON…", action: importInterchange)
+                    }
+                }
+            }
         }
         .alert("Export", isPresented: Binding(get: { exportMessage != nil }, set: { if !$0 { exportMessage = nil } })) {
             Button("OK") { exportMessage = nil }
@@ -122,6 +132,7 @@ public struct ArtifactExplorerView: View {
         case .table: tableView
         case .decisions: decisionsView
         case .sample: sampleView
+        case .tests: testsView
         }
     }
 
@@ -345,6 +356,129 @@ public struct ArtifactExplorerView: View {
         }
     }
 
+    private var testsView: some View {
+        HSplitView {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Test suite").font(.headline)
+                    Spacer()
+                    Button("Add Test", systemImage: "plus", action: addTest).labelStyle(.iconOnly)
+                    Button("Delete Test", systemImage: "minus", action: deleteSelectedTest)
+                        .labelStyle(.iconOnly).disabled(selectedTestID == nil)
+                }
+                Button("Run All", systemImage: "play.fill") {
+                    store.runTests(document?.wrappedValue.tests ?? [])
+                }
+                .disabled(document?.wrappedValue.tests.isEmpty != false || store.frontEnd.hasErrors)
+                if let report = store.testReport {
+                    Label(
+                        "\(report.passed) passed · \(report.failed) failed",
+                        systemImage: report.allPassed ? "checkmark.seal.fill" : "xmark.octagon.fill"
+                    )
+                    .foregroundStyle(report.allPassed ? .green : .red)
+                }
+                List(selection: $selectedTestID) {
+                    ForEach(document?.wrappedValue.tests ?? []) { test in
+                        HStack {
+                            Image(systemName: testStatusIcon(test.id))
+                                .foregroundStyle(testStatusColor(test.id))
+                            VStack(alignment: .leading) {
+                                Text(test.name)
+                                Text(test.expectation.rawValue).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }.tag(test.id)
+                    }
+                }
+            }
+            .padding().frame(minWidth: 260, idealWidth: 300)
+
+            if let test = selectedTest {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        TextField("Test name", text: testNameBinding).font(.title3.bold())
+                        Picker("Expected outcome", selection: testExpectationBinding) {
+                            ForEach(WorkbenchTestExpectation.allCases) { Text($0.rawValue).tag($0) }
+                        }.pickerStyle(.segmented)
+                        Text("Input").font(.headline)
+                        TextEditor(text: testInputBinding)
+                            .font(.system(.body, design: .monospaced)).frame(minHeight: 70)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.3)))
+                        Text("Expected tree snapshot (optional)").font(.headline)
+                        TextEditor(text: testTreeBinding)
+                            .font(.system(.caption, design: .monospaced)).frame(minHeight: 100)
+                            .overlay(RoundedRectangle(cornerRadius: 6).stroke(.secondary.opacity(0.3)))
+                        if let result = store.testReport?.results.first(where: { $0.id == test.id }) {
+                            Divider()
+                            Label(result.status.rawValue.capitalized, systemImage: testStatusIcon(test.id))
+                                .font(.headline).foregroundStyle(testStatusColor(test.id))
+                            LabeledContent("Actual", value: result.actual)
+                            Text(result.message).foregroundStyle(.secondary)
+                            LabeledContent("Tokens", value: result.tokens.joined(separator: " "))
+                            Text("Actual tree").font(.headline)
+                            Text(result.tree ?? "No parse tree.")
+                                .font(.system(.caption, design: .monospaced)).textSelection(.enabled)
+                        }
+                    }.padding().frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else {
+                ContentUnavailableView("Select a test", systemImage: "checklist")
+            }
+        }
+        .onAppear {
+            if selectedTestID == nil { selectedTestID = document?.wrappedValue.tests.first?.id }
+        }
+    }
+
+    private var selectedTest: WorkbenchTestCase? {
+        guard let selectedTestID else { return nil }
+        return document?.wrappedValue.tests.first { $0.id == selectedTestID }
+    }
+
+    private func updateSelectedTest(_ update: (inout WorkbenchTestCase) -> Void) {
+        guard let document, let selectedTestID else { return }
+        var updated = document.wrappedValue
+        guard let index = updated.tests.firstIndex(where: { $0.id == selectedTestID }) else { return }
+        update(&updated.tests[index])
+        document.wrappedValue = updated
+        store.clearTestReport()
+    }
+
+    private var testNameBinding: Binding<String> {
+        .init(get: { selectedTest?.name ?? "" }, set: { value in updateSelectedTest { $0.name = value } })
+    }
+
+    private var testInputBinding: Binding<String> {
+        .init(get: { selectedTest?.input ?? "" }, set: { value in updateSelectedTest { $0.input = value } })
+    }
+
+    private var testExpectationBinding: Binding<WorkbenchTestExpectation> {
+        .init(get: { selectedTest?.expectation ?? .accept }, set: { value in updateSelectedTest { $0.expectation = value } })
+    }
+
+    private var testTreeBinding: Binding<String> {
+        .init(get: { selectedTest?.expectedTree ?? "" }, set: { value in
+            updateSelectedTest { $0.expectedTree = value.isEmpty ? nil : value }
+        })
+    }
+
+    private func testStatusIcon(_ id: UUID) -> String {
+        switch store.testReport?.results.first(where: { $0.id == id })?.status {
+        case .passed: "checkmark.circle.fill"
+        case .failed: "xmark.circle.fill"
+        case .invalid: "exclamationmark.triangle.fill"
+        case nil: "circle"
+        }
+    }
+
+    private func testStatusColor(_ id: UUID) -> Color {
+        switch store.testReport?.results.first(where: { $0.id == id })?.status {
+        case .passed: .green
+        case .failed: .red
+        case .invalid: .orange
+        case nil: .secondary
+        }
+    }
+
     private var outcomeIcon: String {
         switch store.runtimeResult.outcome {
         case .accepted: "checkmark.circle.fill"
@@ -498,8 +632,60 @@ public struct ArtifactExplorerView: View {
     private func exportHTML() {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "grammar-artifact.html"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult, lexer: store.lexerResult).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
+        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult, lexer: store.lexerResult, testReport: store.testReport).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
         catch { exportMessage = "Could not export: \(error.localizedDescription)" }
+    }
+
+    private func exportInterchange() {
+        guard let document else { return }
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "grammar-workbench.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try GrammarInterchangeCodec.encode(document.wrappedValue).write(to: url, options: .atomic)
+            exportMessage = "Exported project interchange to \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not export interchange: \(error.localizedDescription)"
+        }
+    }
+
+    private func importInterchange() {
+        guard let document else { return }
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let imported = try GrammarInterchangeCodec.decode(Data(contentsOf: url))
+            document.wrappedValue = imported
+            store.load(source: imported.source, documentName: url.lastPathComponent)
+            store.algorithm = LRAlgorithm(rawValue: imported.algorithm) ?? .lalr
+            store.sampleInput = imported.samples.first { $0.id == imported.selectedSampleID }?.input ?? ""
+            store.parseSample()
+            selectedTestID = imported.tests.first?.id
+            tab = .tests
+            exportMessage = "Imported \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not import interchange: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportArtifactInterchange() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "grammar-artifact.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try GrammarInterchangeCodec.encodeArtifact(
+                source: store.frontEnd.source, algorithm: store.algorithm.rawValue
+            )
+            try data.write(to: url, options: .atomic)
+            exportMessage = "Exported artifact interchange to \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not export artifact interchange: \(error.localizedDescription)"
+        }
     }
 
     private func openGrammar() {
@@ -604,6 +790,26 @@ public struct ArtifactExplorerView: View {
         document.wrappedValue = updated
         store.sampleInput = ""
         store.parseSample()
+    }
+
+    private func addTest() {
+        guard let document else { return }
+        var updated = document.wrappedValue
+        let test = WorkbenchTestCase(name: "Test \(updated.tests.count + 1)", input: "", expectation: .accept)
+        updated.tests.append(test)
+        document.wrappedValue = updated
+        selectedTestID = test.id
+        store.clearTestReport()
+    }
+
+    private func deleteSelectedTest() {
+        guard let document, let selectedTestID else { return }
+        var updated = document.wrappedValue
+        guard let index = updated.tests.firstIndex(where: { $0.id == selectedTestID }) else { return }
+        updated.tests.remove(at: index)
+        document.wrappedValue = updated
+        self.selectedTestID = updated.tests.isEmpty ? nil : updated.tests[min(index, updated.tests.count - 1)].id
+        store.clearTestReport()
     }
 
     private func deleteSelectedSample() {

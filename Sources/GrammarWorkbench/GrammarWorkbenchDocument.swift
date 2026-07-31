@@ -28,6 +28,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     public var algorithm: String
     public var samples: [WorkbenchSample]
     public var selectedSampleID: UUID
+    public var tests: [WorkbenchTestCase]
 
     public init(
         source: String = Self.defaultSource,
@@ -35,7 +36,11 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         samples: [WorkbenchSample] = [
             WorkbenchSample(name: "Expression", input: "alpha + beta * gamma")
         ],
-        selectedSampleID: UUID? = nil
+        selectedSampleID: UUID? = nil,
+        tests: [WorkbenchTestCase] = [
+            .init(name: "Valid expression", input: "alpha + beta * gamma", expectation: .accept),
+            .init(name: "Missing operand", input: "alpha +", expectation: .reject)
+        ]
     ) {
         let normalizedSamples = samples.isEmpty
             ? [WorkbenchSample(name: "Sample 1", input: "")]
@@ -46,6 +51,22 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         self.selectedSampleID = selectedSampleID.flatMap { selected in
             normalizedSamples.contains { $0.id == selected } ? selected : nil
         } ?? normalizedSamples[0].id
+        self.tests = tests
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case source, algorithm, samples, selectedSampleID, tests
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            source: try values.decode(String.self, forKey: .source),
+            algorithm: try values.decodeIfPresent(String.self, forKey: .algorithm) ?? "LALR(1)",
+            samples: try values.decodeIfPresent([WorkbenchSample].self, forKey: .samples) ?? [],
+            selectedSampleID: try values.decodeIfPresent(UUID.self, forKey: .selectedSampleID),
+            tests: try values.decodeIfPresent([WorkbenchTestCase].self, forKey: .tests) ?? []
+        )
     }
 
     public init(configuration: ReadConfiguration) throws {
@@ -58,7 +79,8 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
                 source: decoded.source,
                 algorithm: decoded.algorithm,
                 samples: decoded.samples,
-                selectedSampleID: decoded.selectedSampleID
+                selectedSampleID: decoded.selectedSampleID,
+                tests: decoded.tests
             )
         } else {
             guard let source = String(data: data, encoding: .utf8) else {

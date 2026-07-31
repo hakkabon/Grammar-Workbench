@@ -1,6 +1,8 @@
 import Foundation
 
 enum SampleArtifact {
+    static let grammarSource = "%start E\n%left '+'\n%left '*'\n\nE : E '+' E\n  | E '*' E\n  | 'id'\n  ;"
+
     static func make(algorithm: LRAlgorithm) -> GrammarArtifact {
         let productions = [
             Production(id: .init(rawValue: 0), lhs: "S′", rhs: ["E"]),
@@ -60,7 +62,7 @@ enum SampleArtifact {
         let trace = replay(["id", "+", "id", "*", "id"], ending: "accept", state: 1)
         return GrammarArtifact(
             algorithm: algorithm,
-            grammarSource: "%start E\n%left '+'\n%left '*'\n\nE : E '+' E\n  | E '*' E\n  | 'id'\n  ;",
+            grammarSource: grammarSource,
             terminals: ["id", "+", "*", "$"], nonterminals: ["E"], productions: productions,
             states: states, transitions: transitions, cells: cells, decisions: decisions,
             sample: ParseSample(input: "id + id * id", tree: "E\n├─ E → id\n├─ +\n└─ E\n   ├─ E → id\n   ├─ *\n   └─ E → id", trace: trace)
@@ -80,5 +82,38 @@ enum SampleArtifact {
             ReplayFrame(index: 2, stack: ["0", "E", "1"], remainingInput: Array(tokens.dropFirst()) + ["$"], action: "reduce E → id", state: .init(rawValue: 1)),
             ReplayFrame(index: 3, stack: ["…", "E", "\(state)"], remainingInput: [tokens.last ?? "id", "$"], action: ending, state: .init(rawValue: state))
         ]
+    }
+}
+
+enum FrontEndArtifact {
+    static func make(result: GrammarFrontEndResult, algorithm: LRAlgorithm) -> GrammarArtifact {
+        guard let grammar = result.grammar else {
+            let fallback = SampleArtifact.make(algorithm: algorithm)
+            return GrammarArtifact(
+                algorithm: algorithm, grammarSource: result.source,
+                terminals: fallback.terminals, nonterminals: fallback.nonterminals,
+                productions: fallback.productions, states: fallback.states,
+                transitions: fallback.transitions, cells: fallback.cells,
+                decisions: fallback.decisions, sample: fallback.sample
+            )
+        }
+        let productions = grammar.productions.map {
+            Production(id: .init(rawValue: $0.id), lhs: $0.lhs, rhs: $0.rhs)
+        }
+        let initialItems = productions.map {
+            LRItem(id: "front-\($0.id.rawValue)", production: $0.id, text: "\($0.lhs) → • \($0.rhs.isEmpty ? "ε" : $0.rhs.joined(separator: " "))")
+        }
+        return GrammarArtifact(
+            algorithm: algorithm,
+            grammarSource: result.source,
+            terminals: grammar.terminals + ["$"],
+            nonterminals: grammar.nonterminals,
+            productions: productions,
+            states: [AutomatonState(id: .init(rawValue: 0), items: initialItems)],
+            transitions: [],
+            cells: [],
+            decisions: [],
+            sample: ParseSample(input: "", tree: "LR construction pending", trace: [])
+        )
     }
 }

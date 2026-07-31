@@ -94,12 +94,92 @@ public enum GrammarFrontEnd {
         var parser = GrammarParser(tokens: lexed.tokens, diagnostics: lexed.diagnostics)
         let parsed = parser.parse()
         let grammar = parser.diagnostics.contains { $0.severity == .error } ? nil : parsed
+        let analysis = grammar.map(GrammarAnalyzer.analyze)
+        let semanticDiagnostics = grammar.map {
+            GrammarValidator.validate($0, startingAt: parser.diagnostics.count)
+        } ?? []
         return GrammarFrontEndResult(
             source: source,
             grammar: grammar,
-            analysis: grammar.map(GrammarAnalyzer.analyze),
-            diagnostics: parser.diagnostics
+            analysis: analysis,
+            diagnostics: parser.diagnostics + semanticDiagnostics
         )
+    }
+}
+
+private enum GrammarValidator {
+    static func validate(_ grammar: ParsedGrammar, startingAt firstID: Int) -> [GrammarDiagnostic] {
+        var diagnostics: [GrammarDiagnostic] = []
+        let nonterminals = Set(grammar.nonterminals)
+        let productionsByLHS = Dictionary(grouping: grammar.productions, by: \.lhs)
+
+        var reachable: Set<String> = [grammar.startSymbol]
+        var changed = true
+        while changed {
+            changed = false
+            for symbol in reachable {
+                for production in productionsByLHS[symbol, default: []] {
+                    for referenced in production.rhs where nonterminals.contains(referenced) {
+                        changed = reachable.insert(referenced).inserted || changed
+                    }
+                }
+            }
+        }
+        for symbol in grammar.nonterminals where !reachable.contains(symbol) {
+            if let range = productionsByLHS[symbol]?.first?.range {
+                append(.warning, "Nonterminal ‘\(symbol)’ is unreachable from the start symbol.", range, to: &diagnostics, firstID: firstID)
+            }
+        }
+
+        var productive: Set<String> = []
+        changed = true
+        while changed {
+            changed = false
+            for production in grammar.productions
+            where production.rhs.allSatisfy({ !nonterminals.contains($0) || productive.contains($0) }) {
+                changed = productive.insert(production.lhs).inserted || changed
+            }
+        }
+        for symbol in grammar.nonterminals where !productive.contains(symbol) {
+            if let range = productionsByLHS[symbol]?.first?.range {
+                append(.warning, "Nonterminal ‘\(symbol)’ cannot derive a terminal string.", range, to: &diagnostics, firstID: firstID)
+            }
+        }
+
+        var seenProductions: Set<String> = []
+        for production in grammar.productions {
+            let key = "\(production.lhs)\u{0}\(production.rhs.joined(separator: "\u{0}"))"
+            if !seenProductions.insert(key).inserted {
+                append(.warning, "Duplicate production ‘\(production.text)’.", production.range, to: &diagnostics, firstID: firstID)
+            }
+        }
+
+        let usedSymbols = Set(grammar.productions.flatMap(\.rhs))
+        for declaration in grammar.precedence {
+            for symbol in declaration.symbols where !usedSymbols.contains(symbol) {
+                append(.warning, "Precedence symbol ‘\(symbol)’ is never used in a production.", declaration.range, to: &diagnostics, firstID: firstID)
+            }
+        }
+        if grammar.terminals.contains("$"),
+           let production = grammar.productions.first(where: { $0.rhs.contains("$") }) {
+            append(.warning, "‘$’ is reserved for end-of-input.", production.range, to: &diagnostics, firstID: firstID)
+        }
+        return diagnostics
+    }
+
+    private static func append(
+        _ severity: GrammarDiagnostic.Severity,
+        _ message: String,
+        _ range: SourceRange,
+        to diagnostics: inout [GrammarDiagnostic],
+        firstID: Int
+    ) {
+        diagnostics.append(.init(
+            id: firstID + diagnostics.count,
+            severity: severity,
+            message: message,
+            range: range
+        ))
     }
 }
 
@@ -326,8 +406,9 @@ private struct GrammarParser {
         }
         _ = advance()
         var rhs: [(name: String, explicitTerminal: Bool)] = []
+        var alternativeStart = start
         var lastEnd = current.range.end
-        while !isEOF {
+        while true {
             switch current.kind {
             case .identifier(let value):
                 rhs.append((value, false)); lastEnd = current.range.end; _ = advance()
@@ -336,21 +417,22 @@ private struct GrammarParser {
             case .newline:
                 _ = advance()
             case .pipe:
-                drafts.append((lhs, rhs, .init(start: start, end: lastEnd)))
+                drafts.append((lhs, rhs, .init(start: alternativeStart, end: lastEnd)))
                 rhs = []
+                alternativeStart = current.range.end
                 lastEnd = current.range.end
                 _ = advance()
             case .semicolon:
                 lastEnd = current.range.end
                 _ = advance()
-                drafts.append((lhs, rhs, .init(start: start, end: lastEnd)))
+                drafts.append((lhs, rhs, .init(start: alternativeStart, end: lastEnd)))
                 return
             case .directive, .colon:
                 report("Unexpected token in production.", at: current.range)
                 _ = advance()
             case .eof:
                 report("Expected ‘;’ to end production for ‘\(lhs)’.", at: current.range)
-                drafts.append((lhs, rhs, .init(start: start, end: lastEnd)))
+                drafts.append((lhs, rhs, .init(start: alternativeStart, end: lastEnd)))
                 return
             }
         }

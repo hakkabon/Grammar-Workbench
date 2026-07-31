@@ -6,7 +6,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
-        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
+        .executable(name: "grammar-workbench-app", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"])
     ],
     targets: [

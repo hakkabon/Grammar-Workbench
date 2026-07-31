@@ -14,6 +14,8 @@ The native grammar editor provides syntax highlighting, line numbers, Find, symb
 
 Use `%token NAME ...` to enable explicit-terminal mode and undefined-symbol validation. Grammars without `%token` remain compatible and infer unquoted terminals.
 
+The automaton view uses a deterministic layered layout with routed cyclic edges, state/item/transition search, decision-state filtering, adaptive compact rendering, pan and zoom, Fit controls, and a minimap. Large graphs render a bounded state window while preserving the selected state.
+
 ## Architecture
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.

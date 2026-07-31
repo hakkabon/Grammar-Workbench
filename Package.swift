@@ -10,18 +10,13 @@ let package = Package(
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"])
     ],
     targets: [
-<<<<<<< HEAD
-        .target(name: "GrammarWorkbench"),
+        .target(name: "GrammarWorkbench", resources: [.process("Resources")]),
         .executableTarget(
             name: "GrammarWorkbenchApp",
             dependencies: ["GrammarWorkbench"],
             path: "Sources/App"
         ),
-=======
-        .target(name: "GrammarWorkbench", resources: [.process("Resources")]),
-        .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
         .executableTarget(name: "GrammarWorkbenchCLI", dependencies: ["GrammarWorkbench"]),
->>>>>>> dev-branch
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"])
     ]
 )

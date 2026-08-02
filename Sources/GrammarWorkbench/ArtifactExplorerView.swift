@@ -57,6 +57,13 @@ public struct ArtifactExplorerView: View {
             }
             if store.isRegenerating {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
+            } else if let performance = store.constructionPerformance {
+                ToolbarItem {
+                    Text(performanceLabel(performance))
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(.secondary)
+                        .help(performanceHelp(performance))
+                }
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
             ToolbarItem {
@@ -77,6 +84,22 @@ public struct ArtifactExplorerView: View {
         .onChange(of: document?.wrappedValue.source) { _, source in
             if let source { store.updateSource(source) }
         }
+    }
+
+    private func performanceLabel(_ performance: GrammarConstructionPerformance) -> String {
+        switch performance.reuse {
+        case .none: return String(format: "%.1f ms", performance.totalMilliseconds)
+        case .cacheHit: return "Cached"
+        case .coalesced: return "Shared"
+        }
+    }
+
+    private func performanceHelp(_ performance: GrammarConstructionPerformance) -> String {
+        String(
+            format: "Front end %.2f ms · LR construction %.2f ms · %d states · %d items · %d table entries",
+            performance.frontEndMilliseconds, performance.constructionMilliseconds,
+            performance.stateCount, performance.itemCount, performance.tableEntryCount
+        )
     }
 
     private var sourceSidebar: some View {

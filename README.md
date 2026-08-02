@@ -38,6 +38,15 @@ let parserSource = try compilation.generateSwiftParser(options: .init(typeName: 
 let comparison = try compilation.compareAlgorithms()
 ```
 
+For live editors and build services, `GrammarWorkbenchIncrementalCompiler` moves construction off the caller's executor, coalesces concurrent equal requests, and keeps a bounded least-recently-used cache of immutable compilations. Each result includes front-end, LR-construction, total-delivery, state, item, and table-entry metrics; `statistics()` exposes cache hits, misses, shared requests, and evictions.
+
+```swift
+let compiler = GrammarWorkbenchIncrementalCompiler(capacity: 8)
+let compilation = await compiler.compile(.init(source: grammarSource, algorithm: .lalr))
+print(compilation.performance)
+print(await compiler.statistics())
+```
+
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
@@ -56,7 +65,7 @@ For a local Developer ID release, provide `SIGNING_IDENTITY="Developer ID Applic
 
 The entitlement template grants only App Sandbox, user-selected read/write files, and app-scoped bookmarks. An external Xcode host should use [Packaging/GrammarWorkbench.entitlements](Packaging/GrammarWorkbench.entitlements) and mirror [Packaging/Info.plist](Packaging/Info.plist).
 
-The app is a native document-based workbench. `.grammarworkbench` documents persist editable grammar source, the selected LR algorithm, and named sample inputs with macOS autosave and undo support. Plain-text grammars can also be opened and exported. Edits regenerate diagnostics and artifacts after a short debounce while retaining the last valid automaton during syntax errors.
+The app is a native document-based workbench. `.grammarworkbench` documents persist editable grammar source, the selected LR algorithm, and named sample inputs with macOS autosave and undo support. Plain-text grammars can also be opened and exported. Edits regenerate diagnostics and artifacts after a short debounce on an incremental background compiler while retaining the last valid automaton during syntax errors. Stale edit results are discarded, identical in-flight builds share work, and recent exact source/algorithm requests are reused. The toolbar reports construction latency and exposes phase and artifact-size details in its tooltip.
 
 The native grammar editor provides syntax highlighting, line numbers, Find, symbol/directive completion, inline diagnostic underlines, source navigation from artifacts and diagnostics, semantic grammar warnings, and targeted quick fixes.
 
@@ -85,6 +94,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
+- `IncrementalConstruction.swift`: actor-isolated request coalescing, bounded LRU reuse, and construction metrics.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.

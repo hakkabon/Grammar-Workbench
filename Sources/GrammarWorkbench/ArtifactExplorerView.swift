@@ -59,13 +59,15 @@ public struct ArtifactExplorerView: View {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
-            if document != nil {
-                ToolbarItem {
-                    Menu("Interchange", systemImage: "arrow.left.arrow.right") {
+            ToolbarItem {
+                Menu("Interchange", systemImage: "arrow.left.arrow.right") {
+                    if document != nil {
                         Button("Export Project JSON…", action: exportInterchange)
-                        Button("Export Artifact JSON…", action: exportArtifactInterchange)
                         Button("Import Project JSON…", action: importInterchange)
                     }
+                    Button("Export Artifact JSON…", action: exportArtifactInterchange)
+                    Divider()
+                    Button("Generate Swift Parser…", action: exportSwiftParser)
                 }
             }
         }
@@ -757,6 +759,26 @@ public struct ArtifactExplorerView: View {
             exportMessage = "Exported artifact interchange to \(url.lastPathComponent)."
         } catch {
             exportMessage = "Could not export artifact interchange: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportSwiftParser() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.sourceCode]
+        panel.nameFieldStringValue = "GeneratedParser.swift"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            guard let algorithm = GrammarAlgorithm(rawValue: store.algorithm.rawValue) else {
+                throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: store.frontEnd.source, algorithm: algorithm
+            ))
+            let source = try compilation.generateSwiftParser()
+            try source.write(to: url, atomically: true, encoding: .utf8)
+            exportMessage = "Generated Swift parser at \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not generate parser: \(error.localizedDescription)"
         }
     }
 

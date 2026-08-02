@@ -34,9 +34,12 @@ guard compilation.succeeded else {
 let parse = compilation.parse("name + value")
 print(parse.status, parse.tree ?? "")
 let portableJSON = try compilation.encodeArtifactSnapshot()
+let parserSource = try compilation.generateSwiftParser(options: .init(typeName: "ExpressionParser"))
 ```
 
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
+
+Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
 
 `Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
 
@@ -68,6 +71,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
+- `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.

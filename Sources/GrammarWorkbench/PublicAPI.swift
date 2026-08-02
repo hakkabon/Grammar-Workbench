@@ -239,6 +239,19 @@ public struct GrammarCompilation: Sendable {
         return try encoder.encode(artifact)
     }
 
+    /// Generates a dependency-free, table-driven Swift parser with the grammar's
+    /// lexer rules embedded in declaration order.
+    public func generateSwiftParser(
+        options: SwiftParserGenerationOptions = .init()
+    ) throws -> String {
+        guard let compiledGrammar, let compiledArtifact else {
+            throw GrammarWorkbenchAPIError.compilationFailed(firstError)
+        }
+        return try SwiftParserCodeGenerator.generate(
+            grammar: compiledGrammar, artifact: compiledArtifact, options: options
+        )
+    }
+
     private var firstError: String {
         diagnostics.first(where: { $0.severity == .error })?.message ?? "The grammar did not compile."
     }

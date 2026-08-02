@@ -60,6 +60,20 @@ struct GrammarWorkbenchCLI {
             let data = try GrammarInterchangeCodec.encodeArtifact(source: source, algorithm: algorithm)
             try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2])")
+        case "generate-swift":
+            guard (3...5).contains(arguments.count) else {
+                throw CLIError.usage("generate-swift requires GRAMMAR OUTPUT [ALGORITHM] [TYPE]")
+            }
+            let source = try read(arguments[1])
+            let algorithmName = arguments.count >= 4 ? arguments[3] : GrammarAlgorithm.lalr.rawValue
+            guard let algorithm = GrammarAlgorithm(rawValue: algorithmName) else {
+                throw CLIError.usage("unknown LR algorithm ‘\(algorithmName)’")
+            }
+            let typeName = arguments.count == 5 ? arguments[4] : "GeneratedParser"
+            let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: algorithm))
+            let generated = try compilation.generateSwiftParser(options: .init(typeName: typeName))
+            try Data(generated.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+            print("Wrote \(arguments[2])")
         default:
             throw CLIError.usage("unknown command ‘\(command)’")
         }
@@ -76,6 +90,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench validate GRAMMAR
       grammar-workbench test PROJECT
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
+      grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).

@@ -196,6 +196,32 @@ struct GrammarWorkbenchCLI {
             guard result.status == .accepted || result.status == .acceptedWithRecovery else {
                 throw CLIError.parseFailed(result.status.rawValue)
             }
+        case "research-parse":
+            guard (3...5).contains(arguments.count) else {
+                throw CLIError.usage("research-parse requires GRAMMAR INPUT [OUTPUT] [--include-resolved]")
+            }
+            let trailing = Array(arguments.dropFirst(3))
+            let unknownFlags = trailing.filter { $0.hasPrefix("--") && $0 != "--include-resolved" }
+            guard unknownFlags.isEmpty,
+                  trailing.filter({ !$0.hasPrefix("--") }).count <= 1 else {
+                throw CLIError.usage("research-parse accepts one output and --include-resolved")
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            let result = compilation.parseGeneralized(
+                arguments[2],
+                options: .init(exploresResolvedConflicts: trailing.contains("--include-resolved"))
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(result)
+            if let output = trailing.first(where: { !$0.hasPrefix("--") }) {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output): \(result.status.rawValue), \(result.alternatives.count) alternative(s)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         default:
             throw CLIError.usage("unknown command ‘\(command)’")
         }
@@ -242,6 +268,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench lower-ebnf EBNF OUTPUT
       grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench parse GRAMMAR INPUT [OUTPUT]
+      grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [--include-resolved]
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).

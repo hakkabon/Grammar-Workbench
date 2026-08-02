@@ -12,6 +12,18 @@ public struct GrammarSyntaxNode: Hashable, Codable, Sendable {
 
     public var isTerminal: Bool { production == nil && children.isEmpty }
 
+    public func rendered() -> String {
+        func lines(_ node: Self, prefix: String) -> [String] {
+            node.children.enumerated().flatMap { index, child in
+                let last = index == node.children.count - 1
+                let label = child.isMissing ? "⟨missing \(child.symbol)⟩" : child.symbol
+                return ["\(prefix)\(last ? "└─ " : "├─ ")\(label)"]
+                    + lines(child, prefix: prefix + (last ? "   " : "│  "))
+            }
+        }
+        return ([symbol] + lines(self, prefix: "")).joined(separator: "\n")
+    }
+
     public func descendants(named symbol: String) -> [GrammarSyntaxNode] {
         (self.symbol == symbol ? [self] : []) + children.flatMap { $0.descendants(named: symbol) }
     }

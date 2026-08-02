@@ -14,6 +14,8 @@ Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The
 
 For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to inspect lowering, `diff` to review artifact changes, and the `GrammarWorkbenchPlugin` SwiftPM build plugin to turn target-local `.grammar` or `.ebnf` files into standalone Swift parsers.
 
+Accepted parses expose a source-aware structured syntax tree. Library clients can implement `GrammarSemanticReducer` to build typed ASTs or evaluate a tree, while generated Swift parsers provide the equivalent bottom-up `Node.evaluate` hook. Export Semantic Model JSON for external language tooling, or use the CLI `parse` command for a machine-readable tree.
+
 The repository's `Examples/Corpus` directory contains larger examples for recursive data, statement grammars, nested lexer modes, and intentional conflicts. They are also exercised by release smoke tests.
 
 Documents autosave through the macOS document architecture. Release builds are sandboxed and only access files explicitly selected by the user.

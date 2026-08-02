@@ -48,7 +48,7 @@ private struct UnsafeOutputGenerator: GrammarGenerator {
     let registry = GrammarGeneratorRegistry()
     let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
 
-    #expect(await registry.availableGenerators().map(\.id) == ["artifact-json", "bnf", "swift"])
+    #expect(await registry.availableGenerators().map(\.id) == ["artifact-json", "bnf", "semantic-model-json", "swift"])
     try await registry.register(SummaryGenerator())
     let result = try await registry.generate(
         identifier: "test-summary", from: compilation, options: .init(["name": "List"])
@@ -60,6 +60,18 @@ private struct UnsafeOutputGenerator: GrammarGenerator {
     await #expect(throws: GrammarGeneratorRegistryError.self) {
         try await registry.generate(identifier: "test-summary", from: compilation)
     }
+}
+
+@Test func semanticModelGeneratorExportsStableProductionIdentities() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
+    let result = try await GrammarGeneratorRegistry().generate(
+        identifier: "semantic-model-json", from: compilation
+    )
+    let data = try #require(result.files.first?.contents)
+    let model = try JSONDecoder().decode(GrammarSemanticModel.self, from: data)
+    #expect(model.schemaVersion == 1)
+    #expect(model.startSymbol == "List")
+    #expect(model.productions.map(\.id) == [1, 2, 3])
 }
 
 @Test func registryRejectsDuplicateAndEmptyGeneratorResults() async throws {

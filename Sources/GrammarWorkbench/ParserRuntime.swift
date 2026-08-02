@@ -3,6 +3,20 @@ import Foundation
 struct ParseTreeNode: Hashable, Sendable {
     let symbol: String
     let children: [ParseTreeNode]
+    let production: ProductionID?
+    let isMissing: Bool
+
+    init(
+        symbol: String,
+        children: [ParseTreeNode],
+        production: ProductionID? = nil,
+        isMissing: Bool = false
+    ) {
+        self.symbol = symbol
+        self.children = children
+        self.production = production
+        self.isMissing = isMissing
+    }
 
     func rendered() -> String {
         var lines = [symbol]
@@ -312,7 +326,10 @@ enum LRParserRuntime {
                 symbols.append(lookahead)
                 states.append(target)
                 let nodeSymbol = insertedTokenIndices.contains(cursor) ? "⟨missing \(lookahead)⟩" : lookahead
-                nodes.append(ParseTreeNode(symbol: nodeSymbol, children: []))
+                nodes.append(ParseTreeNode(
+                    symbol: nodeSymbol, children: [],
+                    isMissing: insertedTokenIndices.contains(cursor)
+                ))
                 cursor += 1
             case .reduce(let productionID):
                 guard let production = artifact.productions.first(where: { $0.id == productionID }),
@@ -352,7 +369,9 @@ enum LRParserRuntime {
                 }
                 symbols.append(production.lhs)
                 states.append(target)
-                nodes.append(ParseTreeNode(symbol: production.lhs, children: children))
+                nodes.append(ParseTreeNode(
+                    symbol: production.lhs, children: children, production: productionID
+                ))
             case .accept:
                 frames.append(frame(
                     index: frames.count,

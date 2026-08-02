@@ -23,11 +23,15 @@ done
 "$CLI_PATH" validate "$ROOT_DIR/Examples/Expression.ebnf" >/dev/null
 "$CLI_PATH" lower-ebnf "$ROOT_DIR/Examples/Expression.ebnf" "$WORK_DIR/Expression.bnf"
 "$CLI_PATH" diff "$ROOT_DIR/Examples/Expression.grammar" "$ROOT_DIR/Examples/Corpus/JSONSubset.grammar" "$WORK_DIR/diff.json"
+"$CLI_PATH" generate semantic-model-json "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/Expression.semantic.json"
+"$CLI_PATH" parse "$ROOT_DIR/Examples/Expression.grammar" "left + right" "$WORK_DIR/parse.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
 test -s "$WORK_DIR/GeneratedParser.swift"
 test -s "$WORK_DIR/JSONSubset.bnf"
+test -s "$WORK_DIR/Expression.semantic.json"
+test -s "$WORK_DIR/parse.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 
 echo "Release smoke tests passed."

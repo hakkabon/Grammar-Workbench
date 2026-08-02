@@ -198,7 +198,7 @@ public struct GrammarFrontEndResult: Sendable {
 public enum GrammarFrontEnd {
     public static func process(_ source: String) -> GrammarFrontEndResult {
         let lexed = GrammarLexer(source: source).scan()
-        var parser = GrammarParser(tokens: lexed.tokens, diagnostics: lexed.diagnostics)
+        var parser = WorkbenchGrammarParser(tokens: lexed.tokens, diagnostics: lexed.diagnostics)
         let parsed = parser.parse()
         let syntacticallyValidGrammar = parser.diagnostics.contains { $0.severity == .error } ? nil : parsed
         let analysis = syntacticallyValidGrammar.map(GrammarAnalyzer.analyze)
@@ -215,6 +215,16 @@ public enum GrammarFrontEnd {
             diagnostics: parser.diagnostics + semanticDiagnostics + (lexerAnalysis?.diagnostics ?? []),
             lexerAnalysis: lexerAnalysis?.analysis
         )
+    }
+
+    public static func process(
+        _ source: String,
+        notation: GrammarSourceNotation
+    ) -> GrammarFrontEndResult {
+        switch notation {
+        case .workbench: process(source)
+        case .ebnf: EBNFGrammarAdapter.process(source)
+        }
     }
 }
 
@@ -631,7 +641,7 @@ private struct GrammarLexer {
     }
 }
 
-private struct GrammarParser {
+private struct WorkbenchGrammarParser {
     let tokens: [GrammarToken]
     var diagnostics: [GrammarDiagnostic]
     private var index = 0

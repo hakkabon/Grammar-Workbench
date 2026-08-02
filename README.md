@@ -34,6 +34,18 @@ let parserSource = try compilation.generateSwiftParser(options: .init(typeName: 
 let comparison = try compilation.compareAlgorithms()
 ```
 
+ISO-style EBNF is also a first-class input. Select EBNF in the app or set `notation: .ebnf` in a compilation request; `.ebnf` files are detected automatically by the CLI and document importer. Grammar Workbench delegates expansion to the existing `Grammar` package and then feeds its lowered BNF into the same LR pipeline, so there is only one EBNF implementation. The lowered source and stable synthetic nonterminal names are available for inspection:
+
+```swift
+let lowered = GrammarWorkbenchAPI.lowerEBNF(ebnfSource)
+let compilation = GrammarWorkbenchAPI.compile(.init(
+    source: ebnfSource,
+    algorithm: .lalr,
+    notation: .ebnf
+))
+print(lowered.loweredSource)
+```
+
 ## Extensible generation and external interchange
 
 `GrammarGenerator` is the public extension boundary for code generators, documentation emitters, and build-system adapters. A generator receives only `GrammarCompilation` and public immutable snapshots. Register generators in an independent `GrammarGeneratorRegistry`; equal identifiers are rejected unless replacement is explicit, and generation runs away from the registry actor. Results support one or more named text or binary files plus non-fatal diagnostics.
@@ -50,7 +62,7 @@ let result = try await registry.generate(
 
 Built-ins provide the standalone Swift parser (`swift`), portable production-only BNF (`bnf`), and versioned artifact JSON (`artifact-json`). The app exposes Swift and BNF generation in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
 
-Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange remains schema 1 because its format did not change.
+Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange is schema 2 and records the source notation; schema-1 projects remain readable and default to the native workbench notation.
 
 For live editors and build services, `GrammarWorkbenchIncrementalCompiler` moves construction off the caller's executor, coalesces concurrent equal requests, and keeps a bounded least-recently-used cache of immutable compilations. Each result includes front-end, LR-construction, total-delivery, state, item, and table-entry metrics; `statistics()` exposes cache hits, misses, shared requests, and evictions.
 
@@ -65,11 +77,22 @@ print(await compiler.statistics())
 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
 
-Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It reports source-located expected-token sets, performs bounded single-token insertion or deletion, falls back to panic-mode synchronization, continues after recoverable errors, and marks inserted symbols in the concrete parse tree. Pass `GrammarParseOptions(enablesRecovery: false)` for strict fail-fast parsing. Recovery decisions also appear in the Workbench trace, standalone HTML reports, and generated parsers through `parseRecovering`.
+Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It reports source-located expected-token sets, performs bounded single-token insertion or deletion, falls back to panic-mode synchronization, continues after recoverable errors, and marks inserted symbols in the concrete parse tree. Pass `GrammarParseOptions(enablesRecovery: false)` for strict fail-fast parsing. Language-specific recovery can prioritize likely inserted tokens and restrict panic-mode boundaries with `preferredInsertions` and `synchronizationTerminals`. Recovery decisions also appear in the Workbench trace, standalone HTML reports, and generated parsers through `parseRecovering`.
+
+`GrammarCompilation.diff(from:)` explains the structural effect of an edit with state, table, conflict, production, and terminal deltas plus added and removed rules. The Analysis inspector shows this impact after each successful rebuild, and `grammar-workbench diff OLD NEW [OUTPUT]` emits the same information as JSON for reviews and CI.
 
 The **Compare** workspace constructs SLR(1), LALR(1), and canonical LR(1) lazily from the same grammar. It compares state, transition, table, conflict, and resolved-decision counts; maps states by stable LR(0) cores; identifies canonical states merged by LALR; and lists semantically different table cells with navigation into the currently selected artifact. Recommendations prioritize eliminating unresolved conflicts and then minimizing state complexity. Comparison reports are Codable through `compareAlgorithms()`, may be included in standalone HTML, and are available from `grammar-workbench compare GRAMMAR [OUTPUT]`.
 
-`Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
+`Examples/Expression.grammar`, `Examples/Expression.ebnf`, and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI. `grammar-workbench lower-ebnf INPUT.ebnf OUTPUT` exposes the lowered form for debugging.
+
+For build-time generation, attach the package's `GrammarWorkbenchPlugin` to a Swift target containing `.grammar` or `.ebnf` files. The plugin invokes the same CLI generator and emits standalone `<GrammarName>Parser.swift` sources, keeping generated parser behavior aligned with the workbench:
+
+```swift
+.target(
+    name: "LanguageParser",
+    plugins: [.plugin(name: "GrammarWorkbenchPlugin", package: "GrammarWorkbench")]
+)
+```
 
 ## Production validation
 
@@ -119,6 +142,8 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `GeneratorInfrastructure.swift`: public generator protocol, registry, multi-file results, and built-in generators.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
+- `EBNFGrammarAdapter.swift`: integration with the Grammar package's EBNF lowering and stable native-source conversion.
+- `ArtifactDiff.swift`: public structural edit-impact summaries.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.
 - `ParserRuntime.swift`: legacy token input, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.

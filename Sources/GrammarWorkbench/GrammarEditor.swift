@@ -21,7 +21,13 @@ struct GrammarQuickFix: Identifiable, Equatable {
 }
 
 enum GrammarEditorIntelligence {
-    static func completions(for result: GrammarFrontEndResult) -> [String] {
+    static func completions(
+        for result: GrammarFrontEndResult,
+        notation: GrammarSourceNotation = .workbench
+    ) -> [String] {
+        if notation == .ebnf {
+            return Array(Set(["lexical"] + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
+        }
         let directives = ["%start", "%token", "%skip", "%mode", "%begin", "%push", "%pop", "%left", "%right", "%nonassoc", "%expect"]
         return Array(Set(directives + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
     }
@@ -183,7 +189,10 @@ struct GrammarSourceEditor: NSViewRepresentable {
             apply(pattern: #"'(?:\\.|[^'])*'|"(?:\\.|[^"])*""#, color: .systemRed, to: storage)
             apply(pattern: #"(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_′]*)[ \t]*:"#,
                   color: .systemBlue, fontWeight: .semibold, captureGroup: 1, to: storage)
+            apply(pattern: #"(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_′]*)[ \t]*="#,
+                  color: .systemBlue, fontWeight: .semibold, captureGroup: 1, to: storage)
             apply(pattern: #"[:|;]"#, color: .systemOrange, fontWeight: .bold, to: storage)
+            apply(pattern: #"[=\[\]{}()]"#, color: .systemOrange, fontWeight: .bold, to: storage)
 
             for diagnostic in diagnostics {
                 var range = nsRange(diagnostic.range, in: textView.string)

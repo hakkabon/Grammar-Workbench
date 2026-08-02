@@ -69,6 +69,7 @@ E : E '+' ID | ID ;
     let document = GrammarWorkbenchDocument(
         source: testingGrammar,
         algorithm: "Canonical LR(1)",
+        notation: .workbench,
         samples: [
             .init(name: "first", input: "one"),
             .init(id: selected, name: "selected", input: "one + two")
@@ -80,10 +81,11 @@ E : E '+' ID | ID ;
     let decoded = try GrammarInterchangeCodec.decode(data)
     #expect(decoded.source == document.source)
     #expect(decoded.algorithm == document.algorithm)
+    #expect(decoded.notation == document.notation)
     #expect(decoded.samples == document.samples)
     #expect(decoded.selectedSampleID == selected)
     #expect(decoded.tests == document.tests)
-    #expect(String(decoding: data, as: UTF8.self).contains("\"schemaVersion\" : 1"))
+    #expect(String(decoding: data, as: UTF8.self).contains("\"schemaVersion\" : 2"))
 }
 
 @Test func projectInterchangeRejectsUnsupportedVersionsAndInvalidGrammar() throws {
@@ -97,6 +99,23 @@ E : E '+' ID | ID ;
     object["source"] = "Broken :"
     let invalid = try JSONSerialization.data(withJSONObject: object)
     #expect(throws: GrammarInterchangeError.self) { try GrammarInterchangeCodec.decode(invalid) }
+}
+
+@Test func projectInterchangeReadsSchemaOneWithoutNotation() throws {
+    let current = try GrammarInterchangeCodec.encode(.init(source: testingGrammar))
+    var object = try #require(JSONSerialization.jsonObject(with: current) as? [String: Any])
+    object["schemaVersion"] = 1
+    object.removeValue(forKey: "notation")
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    #expect(try GrammarInterchangeCodec.decode(legacy).notation == .workbench)
+}
+
+@Test func projectInterchangePreservesEBNFNotation() throws {
+    let source = "expression = term, { '+', term };\nterm = 'id';"
+    let data = try GrammarInterchangeCodec.encode(.init(source: source, notation: .ebnf))
+    let decoded = try GrammarInterchangeCodec.decode(data)
+    #expect(decoded.source == source)
+    #expect(decoded.notation == .ebnf)
 }
 
 @Test func artifactInterchangeContainsVersionedGeneratedSnapshot() throws {

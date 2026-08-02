@@ -32,4 +32,9 @@ import Testing
 
     #expect(extensions?.contains("grammar") == true)
     #expect(extensions?.contains("txt") == true)
+
+    let ebnfSource = documentTypes?.first {
+        ($0["CFBundleTypeName"] as? String) == "Extended Backus-Naur Form Grammar"
+    }
+    #expect((ebnfSource?["CFBundleTypeExtensions"] as? [String])?.contains("ebnf") == true)
 }

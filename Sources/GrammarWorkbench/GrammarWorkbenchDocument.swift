@@ -6,6 +6,10 @@ public extension UTType {
         exportedAs: "com.grammar-workbench.document",
         conformingTo: .json
     )
+    static let ebnfGrammar = UTType(
+        importedAs: "org.iso.ebnf-source",
+        conformingTo: .plainText
+    )
 }
 
 public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
@@ -21,11 +25,12 @@ public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
 }
 
 public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
-    public static let readableContentTypes: [UTType] = [.grammarWorkbenchDocument, .plainText]
-    public static let writableContentTypes: [UTType] = [.grammarWorkbenchDocument, .plainText]
+    public static let readableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
+    public static let writableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
 
     public var source: String
     public var algorithm: String
+    public var notation: GrammarSourceNotation
     public var samples: [WorkbenchSample]
     public var selectedSampleID: UUID
     public var tests: [WorkbenchTestCase]
@@ -33,6 +38,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     public init(
         source: String = Self.defaultSource,
         algorithm: String = "LALR(1)",
+        notation: GrammarSourceNotation = .workbench,
         samples: [WorkbenchSample] = [
             WorkbenchSample(name: "Expression", input: "alpha + beta * gamma")
         ],
@@ -47,6 +53,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
             : samples
         self.source = source
         self.algorithm = algorithm
+        self.notation = notation
         self.samples = normalizedSamples
         self.selectedSampleID = selectedSampleID.flatMap { selected in
             normalizedSamples.contains { $0.id == selected } ? selected : nil
@@ -55,7 +62,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case source, algorithm, samples, selectedSampleID, tests
+        case source, algorithm, notation, samples, selectedSampleID, tests
     }
 
     public init(from decoder: Decoder) throws {
@@ -63,6 +70,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         self.init(
             source: try values.decode(String.self, forKey: .source),
             algorithm: try values.decodeIfPresent(String.self, forKey: .algorithm) ?? "LALR(1)",
+            notation: try values.decodeIfPresent(GrammarSourceNotation.self, forKey: .notation) ?? .workbench,
             samples: try values.decodeIfPresent([WorkbenchSample].self, forKey: .samples) ?? [],
             selectedSampleID: try values.decodeIfPresent(UUID.self, forKey: .selectedSampleID),
             tests: try values.decodeIfPresent([WorkbenchTestCase].self, forKey: .tests) ?? []
@@ -82,6 +90,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
             self = Self(
                 source: decoded.source,
                 algorithm: decoded.algorithm,
+                notation: decoded.notation,
                 samples: decoded.samples,
                 selectedSampleID: decoded.selectedSampleID,
                 tests: decoded.tests
@@ -90,12 +99,16 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
             guard let source = String(data: data, encoding: .utf8) else {
                 throw CocoaError(.fileReadInapplicableStringEncoding)
             }
-            self = Self(source: source, samples: [WorkbenchSample(name: "Sample 1", input: "")])
+            self = Self(
+                source: source,
+                notation: contentType == .ebnfGrammar ? .ebnf : .workbench,
+                samples: [WorkbenchSample(name: "Sample 1", input: "")]
+            )
         }
     }
 
     public func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        if configuration.contentType == .plainText {
+        if configuration.contentType == .plainText || configuration.contentType == .ebnfGrammar {
             return FileWrapper(regularFileWithContents: Data(source.utf8))
         }
         let encoder = JSONEncoder()

@@ -2,6 +2,20 @@ import Foundation
 import Testing
 import GrammarWorkbench
 
+@Test func publicRecoveryOptionsCanPreferGrammarSpecificInsertion() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(
+        source: "%start S\nS : 'a' Choice ;\nChoice : 'b' | 'c' ;"
+    ))
+    let result = compilation.parse(
+        "a",
+        options: .init(synchronizationTerminals: [";"], preferredInsertions: ["c"])
+    )
+
+    #expect(result.status == .acceptedWithRecovery)
+    #expect(result.diagnostics.first?.recovery == .insertedToken)
+    #expect(result.diagnostics.first?.recoverySymbol == "c")
+}
+
 private let publicGrammar = """
 %token ID /[a-z]+/
 %skip /\\s+/

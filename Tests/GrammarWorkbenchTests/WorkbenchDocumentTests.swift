@@ -17,6 +17,7 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
     let document = GrammarWorkbenchDocument(
         source: "%start S\nS : 'value' ;",
         algorithm: "Canonical LR(1)",
+        notation: .workbench,
         samples: [
             WorkbenchSample(id: selectedID, name: "Valid", input: "value"),
             WorkbenchSample(name: "Invalid", input: "other")
@@ -27,6 +28,7 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
     let decoded = try JSONDecoder().decode(GrammarWorkbenchDocument.self, from: data)
     #expect(decoded.source == document.source)
     #expect(decoded.algorithm == "Canonical LR(1)")
+    #expect(decoded.notation == .workbench)
     #expect(decoded.samples == document.samples)
     #expect(decoded.selectedSampleID == selectedID)
     #expect(decoded.tests == document.tests)
@@ -51,6 +53,17 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
 
     #expect(document.source == source)
     #expect(document.samples.count == 1)
+}
+
+@Test func documentRecognizesEBNFContentType() throws {
+    let source = "value = [ \"optional\" ] ;"
+    let document = try GrammarWorkbenchDocument(
+        fileData: Data(source.utf8),
+        contentType: UTType.ebnfGrammar
+    )
+
+    #expect(document.source == source)
+    #expect(document.notation == .ebnf)
 }
 
 @MainActor

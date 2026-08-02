@@ -13,13 +13,35 @@ public enum GrammarAlgorithm: String, CaseIterable, Codable, Identifiable, Senda
     public var id: Self { self }
 }
 
+public enum GrammarSourceNotation: String, CaseIterable, Codable, Identifiable, Sendable {
+    case workbench = "Workbench"
+    case ebnf = "EBNF"
+
+    public var id: Self { self }
+}
+
 public struct GrammarCompilationRequest: Hashable, Codable, Sendable {
     public var source: String
     public var algorithm: GrammarAlgorithm
+    public var notation: GrammarSourceNotation
 
-    public init(source: String, algorithm: GrammarAlgorithm = .lalr) {
+    public init(
+        source: String,
+        algorithm: GrammarAlgorithm = .lalr,
+        notation: GrammarSourceNotation = .workbench
+    ) {
         self.source = source
         self.algorithm = algorithm
+        self.notation = notation
+    }
+
+    private enum CodingKeys: String, CodingKey { case source, algorithm, notation }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        source = try values.decode(String.self, forKey: .source)
+        algorithm = try values.decodeIfPresent(GrammarAlgorithm.self, forKey: .algorithm) ?? .lalr
+        notation = try values.decodeIfPresent(GrammarSourceNotation.self, forKey: .notation) ?? .workbench
     }
 }
 
@@ -147,10 +169,31 @@ public enum GrammarRecoveryKind: String, Codable, Sendable {
 public struct GrammarParseOptions: Hashable, Codable, Sendable {
     public var enablesRecovery: Bool
     public var maximumDiagnostics: Int
+    public var synchronizationTerminals: [String]
+    public var preferredInsertions: [String]
 
-    public init(enablesRecovery: Bool = true, maximumDiagnostics: Int = 8) {
+    public init(
+        enablesRecovery: Bool = true,
+        maximumDiagnostics: Int = 8,
+        synchronizationTerminals: [String] = [],
+        preferredInsertions: [String] = []
+    ) {
         self.enablesRecovery = enablesRecovery
         self.maximumDiagnostics = max(1, maximumDiagnostics)
+        self.synchronizationTerminals = synchronizationTerminals
+        self.preferredInsertions = preferredInsertions
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case enablesRecovery, maximumDiagnostics, synchronizationTerminals, preferredInsertions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        enablesRecovery = try values.decodeIfPresent(Bool.self, forKey: .enablesRecovery) ?? true
+        maximumDiagnostics = max(1, try values.decodeIfPresent(Int.self, forKey: .maximumDiagnostics) ?? 8)
+        synchronizationTerminals = try values.decodeIfPresent([String].self, forKey: .synchronizationTerminals) ?? []
+        preferredInsertions = try values.decodeIfPresent([String].self, forKey: .preferredInsertions) ?? []
     }
 }
 
@@ -239,7 +282,11 @@ public struct GrammarCompilation: Sendable {
         let lexed = lex(input)
         guard !lexed.hasErrors else { return invalidParseResult(lexed.diagnostics[0].message, tokens: lexed.tokens) }
         let recovery = options.enablesRecovery
-            ? ParserRecoveryConfiguration(maximumDiagnostics: options.maximumDiagnostics)
+            ? ParserRecoveryConfiguration(
+                maximumDiagnostics: options.maximumDiagnostics,
+                synchronizationTerminals: Set(options.synchronizationTerminals),
+                preferredInsertions: options.preferredInsertions
+            )
             : .disabled
         let runtime = LRParserRuntime.parse(
             lexed.tokens.map(\.kind), artifact: compiledArtifact, recovery: recovery
@@ -364,10 +411,20 @@ public enum GrammarWorkbenchAPIError: Error, LocalizedError, Sendable {
 public enum GrammarWorkbenchAPI {
     public static let version = GrammarWorkbenchAPIVersion.current
 
+    public static func lowerEBNF(_ source: String) throws -> GrammarLoweringSnapshot {
+        let result = EBNFGrammarAdapter.lower(source)
+        guard let lowering = result.lowering else {
+            throw GrammarWorkbenchAPIError.compilationFailed(
+                result.frontEnd.diagnostics.first?.message ?? "The EBNF grammar could not be lowered."
+            )
+        }
+        return lowering
+    }
+
     public static func compile(_ request: GrammarCompilationRequest) -> GrammarCompilation {
         let totalStart = ContinuousClock.now
         let frontEndStart = ContinuousClock.now
-        let result = GrammarFrontEnd.process(request.source)
+        let result = GrammarFrontEnd.process(request.source, notation: request.notation)
         let frontEndMilliseconds = elapsedMilliseconds(since: frontEndStart)
         guard !result.hasErrors, let grammar = result.grammar, let analysis = result.analysis else {
             return .init(apiVersion: version, request: request, diagnostics: result.diagnostics,

@@ -77,9 +77,48 @@ public struct LexerRuleDeclaration: Identifiable, Hashable, Codable, Sendable {
     public let id: Int
     public let token: String?
     public let pattern: String
+    public let mode: String
+    public let action: LexerModeAction
     public let range: SourceRange
 
     public var isSkipped: Bool { token == nil }
+
+    init(id: Int, token: String?, pattern: String, mode: String, action: LexerModeAction, range: SourceRange) {
+        self.id = id; self.token = token; self.pattern = pattern
+        self.mode = mode; self.action = action; self.range = range
+    }
+
+    private enum CodingKeys: String, CodingKey { case id, token, pattern, mode, action, range }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(Int.self, forKey: .id)
+        token = try values.decodeIfPresent(String.self, forKey: .token)
+        pattern = try values.decode(String.self, forKey: .pattern)
+        mode = try values.decodeIfPresent(String.self, forKey: .mode) ?? "DEFAULT"
+        action = try values.decodeIfPresent(LexerModeAction.self, forKey: .action) ?? .none
+        range = try values.decode(SourceRange.self, forKey: .range)
+    }
+}
+
+public enum LexerModeAction: Hashable, Codable, Sendable {
+    case none
+    case begin(String)
+    case push(String)
+    case pop
+}
+
+public struct LexerModeDeclaration: Identifiable, Hashable, Codable, Sendable {
+    public let name: String
+    public let range: SourceRange
+    public var id: String { name }
+}
+
+public struct LexerModeAnalysis: Hashable, Codable, Sendable {
+    public let modes: [String]
+    public let reachableModes: [String]
+    public let transitions: [String: [String]]
+    public let shadowedRuleIDs: [Int]
 }
 
 public struct GrammarSymbolReference: Hashable, Codable, Sendable {
@@ -100,10 +139,44 @@ public struct ParsedGrammar: Hashable, Codable, Sendable {
     public let precedence: [PrecedenceDeclaration]
     public let tokenDeclarations: [TokenDeclaration]
     public let lexerRules: [LexerRuleDeclaration]
+    public let lexerModes: [LexerModeDeclaration]
     public let undeclaredSymbols: [GrammarSymbolReference]
     public let conflictExpectation: ConflictExpectationDeclaration?
 
     public var usesExplicitTokens: Bool { !tokenDeclarations.isEmpty }
+
+    init(
+        startSymbol: String, nonterminals: [String], terminals: [String],
+        productions: [GrammarProduction], precedence: [PrecedenceDeclaration],
+        tokenDeclarations: [TokenDeclaration], lexerRules: [LexerRuleDeclaration],
+        lexerModes: [LexerModeDeclaration], undeclaredSymbols: [GrammarSymbolReference],
+        conflictExpectation: ConflictExpectationDeclaration?
+    ) {
+        self.startSymbol = startSymbol; self.nonterminals = nonterminals; self.terminals = terminals
+        self.productions = productions; self.precedence = precedence
+        self.tokenDeclarations = tokenDeclarations; self.lexerRules = lexerRules
+        self.lexerModes = lexerModes; self.undeclaredSymbols = undeclaredSymbols
+        self.conflictExpectation = conflictExpectation
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case startSymbol, nonterminals, terminals, productions, precedence, tokenDeclarations,
+             lexerRules, lexerModes, undeclaredSymbols, conflictExpectation
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        startSymbol = try values.decode(String.self, forKey: .startSymbol)
+        nonterminals = try values.decode([String].self, forKey: .nonterminals)
+        terminals = try values.decode([String].self, forKey: .terminals)
+        productions = try values.decode([GrammarProduction].self, forKey: .productions)
+        precedence = try values.decode([PrecedenceDeclaration].self, forKey: .precedence)
+        tokenDeclarations = try values.decode([TokenDeclaration].self, forKey: .tokenDeclarations)
+        lexerRules = try values.decode([LexerRuleDeclaration].self, forKey: .lexerRules)
+        lexerModes = try values.decodeIfPresent([LexerModeDeclaration].self, forKey: .lexerModes) ?? []
+        undeclaredSymbols = try values.decode([GrammarSymbolReference].self, forKey: .undeclaredSymbols)
+        conflictExpectation = try values.decodeIfPresent(ConflictExpectationDeclaration.self, forKey: .conflictExpectation)
+    }
 }
 
 public struct GrammarAnalysis: Hashable, Codable, Sendable {
@@ -117,6 +190,7 @@ public struct GrammarFrontEndResult: Sendable {
     public let grammar: ParsedGrammar?
     public let analysis: GrammarAnalysis?
     public let diagnostics: [GrammarDiagnostic]
+    public let lexerAnalysis: LexerModeAnalysis?
 
     public var hasErrors: Bool { diagnostics.contains { $0.severity == .error } }
 }
@@ -131,11 +205,15 @@ public enum GrammarFrontEnd {
         let semanticDiagnostics = syntacticallyValidGrammar.map {
             GrammarValidator.validate($0, startingAt: parser.diagnostics.count)
         } ?? []
+        let lexerAnalysis = syntacticallyValidGrammar.map {
+            LexerModeAnalyzer.analyze($0, startingAt: parser.diagnostics.count + semanticDiagnostics.count)
+        }
         return GrammarFrontEndResult(
             source: source,
             grammar: syntacticallyValidGrammar,
             analysis: analysis,
-            diagnostics: parser.diagnostics + semanticDiagnostics
+            diagnostics: parser.diagnostics + semanticDiagnostics + (lexerAnalysis?.diagnostics ?? []),
+            lexerAnalysis: lexerAnalysis?.analysis
         )
     }
 }
@@ -312,6 +390,105 @@ private enum GrammarValidator {
     }
 }
 
+private enum LexerModeAnalyzer {
+    struct Result {
+        let analysis: LexerModeAnalysis
+        let diagnostics: [GrammarDiagnostic]
+    }
+
+    static func analyze(_ grammar: ParsedGrammar, startingAt firstID: Int) -> Result {
+        var diagnostics: [GrammarDiagnostic] = []
+        var modes = ["DEFAULT"]
+        var declarations: [String: LexerModeDeclaration] = [:]
+        for declaration in grammar.lexerModes {
+            if declaration.name == "DEFAULT" {
+                continue
+            } else if declarations[declaration.name] != nil {
+                diagnostics.append(.init(
+                    id: firstID + diagnostics.count, severity: .warning, code: "duplicate-lexer-mode",
+                    message: "Lexer mode ‘\(declaration.name)’ is selected more than once.", range: declaration.range
+                ))
+            } else {
+                declarations[declaration.name] = declaration
+                modes.append(declaration.name)
+            }
+        }
+        let modeSet = Set(modes)
+        var transitions: [String: Set<String>] = [:]
+        for rule in grammar.lexerRules {
+            switch rule.action {
+            case .begin(let target), .push(let target):
+                transitions[rule.mode, default: []].insert(target)
+                if !modeSet.contains(target) {
+                    diagnostics.append(.init(
+                        id: firstID + diagnostics.count, severity: .error, code: "unknown-lexer-mode",
+                        message: "Lexer rule transitions to undeclared mode ‘\(target)’.", range: rule.range
+                    ))
+                }
+            case .pop where rule.mode == "DEFAULT":
+                diagnostics.append(.init(
+                    id: firstID + diagnostics.count, severity: .error, code: "invalid-mode-pop",
+                    message: "A rule in DEFAULT cannot pop the lexer mode stack.", range: rule.range
+                ))
+            case .none, .pop:
+                break
+            }
+        }
+
+        var reachable: Set<String> = ["DEFAULT"]
+        var changed = true
+        while changed {
+            changed = false
+            for source in Array(reachable) {
+                for target in transitions[source, default: []] where modeSet.contains(target) {
+                    changed = reachable.insert(target).inserted || changed
+                }
+            }
+        }
+        for mode in modes where mode != "DEFAULT" && !reachable.contains(mode) {
+            if let declaration = declarations[mode] {
+                diagnostics.append(.init(
+                    id: firstID + diagnostics.count, severity: .warning, code: "unreachable-lexer-mode",
+                    message: "Lexer mode ‘\(mode)’ is unreachable from DEFAULT.", range: declaration.range
+                ))
+            }
+        }
+        for mode in modes where !grammar.lexerRules.contains(where: { $0.mode == mode }) {
+            let range = declarations[mode]?.range ?? grammar.productions.first?.range
+            if let range, grammar.lexerRules.isEmpty == false {
+                diagnostics.append(.init(
+                    id: firstID + diagnostics.count, severity: .warning, code: "empty-lexer-mode",
+                    message: "Lexer mode ‘\(mode)’ has no rules and cannot consume input.", range: range
+                ))
+            }
+        }
+
+        var firstRule: [String: Int] = [:]
+        var shadowed: [Int] = []
+        for rule in grammar.lexerRules {
+            let key = "\(rule.mode)\u{1f}\(rule.pattern)"
+            if let earlier = firstRule[key] {
+                shadowed.append(rule.id)
+                diagnostics.append(.init(
+                    id: firstID + diagnostics.count, severity: .warning, code: "shadowed-lexer-rule",
+                    message: "Lexer rule \(rule.id) is shadowed by earlier rule \(earlier) with the same pattern in mode ‘\(rule.mode)’.",
+                    range: rule.range
+                ))
+            } else {
+                firstRule[key] = rule.id
+            }
+        }
+
+        return Result(
+            analysis: .init(
+                modes: modes, reachableModes: modes.filter(reachable.contains),
+                transitions: transitions.mapValues { $0.sorted() }, shadowedRuleIDs: shadowed
+            ),
+            diagnostics: diagnostics
+        )
+    }
+}
+
 private struct GrammarToken {
     enum Kind: Equatable {
         case identifier(String)
@@ -462,6 +639,8 @@ private struct GrammarParser {
     private var precedence: [PrecedenceDeclaration] = []
     private var tokenDeclarations: [TokenDeclaration] = []
     private var lexerRules: [LexerRuleDeclaration] = []
+    private var lexerModes: [LexerModeDeclaration] = []
+    private var activeLexerMode = "DEFAULT"
     private var conflictExpectation: ConflictExpectationDeclaration?
     private var drafts: [(lhs: String, rhs: [(name: String, explicitTerminal: Bool, range: SourceRange)], range: SourceRange)] = []
 
@@ -514,6 +693,7 @@ private struct GrammarParser {
             precedence: precedence,
             tokenDeclarations: tokenDeclarations,
             lexerRules: lexerRules,
+            lexerModes: lexerModes,
             undeclaredSymbols: undeclaredSymbols,
             conflictExpectation: conflictExpectation
         )
@@ -541,8 +721,14 @@ private struct GrammarParser {
                     foundToken = true
                     _ = advance()
                     if case .pattern(let pattern) = current.kind {
-                        lexerRules.append(.init(id: lexerRules.count, token: value, pattern: pattern, range: .init(start: directiveToken.range.start, end: current.range.end)))
+                        let patternEnd = current.range.end
                         _ = advance()
+                        let action = parseLexerModeAction()
+                        lexerRules.append(.init(
+                            id: lexerRules.count, token: value, pattern: pattern,
+                            mode: activeLexerMode, action: action,
+                            range: .init(start: directiveToken.range.start, end: patternEnd)
+                        ))
                     }
                 default:
                     report("Expected a token name in %token declaration.", at: current.range)
@@ -554,10 +740,24 @@ private struct GrammarParser {
             }
         } else if name == "skip" {
             if case .pattern(let pattern) = current.kind {
-                lexerRules.append(.init(id: lexerRules.count, token: nil, pattern: pattern, range: .init(start: directiveToken.range.start, end: current.range.end)))
+                let patternEnd = current.range.end
                 _ = advance()
+                let action = parseLexerModeAction()
+                lexerRules.append(.init(
+                    id: lexerRules.count, token: nil, pattern: pattern,
+                    mode: activeLexerMode, action: action,
+                    range: .init(start: directiveToken.range.start, end: patternEnd)
+                ))
             } else {
                 report("Expected a /pattern/ after %skip.", at: current.range, code: "invalid-lexer-rule")
+            }
+        } else if name == "mode" {
+            if case .identifier(let mode) = current.kind {
+                lexerModes.append(.init(name: mode, range: current.range))
+                activeLexerMode = mode
+                _ = advance()
+            } else {
+                report("Expected a lexer mode name after %mode.", at: current.range, code: "invalid-lexer-mode")
             }
         } else if name == "expect" {
             if conflictExpectation != nil {
@@ -595,6 +795,25 @@ private struct GrammarParser {
             skipToNewline()
         }
         skipToNewline()
+    }
+
+    private mutating func parseLexerModeAction() -> LexerModeAction {
+        guard case .directive(let action) = current.kind else { return .none }
+        let actionToken = advance()
+        switch action {
+        case "begin", "push":
+            guard case .identifier(let mode) = current.kind else {
+                report("Expected a lexer mode name after %\(action).", at: current.range, code: "invalid-mode-transition")
+                return .none
+            }
+            _ = advance()
+            return action == "begin" ? .begin(mode) : .push(mode)
+        case "pop":
+            return .pop
+        default:
+            report("Unknown lexer rule action ‘%\(action)’.", at: actionToken.range, code: "invalid-mode-transition")
+            return .none
+        }
     }
 
     private mutating func parseRule() {

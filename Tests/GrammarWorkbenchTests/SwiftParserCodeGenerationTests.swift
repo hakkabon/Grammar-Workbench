@@ -53,6 +53,43 @@ List : List ',' ID | ID ;
     #expect(try compilation.generateSwiftParser() == compilation.generateSwiftParser())
 }
 
+@Test func generatedParserPreservesLexerModeTransitions() throws {
+    let grammar = #"""
+    %token ID /[a-z]+/
+    %token QUOTE /"/ %push STRING
+    %skip /\s+/
+    %mode STRING
+    %token TEXT /[^"]+/
+    %token QUOTE /"/ %pop
+    %start S
+    S : ID QUOTE TEXT QUOTE ;
+    """#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let source = try compilation.generateSwiftParser(options: .init(typeName: "ModeParser"))
+    #expect(source.contains("mode: \"STRING\""))
+    #expect(source.contains("action: .push(\"STRING\")"))
+
+    let directory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("GrammarWorkbenchModes-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let generatedURL = directory.appendingPathComponent("Generated.swift")
+    let mainURL = directory.appendingPathComponent("main.swift")
+    let executableURL = directory.appendingPathComponent("mode-parser-test")
+    try source.write(to: generatedURL, atomically: true, encoding: .utf8)
+    try """
+    import Foundation
+    let tokens = try ModeParser.tokenize("say \\"hello world\\"")
+    print(tokens.map(\\.kind).joined(separator: ","))
+    print(tokens.map(\\.mode).joined(separator: ","))
+    """.write(to: mainURL, atomically: true, encoding: .utf8)
+    let compile = try run("/usr/bin/xcrun", ["swiftc", generatedURL.path, mainURL.path, "-o", executableURL.path])
+    #expect(compile.status == 0, Comment(rawValue: compile.output))
+    let execution = try run(executableURL.path, [])
+    #expect(execution.status == 0, Comment(rawValue: execution.output))
+    #expect(execution.output == "ID,QUOTE,TEXT,QUOTE\nDEFAULT,DEFAULT,STRING,STRING\n")
+}
+
 @Test func generatorRejectsInvalidNamesAndUnresolvedConflicts() throws {
     let deterministic = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
     #expect(throws: SwiftParserGenerationError.self) {

@@ -152,13 +152,19 @@ public struct ArtifactExplorerView: View {
                             : "Integrated lexer"
                     )
                     if !grammar.lexerRules.isEmpty {
+                        if let lexerAnalysis = store.frontEnd.lexerAnalysis {
+                            LabeledContent("Lexer modes", value: lexerAnalysis.modes.joined(separator: ", "))
+                            LabeledContent("Reachable modes", value: lexerAnalysis.reachableModes.joined(separator: ", "))
+                        }
                         Text("Lexer rules (declaration order)").font(.headline)
                         Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 6) {
-                            GridRow { Text("Emits").bold(); Text("Pattern").bold() }
+                            GridRow { Text("Mode").bold(); Text("Emits").bold(); Text("Pattern").bold(); Text("Action").bold() }
                             ForEach(grammar.lexerRules) { rule in
                                 GridRow {
+                                    Text(rule.mode).font(.system(.body, design: .monospaced))
                                     Text(rule.token ?? "skip").foregroundStyle(rule.isSkipped ? .secondary : .primary)
                                     Text("/\(rule.pattern)/").font(.system(.body, design: .monospaced)).textSelection(.enabled)
+                                    Text(lexerActionLabel(rule.action)).foregroundStyle(.secondary)
                                 }
                             }
                         }
@@ -222,6 +228,15 @@ public struct ArtifactExplorerView: View {
         Text("{ \(values.sorted().joined(separator: ", ")) }")
             .font(.system(.body, design: .monospaced))
             .textSelection(.enabled)
+    }
+
+    private func lexerActionLabel(_ action: LexerModeAction) -> String {
+        switch action {
+        case .none: "—"
+        case .begin(let mode): "begin \(mode)"
+        case .push(let mode): "push \(mode)"
+        case .pop: "pop"
+        }
     }
 
     private var tableView: some View {
@@ -391,11 +406,12 @@ public struct ArtifactExplorerView: View {
                         Table(lexer.tokens) {
                             TableColumn("Token") { Text($0.kind).font(.system(.body, design: .monospaced)) }
                             TableColumn("Lexeme") { Text($0.lexeme).font(.system(.body, design: .monospaced)) }
+                            TableColumn("Mode") { Text($0.mode).font(.system(.body, design: .monospaced)) }
                             TableColumn("Location") { Text("\($0.range.start.line):\($0.range.start.column)") }
                         }.frame(minHeight: 100, maxHeight: 180)
                     }
                     ForEach(lexer.diagnostics) { diagnostic in
-                        Label("\(diagnostic.range.start.line):\(diagnostic.range.start.column) \(diagnostic.message)", systemImage: "xmark.octagon.fill")
+                        Label("\(diagnostic.range.start.line):\(diagnostic.range.start.column) [\(diagnostic.mode)] \(diagnostic.message)", systemImage: "xmark.octagon.fill")
                             .font(.caption).foregroundStyle(.red)
                     }
                 }

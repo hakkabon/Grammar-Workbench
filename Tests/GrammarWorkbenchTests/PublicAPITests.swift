@@ -70,3 +70,20 @@ List : List ',' ID | ID ;
     #expect(strict.status == .rejected)
     #expect(strict.diagnostics.isEmpty)
 }
+
+@Test func publicAPIExposesLexerModesAndTokenOrigins() throws {
+    let source = #"""
+    %token QUOTE /"/ %push STRING
+    %mode STRING
+    %token TEXT /[^"]+/
+    %token QUOTE /"/ %pop
+    %start S
+    S : QUOTE TEXT QUOTE ;
+    """#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
+    #expect(compilation.succeeded)
+    #expect(compilation.lexerAnalysis?.reachableModes == ["DEFAULT", "STRING"])
+    let result = compilation.lex("\"content\"")
+    #expect(result.tokens.map(\.mode) == ["DEFAULT", "STRING", "STRING"])
+    #expect(result.finalModeStack == ["DEFAULT"])
+}

@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import GrammarWorkbench
 
@@ -8,6 +9,17 @@ private let lexerGrammarSource = #"""
 %skip /\s+/
 
 Assignment : ID EQ ID ;
+"""#
+
+private let modeLexerGrammarSource = #"""
+%token ID /[a-z]+/
+%token QUOTE /"/ %push STRING
+%skip /\s+/
+%mode STRING
+%token TEXT /[^"]+/
+%token QUOTE /"/ %pop
+%start S
+S : ID QUOTE TEXT QUOTE ;
 """#
 
 private func lexerGrammar(_ source: String = lexerGrammarSource) throws -> ParsedGrammar {
@@ -96,4 +108,93 @@ private func lexerGrammar(_ source: String = lexerGrammarSource) throws -> Parse
     #expect(html.contains("Lexer tokens"))
     #expect(html.contains("left"))
     #expect(html.contains("1:1"))
+}
+
+@Test func lexerModesPushPopAndPreserveTokenOrigins() throws {
+    let frontEnd = GrammarFrontEnd.process(modeLexerGrammarSource)
+    let grammar = try #require(frontEnd.grammar)
+    #expect(!frontEnd.hasErrors)
+    #expect(frontEnd.lexerAnalysis?.modes == ["DEFAULT", "STRING"])
+    #expect(frontEnd.lexerAnalysis?.reachableModes == ["DEFAULT", "STRING"])
+    #expect(frontEnd.lexerAnalysis?.transitions["DEFAULT"] == ["STRING"])
+
+    let lexed = GrammarLexerRuntime.lex("say \"hello world\"", grammar: grammar)
+    #expect(!lexed.hasErrors)
+    #expect(lexed.tokens.map(\.kind) == ["ID", "QUOTE", "TEXT", "QUOTE"])
+    #expect(lexed.tokens.map(\.mode) == ["DEFAULT", "DEFAULT", "STRING", "STRING"])
+    #expect(lexed.tokens[2].lexeme == "hello world")
+    #expect(lexed.finalModeStack == ["DEFAULT"])
+}
+
+@Test func lexerModeAnalysisFindsTransitionAndShadowingProblems() {
+    let source = #"""
+    %token ID /[a-z]+/ %push MISSING
+    %mode UNUSED
+    %token A /a/
+    %token B /a/
+    %start S
+    S : ID ;
+    """#
+    let result = GrammarFrontEnd.process(source)
+    #expect(result.diagnostics.contains { $0.code == "unknown-lexer-mode" && $0.severity == .error })
+    #expect(result.diagnostics.contains { $0.code == "unreachable-lexer-mode" })
+    #expect(result.diagnostics.contains { $0.code == "shadowed-lexer-rule" })
+    #expect(result.lexerAnalysis?.shadowedRuleIDs.count == 1)
+}
+
+@Test func lexerReportsUnterminatedModeAtEndOfInput() throws {
+    let grammar = try #require(GrammarFrontEnd.process(modeLexerGrammarSource).grammar)
+    let result = GrammarLexerRuntime.lex("say \"hello", grammar: grammar)
+    #expect(result.diagnostics.last?.mode == "STRING")
+    #expect(result.diagnostics.last?.message.contains("ended in lexer mode") == true)
+}
+
+@Test func lexerCoverageDiagnosticsNameTheActiveModeAndContinue() throws {
+    let source = #"""
+    %token QUOTE /"/ %push STRING
+    %mode STRING
+    %token TEXT /[a-z]+/
+    %token QUOTE /"/ %pop
+    %start S
+    S : QUOTE TEXT QUOTE ;
+    """#
+    let grammar = try #require(GrammarFrontEnd.process(source).grammar)
+    let result = GrammarLexerRuntime.lex("\"hello@\"", grammar: grammar)
+    let diagnostic = try #require(result.diagnostics.first)
+    #expect(diagnostic.mode == "STRING")
+    #expect(diagnostic.message.contains("mode ‘STRING’"))
+    #expect(result.tokens.map(\.kind) == ["QUOTE", "TEXT", "QUOTE"])
+    #expect(result.finalModeStack == ["DEFAULT"])
+}
+
+@Test func modeDirectiveCanReturnRuleDeclarationsToDefault() throws {
+    let source = #"""
+    %token OPEN /</ %begin TAG
+    %mode TAG
+    %token NAME /[a-z]+/
+    %token CLOSE />/ %begin DEFAULT
+    %mode DEFAULT
+    %token TEXT /[a-z]+/
+    %start S
+    S : OPEN NAME CLOSE TEXT ;
+    """#
+    let frontEnd = GrammarFrontEnd.process(source)
+    let grammar = try #require(frontEnd.grammar)
+    #expect(!frontEnd.hasErrors)
+    let result = GrammarLexerRuntime.lex("<tag>text", grammar: grammar)
+    #expect(result.tokens.map(\.kind) == ["OPEN", "NAME", "CLOSE", "TEXT"])
+    #expect(result.tokens.map(\.mode) == ["DEFAULT", "TAG", "TAG", "DEFAULT"])
+}
+
+@Test func legacyLexerRuleJSONDefaultsToDefaultModeWithoutAction() throws {
+    let rule = try #require(try lexerGrammar().lexerRules.first)
+    var object = try #require(
+        JSONSerialization.jsonObject(with: JSONEncoder().encode(rule)) as? [String: Any]
+    )
+    object.removeValue(forKey: "mode")
+    object.removeValue(forKey: "action")
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    let decoded = try JSONDecoder().decode(LexerRuleDeclaration.self, from: legacy)
+    #expect(decoded.mode == "DEFAULT")
+    #expect(decoded.action == .none)
 }

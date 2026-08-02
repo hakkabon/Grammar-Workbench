@@ -176,6 +176,26 @@ struct GrammarWorkbenchCLI {
                 for production in difference.addedProductions { print("+ \(production)") }
                 for production in difference.removedProductions { print("- \(production)") }
             }
+        case "parse":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("parse requires GRAMMAR INPUT [OUTPUT]")
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            let result = compilation.parse(arguments[2])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(result)
+            if arguments.count == 4 {
+                try data.write(to: URL(fileURLWithPath: arguments[3]), options: .atomic)
+                print("Wrote \(arguments[3])")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard result.status == .accepted || result.status == .acceptedWithRecovery else {
+                throw CLIError.parseFailed(result.status.rawValue)
+            }
         default:
             throw CLIError.usage("unknown command ‘\(command)’")
         }
@@ -221,6 +241,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench compare GRAMMAR [OUTPUT]
       grammar-workbench lower-ebnf EBNF OUTPUT
       grammar-workbench diff OLD NEW [OUTPUT]
+      grammar-workbench parse GRAMMAR INPUT [OUTPUT]
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).
@@ -231,12 +252,14 @@ private enum CLIError: LocalizedError {
     case usage(String)
     case validationFailed
     case testsFailed
+    case parseFailed(String)
 
     var errorDescription: String? {
         switch self {
         case .usage(let detail): "\(detail). Run with --help for usage."
         case .validationFailed: "grammar validation failed"
         case .testsFailed: "one or more grammar tests failed"
+        case .parseFailed(let status): "input was not accepted (\(status))"
         }
     }
 }

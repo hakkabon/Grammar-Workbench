@@ -101,12 +101,31 @@ enum SwiftParserCodeGenerator {
                 \(access)let children: [Node]
                 \(access)let lexeme: String?
                 \(access)let utf16Offset: Int?
+                \(access)let production: Int?
 
-                \(access)init(symbol: String, children: [Node] = [], lexeme: String? = nil, utf16Offset: Int? = nil) {
+                \(access)init(
+                    symbol: String, children: [Node] = [], lexeme: String? = nil,
+                    utf16Offset: Int? = nil, production: Int? = nil
+                ) {
                     self.symbol = symbol
                     self.children = children
                     self.lexeme = lexeme
                     self.utf16Offset = utf16Offset
+                    self.production = production
+                }
+
+                /// Evaluates this concrete tree bottom-up. Terminal and reduction
+                /// closures let clients construct typed ASTs without editing generated tables.
+                \(access)func evaluate<Value>(
+                    terminal: (Node) throws -> Value,
+                    reduce: (Int, String, [Value], Node) throws -> Value
+                ) rethrows -> Value {
+                    guard let production else { return try terminal(self) }
+                    return try reduce(
+                        production, symbol, try children.map {
+                            try $0.evaluate(terminal: terminal, reduce: reduce)
+                        }, self
+                    )
                 }
             }
 
@@ -194,7 +213,7 @@ enum SwiftParserCodeGenerator {
                             throw ParseError.invalidTable("Missing goto for \\(production.lhs).")
                         }
                         states.append(target)
-                        nodes.append(Node(symbol: production.lhs, children: children))
+                        nodes.append(Node(symbol: production.lhs, children: children, production: id))
                     case .accept:
                         guard let root = nodes.last else { throw ParseError.invalidTable("Accepted without a parse tree.") }
                         return root
@@ -358,7 +377,7 @@ enum SwiftParserCodeGenerator {
                             return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
                         }
                         states.append(target)
-                        nodes.append(Node(symbol: production.lhs, children: children))
+                        nodes.append(Node(symbol: production.lhs, children: children, production: id))
                     case .accept:
                         return RecoveryResult(node: nodes.last, diagnostics: diagnostics, completed: nodes.last != nil)
                     case .goTo:

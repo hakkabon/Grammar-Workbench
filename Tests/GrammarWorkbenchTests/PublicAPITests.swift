@@ -23,6 +23,50 @@ private let publicGrammar = """
 List : List ',' ID | ID ;
 """
 
+private struct IntegerSumReducer: GrammarSemanticReducer {
+    func terminal(_ token: GrammarInputTokenSnapshot, node: GrammarSyntaxNode) throws -> Int {
+        Int(token.lexeme) ?? 0
+    }
+
+    func missing(symbol: String, node: GrammarSyntaxNode) throws -> Int { 0 }
+
+    func reduce(
+        production: GrammarProductionSnapshot, children: [Int], node: GrammarSyntaxNode
+    ) throws -> Int {
+        children.reduce(0, +)
+    }
+}
+
+@Test func structuredSyntaxTreeAndSemanticReducerPreserveSourceInformation() throws {
+    let source = "%token INT /[0-9]+/\n%skip /\\s+/\n%start Sum\nSum : Sum '+' INT | INT ;"
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
+    let result = try compilation.parse("12 + 30", using: IntegerSumReducer())
+
+    #expect(result.value == 42)
+    #expect(result.parse.syntaxTree?.symbol == "Sum")
+    #expect(result.parse.syntaxTree?.range?.start.offset == 0)
+    #expect(result.parse.syntaxTree?.range?.end.offset == 7)
+    #expect(result.parse.syntaxTree?.descendants(named: "INT").map(\.token?.lexeme) == ["12", "30"])
+    #expect(result.parse.syntaxTree?.production != nil)
+}
+
+@Test func structuredSyntaxTreeMarksRecoveryInsertions() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: publicGrammar))
+    let result = compilation.parse("one two")
+    let missing = result.syntaxTree?.descendants(named: ",").first
+    #expect(missing?.isMissing == true)
+    #expect(missing?.token == nil)
+}
+
+@Test func parseResultDecodesLegacyJSONWithoutStructuredTree() throws {
+    let result = GrammarWorkbenchAPI.compile(.init(source: publicGrammar)).parse("one")
+    let encoded = try JSONEncoder().encode(result)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object.removeValue(forKey: "syntaxTree")
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    #expect(try JSONDecoder().decode(GrammarParseResult.self, from: legacy).syntaxTree == nil)
+}
+
 @Test func publicAPICompilesToStableSnapshots() throws {
     let compilation = GrammarWorkbenchAPI.compile(.init(source: publicGrammar, algorithm: .lalr))
 

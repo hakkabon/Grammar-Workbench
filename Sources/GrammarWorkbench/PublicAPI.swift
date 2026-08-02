@@ -227,10 +227,44 @@ public struct GrammarParseResult: Hashable, Codable, Sendable {
     public let tokens: [GrammarInputTokenSnapshot]
     public let expectedTerminals: [String]
     public let tree: String?
+    public let syntaxTree: GrammarSyntaxNode?
     public let trace: [GrammarTraceFrameSnapshot]
     public let conflictState: Int?
     public let conflictSymbol: String?
     public let diagnostics: [GrammarSyntaxDiagnostic]
+
+    init(
+        status: GrammarParseStatus, message: String, tokens: [GrammarInputTokenSnapshot],
+        expectedTerminals: [String], tree: String?, syntaxTree: GrammarSyntaxNode?,
+        trace: [GrammarTraceFrameSnapshot], conflictState: Int?, conflictSymbol: String?,
+        diagnostics: [GrammarSyntaxDiagnostic]
+    ) {
+        self.status = status; self.message = message; self.tokens = tokens
+        self.expectedTerminals = expectedTerminals; self.tree = tree; self.syntaxTree = syntaxTree
+        self.trace = trace; self.conflictState = conflictState; self.conflictSymbol = conflictSymbol
+        self.diagnostics = diagnostics
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case status, message, tokens, expectedTerminals, tree, syntaxTree, trace
+        case conflictState, conflictSymbol, diagnostics
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            status: try values.decode(GrammarParseStatus.self, forKey: .status),
+            message: try values.decode(String.self, forKey: .message),
+            tokens: try values.decode([GrammarInputTokenSnapshot].self, forKey: .tokens),
+            expectedTerminals: try values.decode([String].self, forKey: .expectedTerminals),
+            tree: try values.decodeIfPresent(String.self, forKey: .tree),
+            syntaxTree: try values.decodeIfPresent(GrammarSyntaxNode.self, forKey: .syntaxTree),
+            trace: try values.decode([GrammarTraceFrameSnapshot].self, forKey: .trace),
+            conflictState: try values.decodeIfPresent(Int.self, forKey: .conflictState),
+            conflictSymbol: try values.decodeIfPresent(String.self, forKey: .conflictSymbol),
+            diagnostics: try values.decode([GrammarSyntaxDiagnostic].self, forKey: .diagnostics)
+        )
+    }
 }
 
 /// The result of compilation. Public properties are immutable snapshots; the
@@ -323,6 +357,7 @@ public struct GrammarCompilation: Sendable {
         return .init(
             status: status, message: runtime.outcome.label, tokens: lexed.tokens,
             expectedTerminals: expected, tree: runtime.tree?.rendered(),
+            syntaxTree: runtime.tree.map { GrammarSyntaxNode.make(from: $0, tokens: lexed.tokens) },
             trace: runtime.frames.map(GrammarTraceFrameSnapshot.init),
             conflictState: conflictState, conflictSymbol: conflictSymbol,
             diagnostics: syntaxDiagnostics
@@ -377,7 +412,7 @@ public struct GrammarCompilation: Sendable {
 
     private func invalidParseResult(_ message: String, tokens: [GrammarInputTokenSnapshot] = []) -> GrammarParseResult {
         .init(status: .invalidGrammar, message: message, tokens: tokens, expectedTerminals: [],
-              tree: nil, trace: [], conflictState: nil, conflictSymbol: nil, diagnostics: [])
+              tree: nil, syntaxTree: nil, trace: [], conflictState: nil, conflictSymbol: nil, diagnostics: [])
     }
 
     func withReuse(_ reuse: GrammarConstructionReuse, delivery: Double) -> GrammarCompilation {

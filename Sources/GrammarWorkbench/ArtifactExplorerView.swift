@@ -34,6 +34,8 @@ public struct ArtifactExplorerView: View {
     public var body: some View {
         NavigationSplitView {
             sourceSidebar
+                .navigationSplitViewColumnWidth(min: 300, ideal: 380, max: 620)
+                .clipped()
         } content: {
             VStack(spacing: 0) {
                 Picker("View", selection: $tab) { ForEach(ExplorerTab.allCases) { Text($0.rawValue).tag($0) } }
@@ -80,6 +82,7 @@ public struct ArtifactExplorerView: View {
                         Button("Import Project JSON…", action: importInterchange)
                     }
                     Button("Export Artifact JSON…", action: exportArtifactInterchange)
+                    Button("Export Semantic Model JSON…", action: exportSemanticModel)
                     Divider()
                     Button("Generate Swift Parser…", action: exportSwiftParser)
                     Button("Generate Portable BNF…", action: exportBNF)
@@ -124,6 +127,7 @@ public struct ArtifactExplorerView: View {
                 isEditable: document != nil
             )
                 .frame(minHeight: 280)
+                .clipped()
                 .accessibilityLabel(document == nil ? "Read-only grammar source" : "Editable grammar source")
             Text("\(store.artifact.productions.count) productions · \(store.artifact.states.count) states")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
@@ -1018,6 +1022,31 @@ public struct ArtifactExplorerView: View {
             exportMessage = "Generated Swift parser at \(url.lastPathComponent)."
         } catch {
             exportMessage = "Could not generate parser: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportSemanticModel() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "Grammar.semantic.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            guard let algorithm = GrammarAlgorithm(rawValue: store.algorithm.rawValue) else {
+                throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: sourceBinding.wrappedValue, algorithm: algorithm, notation: store.notation
+            ))
+            let result = try SemanticModelJSONGrammarGenerator().generate(
+                from: compilation, options: .init()
+            )
+            guard let file = result.files.first else {
+                throw GrammarGeneratorRegistryError.emptyResult("semantic-model-json")
+            }
+            try file.contents.write(to: url, options: .atomic)
+            exportMessage = "Exported semantic model to \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not export semantic model: \(error.localizedDescription)"
         }
     }
 

@@ -133,7 +133,8 @@ public actor GrammarGeneratorRegistry {
     public init(includingBuiltIns: Bool = true) {
         if includingBuiltIns {
             let builtIns: [any GrammarGenerator] = [
-                SwiftGrammarGenerator(), BNFGrammarGenerator(), ArtifactJSONGrammarGenerator()
+                SwiftGrammarGenerator(), BNFGrammarGenerator(), ArtifactJSONGrammarGenerator(),
+                SemanticModelJSONGrammarGenerator()
             ]
             self.generators = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.descriptor.id, $0) })
         } else {
@@ -195,6 +196,31 @@ public actor GrammarGeneratorRegistry {
             }
         }
         return result
+    }
+}
+
+public struct SemanticModelJSONGrammarGenerator: GrammarGenerator {
+    public let descriptor = GrammarGeneratorDescriptor(
+        id: "semantic-model-json",
+        displayName: "Semantic Model JSON",
+        summary: "Tool-neutral symbols and production identities for AST and language tooling.",
+        defaultFileExtension: "semantic.json",
+        mediaType: "application/json"
+    )
+
+    public init() {}
+
+    public func generate(
+        from compilation: GrammarCompilation,
+        options: GrammarGeneratorOptions
+    ) throws -> GrammarGenerationResult {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        let data = try encoder.encode(GrammarSemanticModel(compilation: compilation))
+        return .init(
+            generator: descriptor,
+            files: [.init(suggestedFilename: "Grammar.semantic.json", mediaType: descriptor.mediaType, contents: data)]
+        )
     }
 }
 

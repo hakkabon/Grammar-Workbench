@@ -64,7 +64,7 @@ let result = try await registry.generate(
 )
 ```
 
-Built-ins provide the standalone Swift parser (`swift`), portable production-only BNF (`bnf`), and versioned artifact JSON (`artifact-json`). The app exposes Swift and BNF generation in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
+Built-ins provide the standalone Swift parser (`swift`), portable production-only BNF (`bnf`), versioned artifact JSON (`artifact-json`), and a tool-neutral semantic model (`semantic-model-json`). The app exposes these outputs in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
 
 Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange is schema 2 and records the source notation; schema-1 projects remain readable and default to the native workbench notation.
 
@@ -79,7 +79,9 @@ print(await compiler.statistics())
 
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
 
-Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
+Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Every reduction node records its production identity and exposes a bottom-up `evaluate` method, allowing applications to build typed ASTs without modifying generated parser tables. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
+
+Successful library parses now include a Codable `GrammarSyntaxNode` tree alongside the original rendered tree. Nodes preserve lexemes, source ranges, production identities, and missing tokens inserted during recovery. Implement `GrammarSemanticReducer` and call `compilation.parse(input, using: reducer)` to transform that concrete tree into an application-specific AST, evaluator result, symbol index, or other `Sendable` value. `grammar-workbench parse GRAMMAR INPUT [OUTPUT]` emits the structured result as JSON. The versioned `GrammarSemanticModel` maps symbols and parser reduction identities for external AST generators, language servers, and editor integrations.
 
 Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It reports source-located expected-token sets, performs bounded single-token insertion or deletion, falls back to panic-mode synchronization, continues after recoverable errors, and marks inserted symbols in the concrete parse tree. Pass `GrammarParseOptions(enablesRecovery: false)` for strict fail-fast parsing. Language-specific recovery can prioritize likely inserted tokens and restrict panic-mode boundaries with `preferredInsertions` and `synchronizationTerminals`. Recovery decisions also appear in the Workbench trace, standalone HTML reports, and generated parsers through `parseRecovering`.
 
@@ -148,6 +150,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `EBNFGrammarAdapter.swift`: integration with the Grammar package's EBNF lowering and stable native-source conversion.
 - `ArtifactDiff.swift`: public structural edit-impact summaries.
+- `SemanticOutput.swift`: source-aware syntax trees, semantic reducers, and ecosystem metadata.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.
 - `ParserRuntime.swift`: legacy token input, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.

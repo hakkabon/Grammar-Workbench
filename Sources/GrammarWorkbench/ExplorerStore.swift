@@ -11,6 +11,8 @@ final class ExplorerStore {
     private(set) var runtimeResult: ParserRuntimeResult
     private(set) var lexerResult: LexerResult?
     private(set) var testReport: WorkbenchTestReport?
+    private(set) var algorithmComparison: GrammarAlgorithmComparison?
+    private(set) var isComparingAlgorithms = false
     private(set) var isRegenerating = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
@@ -18,6 +20,7 @@ final class ExplorerStore {
     var replayIndex = 0
 
     @ObservationIgnored private var regenerationTask: Task<Void, Never>?
+    @ObservationIgnored private var comparisonTask: Task<Void, Never>?
 
     init(
         source: String = SampleArtifact.grammarSource,
@@ -42,6 +45,7 @@ final class ExplorerStore {
             self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact, recovery: .diagnostic)
         }
         self.testReport = nil
+        self.algorithmComparison = nil
     }
 
     func select(_ identity: ArtifactIdentity) {
@@ -62,6 +66,16 @@ final class ExplorerStore {
         sourceSelection = diagnostic.range
     }
 
+    func selectComparisonState(algorithm target: GrammarAlgorithm, state: Int) {
+        if let value = LRAlgorithm(rawValue: target.rawValue), algorithm != value { algorithm = value }
+        select(.state(.init(rawValue: state)))
+    }
+
+    func selectComparisonCell(algorithm target: GrammarAlgorithm, state: Int, symbol: String) {
+        if let value = LRAlgorithm(rawValue: target.rawValue), algorithm != value { algorithm = value }
+        select(.cell(.init(state: .init(rawValue: state), symbol: symbol)))
+    }
+
     func load(source: String, documentName: String) {
         regenerationTask?.cancel()
         let result = GrammarFrontEnd.process(source)
@@ -74,6 +88,7 @@ final class ExplorerStore {
         parseSample()
         resetSelection()
         testReport = nil
+        invalidateComparison()
     }
 
     func runTests(_ tests: [WorkbenchTestCase]) {
@@ -86,8 +101,29 @@ final class ExplorerStore {
 
     func clearTestReport() { testReport = nil }
 
+    func compareAlgorithms() {
+        guard algorithmComparison == nil, !isComparingAlgorithms,
+              !frontEnd.hasErrors, let grammar = frontEnd.grammar,
+              let analysis = frontEnd.analysis else { return }
+        let source = frontEnd.source
+        let currentArtifact = artifact
+        isComparingAlgorithms = true
+        comparisonTask = Task { [weak self] in
+            let comparison = await Task.detached {
+                AlgorithmComparisonEngine.compare(
+                    grammar: grammar, analysis: analysis, source: source,
+                    reusing: currentArtifact
+                )
+            }.value
+            guard !Task.isCancelled, let self else { return }
+            if self.frontEnd.source == source { self.algorithmComparison = comparison }
+            self.isComparingAlgorithms = false
+        }
+    }
+
     func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
         regenerationTask?.cancel()
+        invalidateComparison()
         isRegenerating = true
         sourceSelection = nil
         regenerationTask = Task { [weak self] in
@@ -159,6 +195,7 @@ final class ExplorerStore {
         }
         isRegenerating = false
         testReport = nil
+        invalidateComparison()
     }
 
     private func resetSelection() {
@@ -166,6 +203,13 @@ final class ExplorerStore {
         sourceSelection = sourceRange(for: selection!)
         selectedBranch = 0
         replayIndex = 0
+    }
+
+    private func invalidateComparison() {
+        comparisonTask?.cancel()
+        comparisonTask = nil
+        algorithmComparison = nil
+        isComparingAlgorithms = false
     }
 
     private func sourceRange(for identity: ArtifactIdentity) -> SourceRange? {

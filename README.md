@@ -31,6 +31,7 @@ let parse = compilation.parse("name + value")
 print(parse.status, parse.tree ?? "")
 let portableJSON = try compilation.encodeArtifactSnapshot()
 let parserSource = try compilation.generateSwiftParser(options: .init(typeName: "ExpressionParser"))
+let comparison = try compilation.compareAlgorithms()
 ```
 
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
@@ -38,6 +39,8 @@ let parserSource = try compilation.generateSwiftParser(options: .init(typeName: 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
 
 Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It reports source-located expected-token sets, performs bounded single-token insertion or deletion, falls back to panic-mode synchronization, continues after recoverable errors, and marks inserted symbols in the concrete parse tree. Pass `GrammarParseOptions(enablesRecovery: false)` for strict fail-fast parsing. Recovery decisions also appear in the Workbench trace, standalone HTML reports, and generated parsers through `parseRecovering`.
+
+The **Compare** workspace constructs SLR(1), LALR(1), and canonical LR(1) lazily from the same grammar. It compares state, transition, table, conflict, and resolved-decision counts; maps states by stable LR(0) cores; identifies canonical states merged by LALR; and lists semantically different table cells with navigation into the currently selected artifact. Recommendations prioritize eliminating unresolved conflicts and then minimizing state complexity. Comparison reports are Codable through `compareAlgorithms()`, may be included in standalone HTML, and are available from `grammar-workbench compare GRAMMAR [OUTPUT]`.
 
 `Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
 
@@ -79,6 +82,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
+- `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.

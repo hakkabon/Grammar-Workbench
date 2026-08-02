@@ -5,7 +5,8 @@ enum HTMLExporter {
         _ artifact: GrammarArtifact,
         runtime: ParserRuntimeResult? = nil,
         lexer: LexerResult? = nil,
-        testReport: WorkbenchTestReport? = nil
+        testReport: WorkbenchTestReport? = nil,
+        algorithmComparison: GrammarAlgorithmComparison? = nil
     ) -> String {
         let automaton = AutomatonSVG.render(artifact, selected: nil)
         let rows = artifact.states.map { state in
@@ -57,13 +58,25 @@ enum HTMLExporter {
         let testSection = testReport.map {
             "<h2>Test suite</h2><p><strong>\($0.passed) passed · \($0.failed) failed</strong></p><table><tr><th>Status</th><th>Test</th><th>Expected</th><th>Actual</th><th>Details</th></tr>\(testRows)</table>"
         } ?? ""
+        let comparisonRows = algorithmComparison?.algorithmMetrics.map {
+            "<tr><td>\(escape($0.algorithm.rawValue))</td><td>\($0.states)</td><td>\($0.transitions)</td><td>\($0.tableEntries)</td><td>\($0.unresolvedConflicts)</td><td>\($0.resolvedDecisions)</td></tr>"
+        }.joined() ?? ""
+        let comparisonDifferences = algorithmComparison?.tableDifferences.prefix(250).map { difference in
+            func cells(_ values: [GrammarComparedCell]) -> String {
+                values.map { "I\($0.state): \($0.actions.map(\.label).joined(separator: " / "))" }.joined(separator: "; ")
+            }
+            return "<tr><td>\(escape(difference.symbol))</td><td>\(escape(difference.kind.rawValue))</td><td>\(escape(cells(difference.slr)))</td><td>\(escape(cells(difference.lalr)))</td><td>\(escape(cells(difference.canonical)))</td></tr>"
+        }.joined() ?? ""
+        let comparisonSection = algorithmComparison.map {
+            "<h2>Algorithm comparison</h2><p><strong>Recommended: \(escape($0.recommendedAlgorithm.rawValue)).</strong> \(escape($0.recommendation))</p><table><tr><th>Algorithm</th><th>States</th><th>Edges</th><th>Entries</th><th>Conflicts</th><th>Resolved</th></tr>\(comparisonRows)</table><h3>Table differences</h3><table><tr><th>Symbol</th><th>Kind</th><th>SLR(1)</th><th>LALR(1)</th><th>Canonical LR(1)</th></tr>\(comparisonDifferences)</table>"
+        } ?? ""
         let trace = (runtime?.frames ?? artifact.sample.trace).map {
             "<tr><td>\($0.index)</td><td><code>\(escape($0.stack.joined(separator: " ")))</code></td><td><code>\(escape($0.remainingInput.joined(separator: " ")))</code></td><td>\(escape($0.action))</td></tr>"
         }.joined()
         return """
         <!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Grammar Artifact</title>
         <style>body{font:15px system-ui;margin:auto;max-width:1100px;padding:32px;color:#172033}pre,code{font-family:ui-monospace,monospace}svg{display:block;max-width:100%;height:auto}main{display:grid;grid-template-columns:1fr 1fr;gap:20px}section{border:1px solid #ccd3df;border-radius:10px;padding:12px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd3df;padding:7px}.conflict,.failed{background:#ffd9d5;color:#8d1710}.passed{background:#dcf5e5;color:#176b38}.invalid{background:#fff0c2;color:#745400}.expected{background:#dcf5e5;color:#176b38;padding:8px;border-radius:8px}.decision-unresolved{border-left:4px solid #c43b32;padding-left:8px}.decision-resolved{border-left:4px solid #3478c9;padding-left:8px}.decision-expected{border-left:4px solid #2d8a50;padding-left:8px}@media(max-width:700px){main{grid-template-columns:1fr}}</style></head>
-        <body><h1>Grammar Artifact Explorer</h1><p>Algorithm: <strong>\(escape(artifact.algorithm.rawValue))</strong></p><h2>Grammar</h2><pre>\(escape(artifact.grammarSource))</pre>\(testSection)<h2>Automaton</h2>\(automaton)<h2>Parsing table</h2><table><tr><th>State</th>\((artifact.terminals + artifact.nonterminals).map { "<th>\(escape($0))</th>" }.joined())</tr>\(rows)</table><h2>Conflicts and decisions</h2>\(expectation)<ol>\(decisions)</ol><h2>Sample parse</h2><p><code>\(escape(lexer?.source ?? sampleInput))</code> — \(escape(sampleOutcome))</p>\(lexerSection)\(diagnosticSection)<pre>\(escape(sampleTree))</pre><h3>Trace</h3><table><tr><th>Step</th><th>Stack</th><th>Input</th><th>Action</th></tr>\(trace)</table></body></html>
+        <body><h1>Grammar Artifact Explorer</h1><p>Algorithm: <strong>\(escape(artifact.algorithm.rawValue))</strong></p><h2>Grammar</h2><pre>\(escape(artifact.grammarSource))</pre>\(comparisonSection)\(testSection)<h2>Automaton</h2>\(automaton)<h2>Parsing table</h2><table><tr><th>State</th>\((artifact.terminals + artifact.nonterminals).map { "<th>\(escape($0))</th>" }.joined())</tr>\(rows)</table><h2>Conflicts and decisions</h2>\(expectation)<ol>\(decisions)</ol><h2>Sample parse</h2><p><code>\(escape(lexer?.source ?? sampleInput))</code> — \(escape(sampleOutcome))</p>\(lexerSection)\(diagnosticSection)<pre>\(escape(sampleTree))</pre><h3>Trace</h3><table><tr><th>Step</th><th>Stack</th><th>Input</th><th>Action</th></tr>\(trace)</table></body></html>
         """
     }
 

@@ -54,3 +54,19 @@ List : List ',' ID | ID ;
     ))
     #expect(!semanticallyInvalid.succeeded)
 }
+
+@Test func publicAPIExposesLocatedRecoveryDiagnostics() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: publicGrammar))
+    let result = compilation.parse("one two")
+    #expect(result.status == .acceptedWithRecovery)
+    #expect(result.diagnostics.count == 1)
+    #expect(result.diagnostics[0].recovery == .insertedToken)
+    #expect(result.diagnostics[0].recoverySymbol == ",")
+    #expect(result.diagnostics[0].expected.contains(","))
+    #expect(result.diagnostics[0].range?.start.column == 5)
+    #expect(result.tree?.contains("⟨missing ,⟩") == true)
+
+    let strict = compilation.parse("one two", options: .init(enablesRecovery: false))
+    #expect(strict.status == .rejected)
+    #expect(strict.diagnostics.isEmpty)
+}

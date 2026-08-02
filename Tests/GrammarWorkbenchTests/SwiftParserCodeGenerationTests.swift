@@ -29,13 +29,15 @@ List : List ',' ID | ID ;
     let tree = try ListParser.parse("one, two")
     print(tree.symbol)
     print(try ListParser.tokenize("one, two").map(\\.kind).joined(separator: ","))
+    let recovered = try ListParser.parseRecovering("one two")
+    print(recovered.completed, recovered.diagnostics.first?.recovery == .insertedToken)
     """.write(to: mainURL, atomically: true, encoding: .utf8)
 
     let compile = try run("/usr/bin/xcrun", ["swiftc", generatedURL.path, mainURL.path, "-o", executableURL.path])
     #expect(compile.status == 0, Comment(rawValue: compile.output))
     let execution = try run(executableURL.path, [])
     #expect(execution.status == 0, Comment(rawValue: execution.output))
-    #expect(execution.output == "List\nID,,,ID\n")
+    #expect(execution.output == "List\nID,,,ID\ntrue true\n")
 }
 
 @Test func generatedParserSupportsLegacyTokenInput() throws {

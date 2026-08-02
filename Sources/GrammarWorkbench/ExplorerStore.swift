@@ -39,7 +39,7 @@ final class ExplorerStore {
         } else {
             self.lexerResult = nil
             let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
-            self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
+            self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact, recovery: .diagnostic)
         }
         self.testReport = nil
     }
@@ -108,7 +108,7 @@ final class ExplorerStore {
         lexerResult = nil
         switch SampleInputTokenizer.tokenize(sampleInput) {
         case .success(let tokens):
-            runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact)
+            runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact, recovery: .diagnostic)
         case .failure(let error):
             runtimeResult = ParserRuntimeResult(
                 tokens: [],
@@ -122,7 +122,7 @@ final class ExplorerStore {
 
     private static func runtimeResult(for lexer: LexerResult, artifact: GrammarArtifact) -> ParserRuntimeResult {
         guard let diagnostic = lexer.diagnostics.first else {
-            return LRParserRuntime.parse(lexer.tokens.map(\.kind), artifact: artifact)
+            return LRParserRuntime.parse(lexer.tokens.map(\.kind), artifact: artifact, recovery: .diagnostic)
         }
         return ParserRuntimeResult(
             tokens: lexer.tokens.map(\.kind), tree: nil, frames: [],

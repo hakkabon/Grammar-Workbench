@@ -19,6 +19,30 @@ struct ParseTreeNode: Hashable, Sendable {
     }
 }
 
+enum ParserRecoveryKind: String, Hashable, Codable, Sendable {
+    case deletedToken
+    case insertedToken
+    case synchronized
+}
+
+struct ParserDiagnostic: Hashable, Codable, Sendable {
+    let index: Int
+    let tokenIndex: Int
+    let state: StateID
+    let unexpected: String
+    let expected: [String]
+    let message: String
+    let recovery: ParserRecoveryKind?
+    let recoverySymbol: String?
+    let recoveryDetail: String?
+}
+
+struct ParserRecoveryConfiguration: Sendable {
+    let maximumDiagnostics: Int
+    static let disabled = ParserRecoveryConfiguration(maximumDiagnostics: 0)
+    static let diagnostic = ParserRecoveryConfiguration(maximumDiagnostics: 8)
+}
+
 enum ParseOutcome: Hashable, Sendable {
     case accepted
     case rejected(message: String, expected: [String])
@@ -40,6 +64,18 @@ struct ParserRuntimeResult: Sendable {
     let tree: ParseTreeNode?
     let frames: [ReplayFrame]
     let outcome: ParseOutcome
+    let diagnostics: [ParserDiagnostic]
+
+    init(
+        tokens: [String], tree: ParseTreeNode?, frames: [ReplayFrame], outcome: ParseOutcome,
+        diagnostics: [ParserDiagnostic] = []
+    ) {
+        self.tokens = tokens
+        self.tree = tree
+        self.frames = frames
+        self.outcome = outcome
+        self.diagnostics = diagnostics
+    }
 }
 
 enum SampleInputTokenizer {
@@ -91,10 +127,12 @@ enum LRParserRuntime {
         _ tokens: [String],
         artifact: GrammarArtifact,
         forcing forcedChoice: (cell: CellID, action: TableAction)? = nil,
-        stepLimit: Int = 1_000
+        stepLimit: Int = 1_000,
+        recovery: ParserRecoveryConfiguration = .disabled
     ) -> ParserRuntimeResult {
         let terminalSet = Set(artifact.terminals.filter { $0 != "$" })
-        if let unknown = tokens.first(where: { !terminalSet.contains($0) }) {
+        if recovery.maximumDiagnostics == 0,
+           let unknown = tokens.first(where: { !terminalSet.contains($0) }) {
             return ParserRuntimeResult(
                 tokens: tokens,
                 tree: nil,
@@ -106,15 +144,18 @@ enum LRParserRuntime {
             )
         }
 
-        let input = tokens + ["$"]
+        var input = tokens + ["$"]
         var cursor = 0
         var states = [StateID(rawValue: 0)]
         var symbols: [String] = []
         var nodes: [ParseTreeNode] = []
         var frames: [ReplayFrame] = []
+        var diagnostics: [ParserDiagnostic] = []
+        var insertedTokenIndices: Set<Int> = []
+        var attemptedRecoveries: Set<String> = []
         var forcedChoiceUsed = false
 
-        for step in 0..<stepLimit {
+        for _ in 0..<stepLimit {
             guard let state = states.last else {
                 return result(.rejected(message: "Parser stack became empty.", expected: []))
             }
@@ -123,17 +164,99 @@ enum LRParserRuntime {
             guard let cell = artifact.cell(cellID), !cell.actions.isEmpty else {
                 let expected = artifact.terminals.filter {
                     artifact.cell(.init(state: state, symbol: $0))?.actions.isEmpty == false
-                }
+                }.sorted()
                 frames.append(frame(
-                    index: step,
+                    index: frames.count,
                     action: "error: no action for ‘\(lookahead)’",
                     state: state,
                     cell: cellID
                 ))
-                return result(.rejected(
-                    message: "Unexpected ‘\(lookahead)’ in \(state).",
-                    expected: expected
-                ))
+                guard recovery.maximumDiagnostics > diagnostics.count else {
+                    return result(.rejected(message: "Unexpected ‘\(lookahead)’ in \(state).", expected: expected))
+                }
+                let signature = "\(state.rawValue):\(cursor):\(lookahead)"
+                let diagnosticTokenIndex = cursor
+                guard attemptedRecoveries.insert(signature).inserted else {
+                    return result(.rejected(message: "Recovery made no progress at ‘\(lookahead)’ in \(state).", expected: expected))
+                }
+
+                if let inserted = expected.first(where: { symbol in
+                    guard symbol != "$", let action = artifact.cell(.init(state: state, symbol: symbol))?.actions.first else { return false }
+                    switch action {
+                    case .reduce: return true
+                    case .shift(let target):
+                        return artifact.cell(.init(state: target, symbol: lookahead))?.actions.isEmpty == false
+                    case .accept, .goTo: return false
+                    }
+                }) {
+                    insertedTokenIndices = Set(insertedTokenIndices.map { $0 >= cursor ? $0 + 1 : $0 })
+                    insertedTokenIndices.insert(cursor)
+                    input.insert(inserted, at: cursor)
+                    diagnostics.append(.init(
+                        index: diagnostics.count, tokenIndex: cursor, state: state,
+                        unexpected: lookahead, expected: expected,
+                        message: "Unexpected ‘\(lookahead)’ in \(state).",
+                        recovery: .insertedToken, recoverySymbol: inserted,
+                        recoveryDetail: "Inserted missing ‘\(inserted)’ before ‘\(lookahead)’."
+                    ))
+                    frames.append(frame(index: frames.count, action: "recover: insert missing ‘\(inserted)’", state: state, cell: cellID))
+                    continue
+                }
+
+                if lookahead != "$", cursor + 1 < input.count,
+                   artifact.cell(.init(state: state, symbol: input[cursor + 1]))?.actions.isEmpty == false {
+                    let removed = input.remove(at: cursor)
+                    insertedTokenIndices = Set(insertedTokenIndices.compactMap {
+                        $0 == cursor ? nil : ($0 > cursor ? $0 - 1 : $0)
+                    })
+                    diagnostics.append(.init(
+                        index: diagnostics.count, tokenIndex: cursor, state: state,
+                        unexpected: removed, expected: expected,
+                        message: "Unexpected ‘\(removed)’ in \(state).",
+                        recovery: .deletedToken, recoverySymbol: removed,
+                        recoveryDetail: "Deleted ‘\(removed)’ and resumed with ‘\(input[cursor])’."
+                    ))
+                    frames.append(frame(index: frames.count, action: "recover: delete unexpected ‘\(removed)’", state: state, cell: cellID))
+                    continue
+                }
+
+                if let inserted = expected.first(where: { symbol in
+                    guard symbol != "$", let candidate = artifact.cell(.init(state: state, symbol: symbol)) else { return false }
+                    return candidate.actions.contains { if case .shift = $0 { true } else { false } }
+                }) {
+                    insertedTokenIndices = Set(insertedTokenIndices.map { $0 >= cursor ? $0 + 1 : $0 })
+                    insertedTokenIndices.insert(cursor)
+                    input.insert(inserted, at: cursor)
+                    diagnostics.append(.init(
+                        index: diagnostics.count, tokenIndex: cursor, state: state,
+                        unexpected: lookahead, expected: expected,
+                        message: "Unexpected ‘\(lookahead)’ in \(state).",
+                        recovery: .insertedToken, recoverySymbol: inserted,
+                        recoveryDetail: "Inserted missing ‘\(inserted)’ before ‘\(lookahead)’."
+                    ))
+                    frames.append(frame(index: frames.count, action: "recover: insert missing ‘\(inserted)’", state: state, cell: cellID))
+                    continue
+                }
+
+                if let point = synchronizationPoint(input: input, cursor: cursor, states: states, artifact: artifact) {
+                    let discarded = Array(input[cursor..<point.cursor])
+                    if point.pops > 0 {
+                        states.removeLast(point.pops)
+                        symbols.removeLast(min(point.pops, symbols.count))
+                        nodes.removeLast(min(point.pops, nodes.count))
+                    }
+                    cursor = point.cursor
+                    diagnostics.append(.init(
+                        index: diagnostics.count, tokenIndex: diagnosticTokenIndex, state: state,
+                        unexpected: lookahead, expected: expected,
+                        message: "Unexpected ‘\(lookahead)’ in \(state).",
+                        recovery: .synchronized, recoverySymbol: input[cursor],
+                        recoveryDetail: "Discarded \(discarded.count) token(s), popped \(point.pops) state(s), and synchronized at ‘\(input[cursor])’."
+                    ))
+                    frames.append(frame(index: frames.count, action: "recover: synchronize at ‘\(input[cursor])’", state: states.last ?? state, cell: nil))
+                    continue
+                }
+                return result(.rejected(message: "Unexpected ‘\(lookahead)’ in \(state); recovery failed.", expected: expected))
             }
 
             let action: TableAction
@@ -146,7 +269,7 @@ enum LRParserRuntime {
                     forcedChoiceUsed = true
                 } else {
                     frames.append(frame(
-                        index: step,
+                        index: frames.count,
                         action: "conflict: \(cell.actions.map(\.label).joined(separator: " or "))",
                         state: state,
                         cell: cellID
@@ -160,14 +283,15 @@ enum LRParserRuntime {
             switch action {
             case .shift(let target):
                 frames.append(frame(
-                    index: step,
+                    index: frames.count,
                     action: "shift ‘\(lookahead)’ to \(target)",
                     state: state,
                     cell: cellID
                 ))
                 symbols.append(lookahead)
                 states.append(target)
-                nodes.append(ParseTreeNode(symbol: lookahead, children: []))
+                let nodeSymbol = insertedTokenIndices.contains(cursor) ? "⟨missing \(lookahead)⟩" : lookahead
+                nodes.append(ParseTreeNode(symbol: nodeSymbol, children: []))
                 cursor += 1
             case .reduce(let productionID):
                 guard let production = artifact.productions.first(where: { $0.id == productionID }),
@@ -175,7 +299,7 @@ enum LRParserRuntime {
                       production.rhs.count < states.count,
                       production.rhs.count <= nodes.count else {
                     frames.append(frame(
-                        index: step,
+                        index: frames.count,
                         action: "error: invalid reduction \(productionID.rawValue)",
                         state: state,
                         cell: cellID,
@@ -184,7 +308,7 @@ enum LRParserRuntime {
                     return result(.rejected(message: "Invalid reduction stack shape.", expected: []))
                 }
                 frames.append(frame(
-                    index: step,
+                    index: frames.count,
                     action: "reduce \(production.text)",
                     state: state,
                     cell: cellID,
@@ -210,7 +334,7 @@ enum LRParserRuntime {
                 nodes.append(ParseTreeNode(symbol: production.lhs, children: children))
             case .accept:
                 frames.append(frame(
-                    index: step,
+                    index: frames.count,
                     action: "accept",
                     state: state,
                     cell: cellID
@@ -218,7 +342,7 @@ enum LRParserRuntime {
                 return result(.accepted)
             case .goTo:
                 frames.append(frame(
-                    index: step,
+                    index: frames.count,
                     action: "error: goto found in ACTION table",
                     state: state,
                     cell: cellID
@@ -256,9 +380,25 @@ enum LRParserRuntime {
                 tokens: tokens,
                 tree: outcome == .accepted ? nodes.last : nil,
                 frames: frames,
-                outcome: outcome
+                outcome: outcome,
+                diagnostics: diagnostics
             )
         }
+    }
+
+    private static func synchronizationPoint(
+        input: [String], cursor: Int, states: [StateID], artifact: GrammarArtifact
+    ) -> (cursor: Int, pops: Int)? {
+        for inputIndex in cursor..<input.count {
+            for stackIndex in states.indices.reversed() {
+                let cell = CellID(state: states[stackIndex], symbol: input[inputIndex])
+                if artifact.cell(cell)?.actions.isEmpty == false {
+                    let pops = states.count - stackIndex - 1
+                    if inputIndex > cursor || pops > 0 { return (inputIndex, pops) }
+                }
+            }
+        }
+        return nil
     }
 }
 

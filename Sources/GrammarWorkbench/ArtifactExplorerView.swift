@@ -75,6 +75,7 @@ public struct ArtifactExplorerView: View {
                     Button("Export Artifact JSON…", action: exportArtifactInterchange)
                     Divider()
                     Button("Generate Swift Parser…", action: exportSwiftParser)
+                    Button("Generate Portable BNF…", action: exportBNF)
                 }
             }
         }
@@ -968,6 +969,29 @@ public struct ArtifactExplorerView: View {
             exportMessage = "Generated Swift parser at \(url.lastPathComponent)."
         } catch {
             exportMessage = "Could not generate parser: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportBNF() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.plainText]
+        panel.nameFieldStringValue = "grammar.bnf"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            guard let algorithm = GrammarAlgorithm(rawValue: store.algorithm.rawValue) else {
+                throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: store.frontEnd.source, algorithm: algorithm
+            ))
+            let result = try BNFGrammarGenerator().generate(from: compilation, options: .init())
+            guard let file = result.files.first else {
+                throw GrammarGeneratorRegistryError.emptyResult("bnf")
+            }
+            try file.contents.write(to: url, options: .atomic)
+            exportMessage = "Generated portable BNF at \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not generate BNF: \(error.localizedDescription)"
         }
     }
 

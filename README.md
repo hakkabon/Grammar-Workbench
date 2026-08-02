@@ -34,6 +34,24 @@ let parserSource = try compilation.generateSwiftParser(options: .init(typeName: 
 let comparison = try compilation.compareAlgorithms()
 ```
 
+## Extensible generation and external interchange
+
+`GrammarGenerator` is the public extension boundary for code generators, documentation emitters, and build-system adapters. A generator receives only `GrammarCompilation` and public immutable snapshots. Register generators in an independent `GrammarGeneratorRegistry`; equal identifiers are rejected unless replacement is explicit, and generation runs away from the registry actor. Results support one or more named text or binary files plus non-fatal diagnostics.
+
+```swift
+let registry = GrammarGeneratorRegistry()
+try await registry.register(MyLanguageGenerator())
+let result = try await registry.generate(
+    identifier: "my-language",
+    from: compilation,
+    options: .init(["namespace": "Example"])
+)
+```
+
+Built-ins provide the standalone Swift parser (`swift`), portable production-only BNF (`bnf`), and versioned artifact JSON (`artifact-json`). The app exposes Swift and BNF generation in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
+
+Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange remains schema 1 because its format did not change.
+
 For live editors and build services, `GrammarWorkbenchIncrementalCompiler` moves construction off the caller's executor, coalesces concurrent equal requests, and keeps a bounded least-recently-used cache of immutable compilations. Each result includes front-end, LR-construction, total-delivery, state, item, and table-entry metrics; `statistics()` exposes cache hits, misses, shared requests, and evictions.
 
 ```swift
@@ -92,6 +110,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
 - `IncrementalConstruction.swift`: actor-isolated request coalescing, bounded LRU reuse, and construction metrics.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
+- `GeneratorInfrastructure.swift`: public generator protocol, registry, multi-file results, and built-in generators.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.

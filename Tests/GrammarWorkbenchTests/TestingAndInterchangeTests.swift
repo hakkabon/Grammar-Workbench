@@ -2,6 +2,13 @@ import Foundation
 import Testing
 @testable import GrammarWorkbench
 
+private struct LegacyArtifactEnvelopeFixture: Encodable {
+    let schemaVersion = 1
+    let kind = "grammar-workbench-artifact"
+    let generatedAt: Date
+    let artifact: GrammarArtifact
+}
+
 private let testingGrammar = #"""
 %start E
 %token ID /[a-z]+/
@@ -95,11 +102,31 @@ E : E '+' ID | ID ;
 @Test func artifactInterchangeContainsVersionedGeneratedSnapshot() throws {
     let data = try GrammarInterchangeCodec.encodeArtifact(source: testingGrammar, algorithm: "SLR(1)")
     let object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-    #expect(object["schemaVersion"] as? Int == 1)
+    #expect(object["schemaVersion"] as? Int == GrammarArtifactInterchange.currentSchemaVersion)
     #expect(object["kind"] as? String == "grammar-workbench-artifact")
     let artifact = try #require(object["artifact"] as? [String: Any])
     #expect(artifact["algorithm"] as? String == "SLR(1)")
     #expect((artifact["states"] as? [Any])?.isEmpty == false)
+    let decoded = try GrammarInterchangeCodec.decodeArtifact(data)
+    #expect(decoded.artifact.algorithm == .slr)
+}
+
+@Test func artifactInterchangeReadsLegacySchemaOneExports() throws {
+    let frontEnd = GrammarFrontEnd.process(testingGrammar)
+    let artifact = LRConstructionEngine.construct(
+        grammar: try #require(frontEnd.grammar), analysis: try #require(frontEnd.analysis),
+        source: testingGrammar, algorithm: .canonical
+    )
+    let fixture = LegacyArtifactEnvelopeFixture(
+        generatedAt: Date(timeIntervalSince1970: 1_600_000_000), artifact: artifact
+    )
+    let encoder = JSONEncoder()
+    encoder.dateEncodingStrategy = .iso8601
+    let decoded = try GrammarInterchangeCodec.decodeArtifact(encoder.encode(fixture))
+
+    #expect(decoded.schemaVersion == GrammarArtifactInterchange.currentSchemaVersion)
+    #expect(decoded.artifact.algorithm == GrammarAlgorithm.canonical)
+    #expect(decoded.artifact.states.count == artifact.states.count)
 }
 
 @Test func standaloneHTMLCanIncludeBatchTestResults() throws {

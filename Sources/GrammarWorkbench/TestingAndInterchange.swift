@@ -150,14 +150,43 @@ public struct GrammarWorkbenchInterchange: Codable, Sendable {
     }
 }
 
+/// Public envelope for exchange with build tools, visualizers, and parser
+/// generators that do not link the construction engine.
+public struct GrammarArtifactInterchange: Hashable, Codable, Sendable {
+    public static let currentSchemaVersion = 2
+    public static let kindIdentifier = "grammar-workbench-artifact"
+
+    public let schemaVersion: Int
+    public let kind: String
+    public let producer: String
+    public let generatedAt: Date
+    public let artifact: GrammarArtifactSnapshot
+
+    public init(
+        artifact: GrammarArtifactSnapshot,
+        producer: String = "Grammar Workbench \(GrammarWorkbenchRelease.version)",
+        generatedAt: Date = Date()
+    ) {
+        self.schemaVersion = Self.currentSchemaVersion
+        self.kind = Self.kindIdentifier
+        self.producer = producer
+        self.generatedAt = generatedAt
+        self.artifact = artifact
+    }
+}
+
 public enum GrammarInterchangeError: Error, LocalizedError {
     case unsupportedVersion(Int)
+    case unsupportedAPIVersion(Int)
+    case invalidKind(String)
     case invalidAlgorithm(String)
     case invalidGrammar(String)
 
     public var errorDescription: String? {
         switch self {
         case .unsupportedVersion(let version): "Unsupported interchange schema version \(version)."
+        case .unsupportedAPIVersion(let version): "Unsupported artifact API version \(version)."
+        case .invalidKind(let kind): "Unexpected interchange document kind ‘\(kind)’."
         case .invalidAlgorithm(let value): "Unknown LR algorithm ‘\(value)’ in interchange data."
         case .invalidGrammar(let message): "The imported grammar is invalid: \(message)"
         }
@@ -165,7 +194,11 @@ public enum GrammarInterchangeError: Error, LocalizedError {
 }
 
 public enum GrammarInterchangeCodec {
-    private struct ArtifactEnvelope: Codable {
+    private struct InterchangeHeader: Decodable {
+        let schemaVersion: Int
+    }
+
+    private struct LegacyArtifactInterchange: Decodable {
         let schemaVersion: Int
         let kind: String
         let generatedAt: Date
@@ -179,26 +212,57 @@ public enum GrammarInterchangeCodec {
     }
 
     public static func encodeArtifact(source: String, algorithm: String = "LALR(1)") throws -> Data {
-        guard let selectedAlgorithm = LRAlgorithm(rawValue: algorithm) else {
+        guard let selectedAlgorithm = GrammarAlgorithm(rawValue: algorithm) else {
             throw GrammarInterchangeError.invalidAlgorithm(algorithm)
         }
-        let result = GrammarFrontEnd.process(source)
-        guard let grammar = result.grammar, let analysis = result.analysis else {
+        return try encodeArtifact(compilation: GrammarWorkbenchAPI.compile(.init(
+            source: source, algorithm: selectedAlgorithm
+        )))
+    }
+
+    public static func encodeArtifact(
+        compilation: GrammarCompilation,
+        generatedAt: Date = Date()
+    ) throws -> Data {
+        guard let artifact = compilation.artifact else {
             throw GrammarInterchangeError.invalidGrammar(
-                result.diagnostics.first(where: { $0.severity == .error })?.message ?? "Unknown grammar error."
+                compilation.diagnostics.first(where: { $0.severity == .error })?.message
+                    ?? "Unknown grammar error."
             )
         }
-        let artifact = LRConstructionEngine.construct(
-            grammar: grammar, analysis: analysis, source: source, algorithm: selectedAlgorithm
-        )
-        let envelope = ArtifactEnvelope(
-            schemaVersion: GrammarWorkbenchInterchange.currentSchemaVersion,
-            kind: "grammar-workbench-artifact", generatedAt: Date(), artifact: artifact
-        )
+        let envelope = GrammarArtifactInterchange(artifact: artifact, generatedAt: generatedAt)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
         return try encoder.encode(envelope)
+    }
+
+    public static func decodeArtifact(_ data: Data) throws -> GrammarArtifactInterchange {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let header = try decoder.decode(InterchangeHeader.self, from: data)
+        if header.schemaVersion == 1 {
+            let legacy = try decoder.decode(LegacyArtifactInterchange.self, from: data)
+            guard legacy.kind == GrammarArtifactInterchange.kindIdentifier else {
+                throw GrammarInterchangeError.invalidKind(legacy.kind)
+            }
+            return GrammarArtifactInterchange(
+                artifact: GrammarArtifactSnapshot(legacy.artifact),
+                producer: "Grammar Workbench (legacy interchange)",
+                generatedAt: legacy.generatedAt
+            )
+        }
+        let value = try decoder.decode(GrammarArtifactInterchange.self, from: data)
+        guard value.schemaVersion == GrammarArtifactInterchange.currentSchemaVersion else {
+            throw GrammarInterchangeError.unsupportedVersion(value.schemaVersion)
+        }
+        guard value.kind == GrammarArtifactInterchange.kindIdentifier else {
+            throw GrammarInterchangeError.invalidKind(value.kind)
+        }
+        guard value.artifact.apiVersion == GrammarWorkbenchAPI.version else {
+            throw GrammarInterchangeError.unsupportedAPIVersion(value.artifact.apiVersion)
+        }
+        return value
     }
 
     public static func decode(_ data: Data) throws -> GrammarWorkbenchDocument {

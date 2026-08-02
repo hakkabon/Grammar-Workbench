@@ -4,16 +4,16 @@ import GrammarWorkbench
 
 @main
 struct GrammarWorkbenchCLI {
-    static func main() {
+    static func main() async {
         do {
-            try run(Array(CommandLine.arguments.dropFirst()))
+            try await run(Array(CommandLine.arguments.dropFirst()))
         } catch {
             FileHandle.standardError.write(Data("error: \(error.localizedDescription)\n".utf8))
             exit(EXIT_FAILURE)
         }
     }
 
-    private static func run(_ arguments: [String]) throws {
+    private static func run(_ arguments: [String]) async throws {
         guard let command = arguments.first else {
             print(help)
             return
@@ -74,6 +74,45 @@ struct GrammarWorkbenchCLI {
             let generated = try compilation.generateSwiftParser(options: .init(typeName: typeName))
             try Data(generated.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2])")
+        case "list-generators":
+            guard arguments.count == 1 else { throw CLIError.usage("list-generators takes no arguments") }
+            let registry = GrammarGeneratorRegistry()
+            for generator in await registry.availableGenerators() {
+                print("\(generator.id)\t\(generator.displayName)\t.\(generator.defaultFileExtension)")
+                for option in generator.options {
+                    let fallback = option.defaultValue.map { " (default: \($0))" } ?? ""
+                    print("  \(option.name)=VALUE\t\(option.summary)\(fallback)")
+                }
+            }
+        case "generate":
+            guard arguments.count >= 4 else {
+                throw CLIError.usage("generate requires GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]")
+            }
+            let source = try read(arguments[2])
+            var optionIndex = 4
+            var algorithm = GrammarAlgorithm.lalr
+            if arguments.indices.contains(4), !arguments[4].contains("=") {
+                guard let parsed = GrammarAlgorithm(rawValue: arguments[4]) else {
+                    throw CLIError.usage("unknown LR algorithm ‘\(arguments[4])’")
+                }
+                algorithm = parsed
+                optionIndex = 5
+            }
+            var values: [String: String] = [:]
+            for option in arguments.dropFirst(optionIndex) {
+                let parts = option.split(separator: "=", maxSplits: 1).map(String.init)
+                guard parts.count == 2, !parts[0].isEmpty else {
+                    throw CLIError.usage("generator option ‘\(option)’ must use KEY=VALUE")
+                }
+                values[parts[0]] = parts[1]
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: algorithm))
+            let registry = GrammarGeneratorRegistry()
+            let result = try await registry.generate(
+                identifier: arguments[1], from: compilation, options: .init(values)
+            )
+            try write(result.files, to: arguments[3])
+            for diagnostic in result.diagnostics { FileHandle.standardError.write(Data("note: \(diagnostic)\n".utf8)) }
         case "compare":
             guard arguments.count == 2 || arguments.count == 3 else {
                 throw CLIError.usage("compare requires GRAMMAR [OUTPUT]")
@@ -102,6 +141,21 @@ struct GrammarWorkbenchCLI {
         try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
     }
 
+    private static func write(_ files: [GrammarGeneratedFile], to path: String) throws {
+        let destination = URL(fileURLWithPath: path)
+        if files.count == 1 {
+            try files[0].contents.write(to: destination, options: .atomic)
+            print("Wrote \(path)")
+            return
+        }
+        try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+        for file in files {
+            let url = destination.appendingPathComponent(file.suggestedFilename)
+            try file.contents.write(to: url, options: .atomic)
+            print("Wrote \(url.path)")
+        }
+    }
+
     private static let help = """
     Grammar Workbench \(GrammarWorkbenchRelease.version)
 
@@ -110,6 +164,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench test PROJECT
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
+      grammar-workbench list-generators
+      grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]
       grammar-workbench compare GRAMMAR [OUTPUT]
       grammar-workbench --version
 

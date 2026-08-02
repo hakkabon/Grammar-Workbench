@@ -73,7 +73,11 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
         }
-        if configuration.contentType == .grammarWorkbenchDocument,
+        try self.init(fileData: data, contentType: configuration.contentType)
+    }
+
+    init(fileData data: Data, contentType: UTType) throws {
+        if contentType == .grammarWorkbenchDocument,
            let decoded = try? JSONDecoder().decode(Self.self, from: data) {
             self = Self(
                 source: decoded.source,

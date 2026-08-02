@@ -27,7 +27,7 @@
             <key>LSItemContentTypes</key><array><string>com.grammar-workbench.document</string></array>
         </dict>
         <dict>
-            <key>CFBundleTypeExtensions</key><array><string>grammar</string><string>y</string></array>
+            <key>CFBundleTypeExtensions</key><array><string>grammar</string><string>y</string><string>txt</string></array>
             <key>CFBundleTypeName</key><string>Grammar Source</string>
             <key>CFBundleTypeRole</key><string>Editor</string>
             <key>LSHandlerRank</key><string>Alternate</string>

@@ -6,27 +6,12 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
-<<<<<<< HEAD
         .executable(name: "grammar-workbench-app", targets: ["GrammarWorkbenchApp"]),
-        .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"])
-    ],
-    targets: [
-        .target(name: "GrammarWorkbench", resources: [.process("Resources")]),
-        .executableTarget(
-            name: "GrammarWorkbenchApp",
-            dependencies: ["GrammarWorkbench"],
-            path: "Sources/App"
-        ),
-=======
-        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/hakkabon/Grammar.git",
-            revision: "940fdb4f857391e7cdecbb016adabd33db2121c8"
-        )
+        .package(url: "https://github.com/hakkabon/Grammar.git", branch: "main"),
     ],
     targets: [
         .target(
@@ -35,7 +20,6 @@ let package = Package(
             resources: [.process("Resources")]
         ),
         .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
->>>>>>> dev-branch
         .executableTarget(name: "GrammarWorkbenchCLI", dependencies: ["GrammarWorkbench"]),
         .plugin(
             name: "GrammarWorkbenchPlugin",

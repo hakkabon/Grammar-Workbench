@@ -124,6 +124,28 @@ enum SwiftParserCodeGenerator {
                 }
             }
 
+            \(access)enum RecoveryKind: String, Hashable, Sendable {
+                case deletedToken, insertedToken, synchronized
+            }
+
+            \(access)struct Diagnostic: Hashable, Sendable {
+                \(access)let tokenIndex: Int
+                \(access)let utf16Offset: Int
+                \(access)let state: Int
+                \(access)let unexpected: String
+                \(access)let expected: [String]
+                \(access)let message: String
+                \(access)let recovery: RecoveryKind?
+                \(access)let recoverySymbol: String?
+                \(access)let recoveryDetail: String?
+            }
+
+            \(access)struct RecoveryResult: Hashable, Sendable {
+                \(access)let node: Node?
+                \(access)let diagnostics: [Diagnostic]
+                \(access)let completed: Bool
+            }
+
             \(access)static func parse(_ source: String) throws -> Node {
                 try parse(tokens: tokenize(source))
             }
@@ -172,6 +194,170 @@ enum SwiftParserCodeGenerator {
                         throw ParseError.invalidTable("A goto action appeared in the ACTION table.")
                     }
                 }
+            }
+
+            \(access)static func parseRecovering(
+                _ source: String,
+                maximumDiagnostics: Int = 8
+            ) throws -> RecoveryResult {
+                try parseRecovering(tokens: tokenize(source), maximumDiagnostics: maximumDiagnostics)
+            }
+
+            \(access)static func parseRecovering(
+                tokens originalTokens: [Token],
+                maximumDiagnostics: Int = 8
+            ) throws -> RecoveryResult {
+                var input = originalTokens + [Token(kind: "$", lexeme: "", utf16Offset: sourceEnd(originalTokens))]
+                var cursor = 0
+                var states = [0]
+                var nodes: [Node] = []
+                var diagnostics: [Diagnostic] = []
+                var insertedIndices: Set<Int> = []
+                var attempts: Set<String> = []
+                let limit = max(1, maximumDiagnostics)
+
+                for _ in 0..<10_000 {
+                    guard let state = states.last else { return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false) }
+                    let lookahead = input[cursor]
+                    guard let action = table[Cell(state: state, symbol: lookahead.kind)] else {
+                        let expected = table.compactMap { cell, candidate -> String? in
+                            guard cell.state == state else { return nil }
+                            if case .goTo = candidate { return nil }
+                            return cell.symbol
+                        }.sorted()
+                        let unexpected = lookahead.lexeme.isEmpty ? lookahead.kind : lookahead.lexeme
+                        guard diagnostics.count < limit else {
+                            return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                        }
+                        let signature = "\\(state):\\(cursor):\\(lookahead.kind)"
+                        guard attempts.insert(signature).inserted else {
+                            return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                        }
+
+                        if let inserted = expected.first(where: { symbol in
+                            guard symbol != "$", let candidate = table[Cell(state: state, symbol: symbol)] else { return false }
+                            switch candidate {
+                            case .reduce: return true
+                            case .shift(let target): return table[Cell(state: target, symbol: lookahead.kind)] != nil
+                            case .accept, .goTo: return false
+                            }
+                        }) {
+                            insertedIndices = Set(insertedIndices.map { $0 >= cursor ? $0 + 1 : $0 })
+                            insertedIndices.insert(cursor)
+                            input.insert(Token(kind: inserted, lexeme: "", utf16Offset: lookahead.utf16Offset), at: cursor)
+                            diagnostics.append(Diagnostic(
+                                tokenIndex: cursor, utf16Offset: lookahead.utf16Offset, state: state,
+                                unexpected: unexpected, expected: expected,
+                                message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                                recovery: .insertedToken, recoverySymbol: inserted,
+                                recoveryDetail: "Inserted missing ‘\\(inserted)’ before ‘\\(unexpected)’."
+                            ))
+                            continue
+                        }
+
+                        if lookahead.kind != "$", cursor + 1 < input.count,
+                           table[Cell(state: state, symbol: input[cursor + 1].kind)] != nil {
+                            let removed = input.remove(at: cursor)
+                            insertedIndices = Set(insertedIndices.compactMap {
+                                $0 == cursor ? nil : ($0 > cursor ? $0 - 1 : $0)
+                            })
+                            diagnostics.append(Diagnostic(
+                                tokenIndex: cursor, utf16Offset: removed.utf16Offset, state: state,
+                                unexpected: unexpected, expected: expected,
+                                message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                                recovery: .deletedToken, recoverySymbol: removed.kind,
+                                recoveryDetail: "Deleted ‘\\(unexpected)’ and resumed with ‘\\(input[cursor].kind)’."
+                            ))
+                            continue
+                        }
+
+                        if let inserted = expected.first(where: { symbol in
+                            guard symbol != "$", let candidate = table[Cell(state: state, symbol: symbol)] else { return false }
+                            if case .shift = candidate { return true }
+                            return false
+                        }) {
+                            insertedIndices = Set(insertedIndices.map { $0 >= cursor ? $0 + 1 : $0 })
+                            insertedIndices.insert(cursor)
+                            input.insert(Token(kind: inserted, lexeme: "", utf16Offset: lookahead.utf16Offset), at: cursor)
+                            diagnostics.append(Diagnostic(
+                                tokenIndex: cursor, utf16Offset: lookahead.utf16Offset, state: state,
+                                unexpected: unexpected, expected: expected,
+                                message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                                recovery: .insertedToken, recoverySymbol: inserted,
+                                recoveryDetail: "Inserted missing ‘\\(inserted)’ before ‘\\(unexpected)’."
+                            ))
+                            continue
+                        }
+
+                        if let synchronized = ((cursor + 1)..<input.count).first(where: {
+                            table[Cell(state: state, symbol: input[$0].kind)] != nil
+                        }) {
+                            let count = synchronized - cursor
+                            input.removeSubrange(cursor..<synchronized)
+                            insertedIndices = Set(insertedIndices.compactMap {
+                                if $0 >= cursor && $0 < synchronized { return nil }
+                                return $0 >= synchronized ? $0 - count : $0
+                            })
+                            diagnostics.append(Diagnostic(
+                                tokenIndex: cursor, utf16Offset: lookahead.utf16Offset, state: state,
+                                unexpected: unexpected, expected: expected,
+                                message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                                recovery: .synchronized, recoverySymbol: input[cursor].kind,
+                                recoveryDetail: "Discarded \\(count) token(s) and synchronized at ‘\\(input[cursor].kind)’."
+                            ))
+                            continue
+                        }
+
+                        if states.count > 1 {
+                            states.removeLast()
+                            if !nodes.isEmpty { nodes.removeLast() }
+                            diagnostics.append(Diagnostic(
+                                tokenIndex: cursor, utf16Offset: lookahead.utf16Offset, state: state,
+                                unexpected: unexpected, expected: expected,
+                                message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                                recovery: .synchronized, recoverySymbol: lookahead.kind,
+                                recoveryDetail: "Popped one parser state while seeking a synchronization point."
+                            ))
+                            continue
+                        }
+                        diagnostics.append(Diagnostic(
+                            tokenIndex: cursor, utf16Offset: lookahead.utf16Offset, state: state,
+                            unexpected: unexpected, expected: expected,
+                            message: "Unexpected ‘\\(unexpected)’ in I\\(state).",
+                            recovery: nil, recoverySymbol: nil, recoveryDetail: nil
+                        ))
+                        return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                    }
+
+                    switch action {
+                    case .shift(let target):
+                        states.append(target)
+                        let symbol = insertedIndices.contains(cursor) ? "⟨missing \\(lookahead.kind)⟩" : lookahead.kind
+                        nodes.append(Node(symbol: symbol, lexeme: lookahead.lexeme.isEmpty ? nil : lookahead.lexeme, utf16Offset: lookahead.utf16Offset))
+                        cursor += 1
+                    case .reduce(let id):
+                        guard let production = productions[id], production.count < states.count,
+                              production.count <= nodes.count else {
+                            return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                        }
+                        let children = production.count == 0 ? [] : Array(nodes.suffix(production.count))
+                        if production.count > 0 {
+                            states.removeLast(production.count)
+                            nodes.removeLast(production.count)
+                        }
+                        guard let from = states.last,
+                              case .goTo(let target)? = table[Cell(state: from, symbol: production.lhs)] else {
+                            return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                        }
+                        states.append(target)
+                        nodes.append(Node(symbol: production.lhs, children: children))
+                    case .accept:
+                        return RecoveryResult(node: nodes.last, diagnostics: diagnostics, completed: nodes.last != nil)
+                    case .goTo:
+                        return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
+                    }
+                }
+                return RecoveryResult(node: nil, diagnostics: diagnostics, completed: false)
             }
 
             \(access)static func tokenize(_ source: String) throws -> [Token] {

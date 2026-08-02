@@ -134,7 +134,34 @@ public struct GrammarLexingResult: Hashable, Codable, Sendable {
 }
 
 public enum GrammarParseStatus: String, Codable, Sendable {
-    case accepted, rejected, conflict, looping, invalidGrammar
+    case accepted, acceptedWithRecovery, rejected, conflict, looping, invalidGrammar
+}
+
+public enum GrammarRecoveryKind: String, Codable, Sendable {
+    case deletedToken, insertedToken, synchronized
+}
+
+public struct GrammarParseOptions: Hashable, Codable, Sendable {
+    public var enablesRecovery: Bool
+    public var maximumDiagnostics: Int
+
+    public init(enablesRecovery: Bool = true, maximumDiagnostics: Int = 8) {
+        self.enablesRecovery = enablesRecovery
+        self.maximumDiagnostics = max(1, maximumDiagnostics)
+    }
+}
+
+public struct GrammarSyntaxDiagnostic: Identifiable, Hashable, Codable, Sendable {
+    public let id: Int
+    public let message: String
+    public let tokenIndex: Int
+    public let range: SourceRange?
+    public let state: Int
+    public let unexpected: String
+    public let expected: [String]
+    public let recovery: GrammarRecoveryKind?
+    public let recoverySymbol: String?
+    public let recoveryDetail: String?
 }
 
 public struct GrammarTraceFrameSnapshot: Identifiable, Hashable, Codable, Sendable {
@@ -157,6 +184,7 @@ public struct GrammarParseResult: Hashable, Codable, Sendable {
     public let trace: [GrammarTraceFrameSnapshot]
     public let conflictState: Int?
     public let conflictSymbol: String?
+    public let diagnostics: [GrammarSyntaxDiagnostic]
 }
 
 /// The result of compilation. Public properties are immutable snapshots; the
@@ -195,18 +223,41 @@ public struct GrammarCompilation: Sendable {
         }
     }
 
-    public func parse(_ input: String) -> GrammarParseResult {
+    public func parse(
+        _ input: String,
+        options: GrammarParseOptions = .init()
+    ) -> GrammarParseResult {
         guard let compiledArtifact else { return invalidParseResult(firstError) }
         let lexed = lex(input)
         guard !lexed.hasErrors else { return invalidParseResult(lexed.diagnostics[0].message, tokens: lexed.tokens) }
-        let runtime = LRParserRuntime.parse(lexed.tokens.map(\.kind), artifact: compiledArtifact)
+        let recovery = options.enablesRecovery
+            ? ParserRecoveryConfiguration(maximumDiagnostics: options.maximumDiagnostics)
+            : .disabled
+        let runtime = LRParserRuntime.parse(
+            lexed.tokens.map(\.kind), artifact: compiledArtifact, recovery: recovery
+        )
+        let syntaxDiagnostics = runtime.diagnostics.map { diagnostic in
+            GrammarSyntaxDiagnostic(
+                id: diagnostic.index, message: diagnostic.message,
+                tokenIndex: diagnostic.tokenIndex,
+                range: lexed.tokens.indices.contains(diagnostic.tokenIndex)
+                    ? lexed.tokens[diagnostic.tokenIndex].range : nil,
+                state: diagnostic.state.rawValue, unexpected: diagnostic.unexpected,
+                expected: diagnostic.expected,
+                recovery: diagnostic.recovery.flatMap { GrammarRecoveryKind(rawValue: $0.rawValue) },
+                recoverySymbol: diagnostic.recoverySymbol,
+                recoveryDetail: diagnostic.recoveryDetail
+            )
+        }
         let status: GrammarParseStatus
         let expected: [String]
         let conflictState: Int?
         let conflictSymbol: String?
         switch runtime.outcome {
         case .accepted:
-            status = .accepted; expected = []; conflictState = nil; conflictSymbol = nil
+            status = syntaxDiagnostics.isEmpty ? .accepted : .acceptedWithRecovery
+            expected = syntaxDiagnostics.last?.expected ?? []
+            conflictState = nil; conflictSymbol = nil
         case .rejected(_, let values):
             status = .rejected; expected = values; conflictState = nil; conflictSymbol = nil
         case .conflict(let cell):
@@ -218,7 +269,8 @@ public struct GrammarCompilation: Sendable {
             status: status, message: runtime.outcome.label, tokens: lexed.tokens,
             expectedTerminals: expected, tree: runtime.tree?.rendered(),
             trace: runtime.frames.map(GrammarTraceFrameSnapshot.init),
-            conflictState: conflictState, conflictSymbol: conflictSymbol
+            conflictState: conflictState, conflictSymbol: conflictSymbol,
+            diagnostics: syntaxDiagnostics
         )
     }
 
@@ -258,7 +310,7 @@ public struct GrammarCompilation: Sendable {
 
     private func invalidParseResult(_ message: String, tokens: [GrammarInputTokenSnapshot] = []) -> GrammarParseResult {
         .init(status: .invalidGrammar, message: message, tokens: tokens, expectedTerminals: [],
-              tree: nil, trace: [], conflictState: nil, conflictSymbol: nil)
+              tree: nil, trace: [], conflictState: nil, conflictSymbol: nil, diagnostics: [])
     }
 }
 

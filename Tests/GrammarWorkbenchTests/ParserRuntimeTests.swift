@@ -78,6 +78,61 @@ private func runtimeArtifact(_ source: String, algorithm: LRAlgorithm = .lalr) t
     #expect(html.contains("reduce S → id"))
 }
 
+@Test func diagnosticRuntimeDeletesAndInsertsTokensThenContinues() throws {
+    let artifact = try runtimeArtifact("%start S\nS : 'id' '+' 'id' ;")
+
+    let extra = LRParserRuntime.parse(
+        ["id", "extra", "+", "id"], artifact: artifact, recovery: .diagnostic
+    )
+    #expect(extra.outcome == .accepted)
+    #expect(extra.diagnostics.map(\.recovery) == [.deletedToken])
+    #expect(extra.frames.contains { $0.action.contains("recover: delete") })
+
+    let missing = LRParserRuntime.parse(["id", "id"], artifact: artifact, recovery: .diagnostic)
+    #expect(missing.outcome == .accepted)
+    #expect(missing.diagnostics.map(\.recovery) == [.insertedToken])
+    #expect(missing.tree?.rendered().contains("⟨missing +⟩") == true)
+}
+
+@Test func diagnosticRuntimeReportsMultipleErrorsAndHonorsLimit() throws {
+    let artifact = try runtimeArtifact("%start S\nS : 'id' '+' 'id' ;")
+    let recovered = LRParserRuntime.parse(
+        ["junk", "id", "junk", "id"], artifact: artifact, recovery: .diagnostic
+    )
+    #expect(recovered.outcome == .accepted)
+    #expect(recovered.diagnostics.count == 3)
+
+    let limited = LRParserRuntime.parse(
+        ["junk", "id", "junk", "id"], artifact: artifact,
+        recovery: .init(maximumDiagnostics: 1)
+    )
+    guard case .rejected = limited.outcome else {
+        Issue.record("Expected recovery to stop at the diagnostic limit")
+        return
+    }
+    #expect(limited.diagnostics.count == 1)
+}
+
+@Test func diagnosticRuntimeUsesPanicSynchronizationAndKeepsTraceIdentitiesUnique() throws {
+    let artifact = try runtimeArtifact("%start S\nS : 'id' ;")
+    let result = LRParserRuntime.parse(
+        ["id", "junk", "more"], artifact: artifact, recovery: .diagnostic
+    )
+    #expect(result.outcome == .accepted)
+    #expect(result.diagnostics.map(\.recovery) == [.synchronized])
+    #expect(result.diagnostics[0].recoveryDetail?.contains("Discarded 2 token") == true)
+    #expect(Set(result.frames.map(\.id)).count == result.frames.count)
+}
+
+@Test func standaloneExportIncludesSyntaxRecoveryDiagnostics() throws {
+    let artifact = try runtimeArtifact("%start S\nS : 'id' '+' 'id' ;")
+    let runtime = LRParserRuntime.parse(["id", "id"], artifact: artifact, recovery: .diagnostic)
+    let html = HTMLExporter.render(artifact, runtime: runtime)
+    #expect(html.contains("Syntax diagnostics and recovery"))
+    #expect(html.contains("Inserted missing ‘+’"))
+    #expect(html.contains("recover: insert missing"))
+}
+
 private extension Result {
     var isFailure: Bool {
         if case .failure = self { true } else { false }

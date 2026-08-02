@@ -37,6 +37,8 @@ let parserSource = try compilation.generateSwiftParser(options: .init(typeName: 
 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
 
+Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It reports source-located expected-token sets, performs bounded single-token insertion or deletion, falls back to panic-mode synchronization, continues after recoverable errors, and marks inserted symbols in the concrete parse tree. Pass `GrammarParseOptions(enablesRecovery: false)` for strict fail-fast parsing. Recovery decisions also appear in the Workbench trace, standalone HTML reports, and generated parsers through `parseRecovering`.
+
 `Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
 
 ## Production packaging

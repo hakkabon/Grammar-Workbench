@@ -372,7 +372,12 @@ public struct ArtifactExplorerView: View {
                         .onSubmit { store.parseSample() }
                     Button("Parse", systemImage: "play.fill") { store.parseSample() }
                 }
-                Label(store.runtimeResult.outcome.label, systemImage: outcomeIcon)
+                Label(
+                    store.runtimeResult.diagnostics.isEmpty
+                        ? store.runtimeResult.outcome.label
+                        : "\(store.runtimeResult.outcome.label) with \(store.runtimeResult.diagnostics.count) diagnostic(s)",
+                    systemImage: outcomeIcon
+                )
                     .foregroundStyle(outcomeColor)
                 if case .rejected(_, let expected) = store.runtimeResult.outcome, !expected.isEmpty {
                     Text("Expected: \(expected.joined(separator: ", "))")
@@ -392,6 +397,24 @@ public struct ArtifactExplorerView: View {
                     ForEach(lexer.diagnostics) { diagnostic in
                         Label("\(diagnostic.range.start.line):\(diagnostic.range.start.column) \(diagnostic.message)", systemImage: "xmark.octagon.fill")
                             .font(.caption).foregroundStyle(.red)
+                    }
+                }
+                if !store.runtimeResult.diagnostics.isEmpty {
+                    Text("Syntax diagnostics").font(.headline)
+                    ForEach(store.runtimeResult.diagnostics, id: \.index) { diagnostic in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Button {
+                                store.select(.state(diagnostic.state))
+                            } label: {
+                                Label(diagnostic.message, systemImage: "exclamationmark.triangle.fill")
+                            }
+                            .buttonStyle(.link)
+                            Text("Expected: \(diagnostic.expected.joined(separator: ", "))")
+                            if let detail = diagnostic.recoveryDetail {
+                                Text(detail).foregroundStyle(.orange)
+                            }
+                        }
+                        .font(.caption)
                     }
                 }
                 Divider()
@@ -533,7 +556,7 @@ public struct ArtifactExplorerView: View {
 
     private var outcomeIcon: String {
         switch store.runtimeResult.outcome {
-        case .accepted: "checkmark.circle.fill"
+        case .accepted: store.runtimeResult.diagnostics.isEmpty ? "checkmark.circle.fill" : "checkmark.circle.badge.exclamationmark.fill"
         case .rejected: "xmark.octagon.fill"
         case .conflict: "arrow.triangle.branch"
         case .looping: "repeat.circle.fill"
@@ -542,7 +565,7 @@ public struct ArtifactExplorerView: View {
 
     private var outcomeColor: Color {
         switch store.runtimeResult.outcome {
-        case .accepted: .green
+        case .accepted: store.runtimeResult.diagnostics.isEmpty ? .green : .orange
         case .rejected: .red
         case .conflict: .orange
         case .looping: .purple

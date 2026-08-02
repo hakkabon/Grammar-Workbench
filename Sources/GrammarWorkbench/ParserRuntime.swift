@@ -339,7 +339,8 @@ enum ConflictWitnessGenerator {
                 branches: branches,
                 provenance: decision.provenance,
                 branchAnalyses: branchAnalyses,
-                isExpected: decision.isExpected
+                isExpected: decision.isExpected,
+                candidateActions: decision.candidateActions
             )
         }
         return GrammarArtifact(

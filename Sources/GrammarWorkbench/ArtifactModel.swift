@@ -123,6 +123,7 @@ struct ConflictDecision: Identifiable, Codable, Sendable {
     let provenance: ConflictProvenance?
     let branchAnalyses: [ConflictBranchAnalysis]
     let isExpected: Bool
+    let candidateActions: [TableAction]
 
     init(
         id: DecisionID,
@@ -133,7 +134,8 @@ struct ConflictDecision: Identifiable, Codable, Sendable {
         branches: [[ReplayFrame]],
         provenance: ConflictProvenance? = nil,
         branchAnalyses: [ConflictBranchAnalysis] = [],
-        isExpected: Bool = false
+        isExpected: Bool = false,
+        candidateActions: [TableAction] = []
     ) {
         self.id = id
         self.cell = cell
@@ -144,7 +146,56 @@ struct ConflictDecision: Identifiable, Codable, Sendable {
         self.provenance = provenance
         self.branchAnalyses = branchAnalyses
         self.isExpected = isExpected
+        self.candidateActions = candidateActions
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, cell, title, explanation, witness, branches, provenance, branchAnalyses, isExpected, candidateActions
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try values.decode(DecisionID.self, forKey: .id),
+            cell: try values.decode(CellID.self, forKey: .cell),
+            title: try values.decode(String.self, forKey: .title),
+            explanation: try values.decode(String.self, forKey: .explanation),
+            witness: try values.decode([String].self, forKey: .witness),
+            branches: try values.decode([[ReplayFrame]].self, forKey: .branches),
+            provenance: try values.decodeIfPresent(ConflictProvenance.self, forKey: .provenance),
+            branchAnalyses: try values.decodeIfPresent([ConflictBranchAnalysis].self, forKey: .branchAnalyses) ?? [],
+            isExpected: try values.decodeIfPresent(Bool.self, forKey: .isExpected) ?? false,
+            candidateActions: try values.decodeIfPresent([TableAction].self, forKey: .candidateActions) ?? []
+        )
+    }
+}
+
+enum DecisionDisposition: String, Codable, Sendable {
+    case unresolved
+    case expected
+    case resolved
+
+    var label: String {
+        switch self {
+        case .unresolved: "Unresolved conflict"
+        case .expected: "Expected conflict"
+        case .resolved: "Resolved decision"
+        }
+    }
+}
+
+extension ConflictDecision {
+    var disposition: DecisionDisposition {
+        if isExpected { return .expected }
+        guard let provenance else { return .unresolved }
+        return provenance.kind == .unresolved ? .unresolved : .resolved
+    }
+}
+
+struct StateDecisionSummary: Sendable {
+    let state: StateID
+    let disposition: DecisionDisposition
+    let decisions: [ConflictDecision]
 }
 
 enum ConflictResolutionKind: String, Codable, Sendable {
@@ -228,4 +279,23 @@ struct GrammarArtifact: Codable, Sendable {
     func state(_ id: StateID) -> AutomatonState? { states.first { $0.id == id } }
     func cell(_ id: CellID) -> TableCell? { cells.first { $0.id == id } }
     func decision(_ id: DecisionID) -> ConflictDecision? { decisions.first { $0.id == id } }
+    func decision(at cell: CellID) -> ConflictDecision? { decisions.first { $0.cell == cell } }
+    func candidateActions(for decision: ConflictDecision) -> [TableAction] {
+        if !decision.candidateActions.isEmpty { return decision.candidateActions }
+        if !decision.branchAnalyses.isEmpty { return decision.branchAnalyses.map(\.action) }
+        return cell(decision.cell)?.actions ?? []
+    }
+    func decisionSummary(for state: StateID) -> StateDecisionSummary? {
+        let matches = decisions.filter { $0.cell.state == state }
+        guard !matches.isEmpty else { return nil }
+        let disposition: DecisionDisposition
+        if matches.contains(where: { $0.disposition == .unresolved }) {
+            disposition = .unresolved
+        } else if matches.contains(where: { $0.disposition == .expected }) {
+            disposition = .expected
+        } else {
+            disposition = .resolved
+        }
+        return StateDecisionSummary(state: state, disposition: disposition, decisions: matches)
+    }
 }

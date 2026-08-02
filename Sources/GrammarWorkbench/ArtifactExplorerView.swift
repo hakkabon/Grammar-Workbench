@@ -223,27 +223,71 @@ public struct ArtifactExplorerView: View {
     }
 
     private var tableView: some View {
-        ScrollView([.horizontal, .vertical]) {
-            Grid(horizontalSpacing: 1, verticalSpacing: 1) {
-                GridRow {
-                    tableText("State", header: true)
-                    ForEach(store.artifact.terminals + store.artifact.nonterminals, id: \.self) { tableText($0, header: true) }
-                }
-                ForEach(store.artifact.states) { state in
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                decisionLegend("Unresolved", color: .red)
+                decisionLegend("Resolved", color: .blue)
+                decisionLegend("Expected", color: .green)
+                Spacer()
+                Text("Decision cells show the effective action; inspect them for original alternatives.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(10)
+            Divider()
+            ScrollView([.horizontal, .vertical]) {
+                Grid(horizontalSpacing: 1, verticalSpacing: 1) {
                     GridRow {
-                        Button(state.id.description) { store.select(.state(state.id)) }.frame(width: 60, height: 32)
-                        ForEach(store.artifact.terminals + store.artifact.nonterminals, id: \.self) { symbol in
-                            let id = CellID(state: state.id, symbol: symbol)
-                            let cell = store.artifact.cell(id)
-                            Button(cell?.actions.map(\.label).joined(separator: "/") ?? "") { store.select(.cell(id)) }
-                                .buttonStyle(.plain).frame(width: 74, height: 32)
-                                .background(cell?.isConflict == true ? Color.red.opacity(0.22) : Color(nsColor: .controlBackgroundColor))
-                                .accessibilityLabel("State \(state.id.rawValue), symbol \(symbol), \(cell?.actions.map(\.label).joined(separator: " or ") ?? "empty")")
+                        tableText("State", header: true)
+                        ForEach(store.artifact.terminals + store.artifact.nonterminals, id: \.self) { tableText($0, header: true) }
+                    }
+                    ForEach(store.artifact.states) { state in
+                        GridRow {
+                            tableStateCell(state.id)
+                            ForEach(store.artifact.terminals + store.artifact.nonterminals, id: \.self) { symbol in
+                                parsingTableCell(.init(state: state.id, symbol: symbol))
+                            }
                         }
                     }
-                }
-            }.padding()
+                }.padding()
+            }
         }
+    }
+
+    private func decisionLegend(_ label: String, color: Color) -> some View {
+        Label { Text(label).font(.caption) } icon: {
+            Circle().fill(color).frame(width: 9, height: 9)
+        }
+    }
+
+    private func tableStateCell(_ state: StateID) -> some View {
+        let summary = store.artifact.decisionSummary(for: state)
+        return Button(state.description) { store.select(.state(state)) }
+            .frame(width: 60, height: 32)
+            .background(summary.map { dispositionColor($0.disposition).opacity(0.17) } ?? Color(nsColor: .controlBackgroundColor))
+            .help(summary.map { "\($0.disposition.label): \($0.decisions.count) decision\($0.decisions.count == 1 ? "" : "s")" } ?? "No decisions")
+    }
+
+    private func parsingTableCell(_ id: CellID) -> some View {
+        let cell = store.artifact.cell(id)
+        let decision = store.artifact.decision(at: id)
+        let effective = cell?.actions.map(\.label).joined(separator: "/") ?? (decision == nil ? "" : "error")
+        let candidates = decision.map { store.artifact.candidateActions(for: $0).map(\.label).joined(separator: " / ") } ?? ""
+        let description = decision.map {
+            "\($0.disposition.label). Candidates: \(candidates). Effective: \(effective)."
+        } ?? "State \(id.state.rawValue), symbol \(id.symbol), \(effective.isEmpty ? "empty" : effective)"
+        return Button { store.select(.cell(id)) } label: {
+            HStack(spacing: 4) {
+                Text(effective)
+                if let decision {
+                    Image(systemName: decisionIcon(decision)).font(.system(size: 9, weight: .bold))
+                }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .buttonStyle(.plain)
+        .frame(width: 74, height: 32)
+        .background(decision.map { dispositionColor($0.disposition).opacity(0.20) }
+            ?? (cell?.isConflict == true ? Color.red.opacity(0.22) : Color(nsColor: .controlBackgroundColor)))
+        .help(description)
+        .accessibilityLabel(description)
     }
 
     private func tableText(_ text: String, header: Bool) -> some View {
@@ -269,12 +313,12 @@ public struct ArtifactExplorerView: View {
                         Label(decision.title, systemImage: decisionIcon(decision))
                             .foregroundStyle(decisionColor(decision))
                         if !decision.witness.isEmpty {
-                            Text("Counterexample: \(decision.witness.joined(separator: " "))")
+                            Text("\(decision.disposition == .resolved ? "Decision trigger" : "Counterexample"): \(decision.witness.joined(separator: " "))")
                                 .font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 5)
                 }.buttonStyle(.plain)
-            }.overlay { if store.artifact.decisions.isEmpty { ContentUnavailableView("No conflicts", systemImage: "checkmark.seal") } }
+            }.overlay { if store.artifact.decisions.isEmpty { ContentUnavailableView("No decisions", systemImage: "checkmark.seal") } }
         }
     }
 
@@ -285,9 +329,15 @@ public struct ArtifactExplorerView: View {
     }
 
     private func decisionColor(_ decision: ConflictDecision) -> Color {
-        if decision.isExpected { return .green }
-        if let kind = decision.provenance?.kind, kind != .unresolved { return .blue }
-        return .orange
+        dispositionColor(decision.disposition)
+    }
+
+    private func dispositionColor(_ disposition: DecisionDisposition) -> Color {
+        switch disposition {
+        case .unresolved: .red
+        case .resolved: .blue
+        case .expected: .green
+        }
     }
 
     private var sampleView: some View {
@@ -507,6 +557,15 @@ public struct ArtifactExplorerView: View {
         switch selection {
         case .state(let id):
             Text(id.description).font(.title2.bold())
+            if let summary = store.artifact.decisionSummary(for: id) {
+                Label("\(summary.disposition.label) · \(summary.decisions.count) decision\(summary.decisions.count == 1 ? "" : "s")", systemImage: decisionIcon(summary.decisions[0]))
+                    .foregroundStyle(dispositionColor(summary.disposition))
+                ForEach(summary.decisions) { decision in
+                    Button("\(decision.cell.symbol): \(store.artifact.candidateActions(for: decision).map(\.label).joined(separator: " / "))") {
+                        store.select(.decision(decision.id))
+                    }.buttonStyle(.link)
+                }
+            }
             ForEach(store.artifact.state(id)?.items ?? []) { item in
                 Button(item.text) { store.select(.production(item.production)) }.buttonStyle(.plain).font(.system(.body, design: .monospaced))
             }
@@ -523,6 +582,8 @@ public struct ArtifactExplorerView: View {
         case .decision(let id):
             if let decision = store.artifact.decision(id) {
                 Label(decision.title, systemImage: "point.3.connected.trianglepath.dotted").font(.title3.bold())
+                Label(decision.disposition.label, systemImage: decisionIcon(decision))
+                    .foregroundStyle(dispositionColor(decision.disposition))
                 Text(decision.explanation)
                 if decision.isExpected {
                     Label("Suppressed by matching %expect", systemImage: "checkmark.seal.fill").foregroundStyle(.green)
@@ -530,8 +591,19 @@ public struct ArtifactExplorerView: View {
                 if let provenance = decision.provenance {
                     provenanceView(provenance)
                 }
+                Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 5) {
+                    GridRow {
+                        Text("Candidate actions").foregroundStyle(.secondary)
+                        Text(store.artifact.candidateActions(for: decision).map(\.label).joined(separator: " / "))
+                    }
+                    GridRow {
+                        Text("Effective action").foregroundStyle(.secondary)
+                        Text(store.artifact.cell(decision.cell)?.actions.map(\.label).joined(separator: " / ") ?? "error")
+                    }
+                }.font(.caption)
                 conflictGraphic(decision)
-                Text("Minimal counterexample: \(decision.witness.joined(separator: " "))").font(.system(.body, design: .monospaced))
+                Text("\(decision.disposition == .resolved ? "Decision trigger" : "Minimal counterexample"): \(decision.witness.joined(separator: " "))")
+                    .font(.system(.body, design: .monospaced))
                 if !decision.branchAnalyses.isEmpty {
                     branchTrees(decision.branchAnalyses)
                 }
@@ -590,7 +662,7 @@ public struct ArtifactExplorerView: View {
             Text(decision.cell.state.description).padding(8).background(.blue.opacity(0.2)).clipShape(Capsule())
             HStack {
                 ForEach(decision.branches.indices, id: \.self) { index in
-                    Text((store.artifact.cell(decision.cell)?.actions[safe: index])?.label ?? "Branch \(index + 1)")
+                    Text(store.artifact.candidateActions(for: decision)[safe: index]?.label ?? "Branch \(index + 1)")
                         .frame(maxWidth: .infinity).padding(8)
                         .background(index == 0 ? .green.opacity(0.2) : .orange.opacity(0.2))
                         .clipShape(RoundedRectangle(cornerRadius: 8))

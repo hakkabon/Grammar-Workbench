@@ -32,6 +32,8 @@ The automaton view uses a deterministic layered layout with routed cyclic edges,
 
 Conflict analysis uses parser-configuration search to find short witnesses and bounded suffix search to produce a common accepting counterexample where possible. Decisions include side-by-side branch trees, replay traces, exact precedence provenance, and `%expect N` matching for intentional unresolved conflicts.
 
+Decision visualization distinguishes unresolved conflicts (red), precedence- or associativity-resolved decisions (blue), and expected conflicts (green) across automaton nodes, the minimap, state filters, parsing-table cells, inspectors, tooltips, and accessibility labels. Table decision cells retain the original candidate actions while displaying the effective parser action.
+
 The Tests workspace persists named accept, reject, and conflict cases with optional exact parse-tree snapshots. Batch runs use the same lexer and LR artifact as interactive samples, report expectation or lexical failures, and can be included in standalone HTML reports. Versioned project JSON round-trips grammar source, algorithm, samples, selection, and tests with validation on import; generated artifact JSON provides an immutable machine-readable snapshot of states, tables, decisions, and replay data. Older `.grammarworkbench` documents decode with an empty test suite.
 
 ## Architecture

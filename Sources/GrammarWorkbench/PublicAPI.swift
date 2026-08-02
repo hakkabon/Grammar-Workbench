@@ -117,6 +117,7 @@ public struct GrammarInputTokenSnapshot: Identifiable, Hashable, Codable, Sendab
     public let index: Int
     public let kind: String
     public let lexeme: String
+    public let mode: String?
     public let range: SourceRange?
     public var id: Int { index }
 }
@@ -124,12 +125,14 @@ public struct GrammarInputTokenSnapshot: Identifiable, Hashable, Codable, Sendab
 public struct GrammarInputDiagnostic: Identifiable, Hashable, Codable, Sendable {
     public let id: Int
     public let message: String
+    public let mode: String?
     public let range: SourceRange?
 }
 
 public struct GrammarLexingResult: Hashable, Codable, Sendable {
     public let tokens: [GrammarInputTokenSnapshot]
     public let diagnostics: [GrammarInputDiagnostic]
+    public let finalModeStack: [String]
     public var hasErrors: Bool { !diagnostics.isEmpty }
 }
 
@@ -195,6 +198,7 @@ public struct GrammarCompilation: Sendable {
     public let diagnostics: [GrammarDiagnostic]
     public let grammar: GrammarSummary?
     public let analysis: GrammarAnalysisSnapshot?
+    public let lexerAnalysis: LexerModeAnalysis?
     public let artifact: GrammarArtifactSnapshot?
 
     let compiledGrammar: ParsedGrammar?
@@ -204,22 +208,23 @@ public struct GrammarCompilation: Sendable {
 
     public func lex(_ input: String) -> GrammarLexingResult {
         guard let compiledGrammar else {
-            return .init(tokens: [], diagnostics: [.init(id: 0, message: firstError, range: nil)])
+            return .init(tokens: [], diagnostics: [.init(id: 0, message: firstError, mode: nil, range: nil)], finalModeStack: ["DEFAULT"])
         }
         if !compiledGrammar.lexerRules.isEmpty {
             let result = GrammarLexerRuntime.lex(input, grammar: compiledGrammar)
             return .init(
-                tokens: result.tokens.map { .init(index: $0.index, kind: $0.kind, lexeme: $0.lexeme, range: $0.range) },
-                diagnostics: result.diagnostics.map { .init(id: $0.id, message: $0.message, range: $0.range) }
+                tokens: result.tokens.map { .init(index: $0.index, kind: $0.kind, lexeme: $0.lexeme, mode: $0.mode, range: $0.range) },
+                diagnostics: result.diagnostics.map { .init(id: $0.id, message: $0.message, mode: $0.mode, range: $0.range) },
+                finalModeStack: result.finalModeStack
             )
         }
         switch SampleInputTokenizer.tokenize(input) {
         case .success(let tokens):
             return .init(tokens: tokens.enumerated().map {
-                .init(index: $0.offset, kind: $0.element, lexeme: $0.element, range: nil)
-            }, diagnostics: [])
+                .init(index: $0.offset, kind: $0.element, lexeme: $0.element, mode: nil, range: nil)
+            }, diagnostics: [], finalModeStack: ["DEFAULT"])
         case .failure(let error):
-            return .init(tokens: [], diagnostics: [.init(id: 0, message: error.message, range: nil)])
+            return .init(tokens: [], diagnostics: [.init(id: 0, message: error.message, mode: nil, range: nil)], finalModeStack: ["DEFAULT"])
         }
     }
 
@@ -331,7 +336,7 @@ public enum GrammarWorkbenchAPI {
         let result = GrammarFrontEnd.process(request.source)
         guard !result.hasErrors, let grammar = result.grammar, let analysis = result.analysis else {
             return .init(apiVersion: version, request: request, diagnostics: result.diagnostics,
-                         grammar: nil, analysis: nil, artifact: nil,
+                         grammar: nil, analysis: nil, lexerAnalysis: result.lexerAnalysis, artifact: nil,
                          compiledGrammar: nil, compiledArtifact: nil)
         }
         let core = LRConstructionEngine.construct(
@@ -341,6 +346,7 @@ public enum GrammarWorkbenchAPI {
         return .init(
             apiVersion: version, request: request, diagnostics: result.diagnostics,
             grammar: GrammarSummary(grammar), analysis: GrammarAnalysisSnapshot(analysis),
+            lexerAnalysis: result.lexerAnalysis,
             artifact: GrammarArtifactSnapshot(core), compiledGrammar: grammar, compiledArtifact: core
         )
     }

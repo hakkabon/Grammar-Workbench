@@ -39,13 +39,13 @@ enum HTMLExporter {
         let sampleTree = runtime?.tree?.rendered() ?? artifact.sample.tree
         let sampleOutcome = runtime?.outcome.label ?? ""
         let lexerRows = lexer?.tokens.map {
-            "<tr><td><code>\(escape($0.kind))</code></td><td><code>\(escape($0.lexeme))</code></td><td>\($0.range.start.line):\($0.range.start.column)</td></tr>"
+            "<tr><td><code>\(escape($0.kind))</code></td><td><code>\(escape($0.lexeme))</code></td><td><code>\(escape($0.mode))</code></td><td>\($0.range.start.line):\($0.range.start.column)</td></tr>"
         }.joined() ?? ""
         let lexerDiagnostics = lexer?.diagnostics.map {
-            "<li>\($0.range.start.line):\($0.range.start.column) — \(escape($0.message))</li>"
+            "<li>\($0.range.start.line):\($0.range.start.column) [\(escape($0.mode))] — \(escape($0.message))</li>"
         }.joined() ?? ""
         let lexerSection = lexer.map { _ in
-            "<h3>Lexer tokens</h3><table><tr><th>Token</th><th>Lexeme</th><th>Location</th></tr>\(lexerRows)</table>\(lexerDiagnostics.isEmpty ? "" : "<h4>Lexer diagnostics</h4><ul class='conflict'>\(lexerDiagnostics)</ul>")"
+            "<h3>Lexer tokens</h3><table><tr><th>Token</th><th>Lexeme</th><th>Mode</th><th>Location</th></tr>\(lexerRows)</table>\(lexerDiagnostics.isEmpty ? "" : "<h4>Lexer diagnostics</h4><ul class='conflict'>\(lexerDiagnostics)</ul>")"
         } ?? ""
         let syntaxDiagnostics = runtime?.diagnostics.map {
             "<li><strong>I\($0.state.rawValue):</strong> \(escape($0.message)) Expected: <code>\(escape($0.expected.joined(separator: ", ")))</code>. \(escape($0.recoveryDetail ?? "No recovery."))</li>"

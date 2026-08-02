@@ -57,6 +57,15 @@ Use `%token NAME ...` to enable explicit-terminal mode and undefined-symbol vali
 
 Attach a regular expression to a token with `%token NAME /pattern/` and declare ignored input with `%skip /pattern/`. Samples then accept raw source text; the deterministic lexer uses maximal munch, preserves lexemes and source locations, and feeds token identities into the LR parser. Tokens without patterns continue to match their literal spelling. Grammars without lexer rules retain the whitespace-separated token input mode.
 
+Lexers begin in the implicit `DEFAULT` mode. Use `%mode NAME` to assign subsequent rules to another mode, and append `%begin NAME`, `%push NAME`, or `%pop` to a `%token` or `%skip` rule to transition after it matches. `%begin` replaces the active mode; `%push` and `%pop` support nested constructs. Static lexer analysis reports undeclared, duplicate, empty, and unreachable modes, invalid pops, and exactly shadowed rules. Runtime diagnostics identify the active mode for coverage gaps and report input that ends with an unclosed mode stack. Token inspectors, public API snapshots, HTML reports, and generated Swift parsers preserve each token’s originating mode.
+
+```text
+%token QUOTE /"/ %push STRING
+%mode STRING
+%token TEXT /[^"]+/
+%token QUOTE /"/ %pop
+```
+
 The automaton view uses a deterministic layered layout with routed cyclic edges, state/item/transition search, decision-state filtering, adaptive compact rendering, pan and zoom, Fit controls, and a minimap. Large graphs render a bounded state window while preserving the selected state.
 
 Conflict analysis uses parser-configuration search to find short witnesses and bounded suffix search to produce a common accepting counterexample where possible. Decisions include side-by-side branch trees, replay traces, exact precedence provenance, and `%expect N` matching for intentional unresolved conflicts.

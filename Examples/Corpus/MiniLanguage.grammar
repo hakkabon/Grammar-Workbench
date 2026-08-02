@@ -1,0 +1,26 @@
+%start Program
+%token LET /let\b/
+%token PRINT /print\b/
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%token NUMBER /[0-9]+/
+%token ASSIGN /=/
+%token PLUS /\+/
+%token STAR /\*/
+%token LPAREN /\(/
+%token RPAREN /\)/
+%token SEMICOLON /;/
+%skip /\s+/
+%left PLUS
+%left STAR
+
+Program : Statements ;
+Statements : Statements Statement | ;
+Statement : LET ID ASSIGN Expression SEMICOLON
+          | PRINT Expression SEMICOLON
+          ;
+Expression : Expression PLUS Expression
+           | Expression STAR Expression
+           | LPAREN Expression RPAREN
+           | ID
+           | NUMBER
+           ;

@@ -26,12 +26,12 @@ struct GrammarWorkbenchCLI {
         case "validate":
             guard arguments.count == 2 else { throw CLIError.usage("validate requires a grammar file") }
             let source = try read(arguments[1])
-            let result = GrammarFrontEnd.process(source)
-            for diagnostic in result.diagnostics {
+            let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
+            for diagnostic in compilation.diagnostics {
                 print("\(diagnostic.severity.rawValue):\(diagnostic.range.start.line):\(diagnostic.range.start.column): \(diagnostic.message)")
             }
-            if result.hasErrors { throw CLIError.validationFailed }
-            print("Valid grammar: \(result.grammar?.productions.count ?? 0) productions, \(result.grammar?.terminals.count ?? 0) terminals")
+            guard compilation.succeeded, let grammar = compilation.grammar else { throw CLIError.validationFailed }
+            print("Valid grammar: \(grammar.productions.count) productions, \(grammar.terminals.count) terminals")
         case "test":
             guard arguments.count == 2 else { throw CLIError.usage("test requires a project interchange or .grammarworkbench file") }
             let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
@@ -41,7 +41,11 @@ struct GrammarWorkbenchCLI {
             } else {
                 document = try JSONDecoder().decode(GrammarWorkbenchDocument.self, from: data)
             }
-            let report = GrammarTestRunner.run(document.tests, source: document.source, algorithm: document.algorithm)
+            guard let algorithm = GrammarAlgorithm(rawValue: document.algorithm) else {
+                throw CLIError.usage("unknown LR algorithm ‘\(document.algorithm)’")
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(source: document.source, algorithm: algorithm))
+            let report = compilation.runTests(document.tests)
             for result in report.results {
                 print("\(result.status.rawValue.uppercased()) \(result.name): \(result.message)")
             }

@@ -18,6 +18,7 @@ final class ExplorerStore {
     private(set) var isRegenerating = false
     private(set) var constructionPerformance: GrammarConstructionPerformance?
     private(set) var latestArtifactDiff: GrammarArtifactDiff?
+    private(set) var generalizedResult: GrammarGeneralizedParseResult?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -50,6 +51,7 @@ final class ExplorerStore {
         self.documentName = documentName
         self.constructionPerformance = compilation.performance
         self.latestArtifactDiff = nil
+        self.generalizedResult = nil
         if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
             let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             self.lexerResult = lexed
@@ -148,6 +150,7 @@ final class ExplorerStore {
     }
 
     func parseSample() {
+        generalizedResult = nil
         if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
             let result = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             lexerResult = result
@@ -168,6 +171,18 @@ final class ExplorerStore {
             )
         }
         replayIndex = 0
+    }
+
+    func exploreAmbiguity(includingResolvedConflicts: Bool) {
+        let compilation = GrammarWorkbenchAPI.compile(.init(
+            source: sourceText,
+            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr,
+            notation: notation
+        ))
+        generalizedResult = compilation.parseGeneralized(
+            sampleInput,
+            options: .init(exploresResolvedConflicts: includingResolvedConflicts)
+        )
     }
 
     private static func runtimeResult(for lexer: LexerResult, artifact: GrammarArtifact) -> ParserRuntimeResult {

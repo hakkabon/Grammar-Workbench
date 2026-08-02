@@ -6,6 +6,7 @@ public struct ArtifactExplorerView: View {
     @State private var tab = ExplorerTab.automaton
     @State private var exportMessage: String?
     @State private var selectedTestID: UUID?
+    @State private var exploresResolvedConflicts = false
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -27,7 +28,7 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", tests = "Tests"
+        case analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", research = "Research", tests = "Tests"
         var id: Self { self }
     }
 
@@ -173,6 +174,7 @@ public struct ArtifactExplorerView: View {
         case .table: tableView
         case .decisions: decisionsView
         case .sample: sampleView
+        case .research: researchView
         case .tests: testsView
         }
     }
@@ -718,6 +720,68 @@ public struct ArtifactExplorerView: View {
         }
         .onAppear {
             if selectedTestID == nil { selectedTestID = document?.wrappedValue.tests.first?.id }
+        }
+    }
+
+    private var researchView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("Generalized LR exploration").font(.title2.bold())
+                Text("Forks unresolved ACTION candidates and preserves distinct accepted trees. Limits keep this experimental analysis separate from production parsing.")
+                    .foregroundStyle(.secondary)
+                Toggle("Explore alternatives suppressed by precedence and associativity", isOn: $exploresResolvedConflicts)
+                HStack {
+                    Button("Explore sample", systemImage: "point.3.connected.trianglepath.dotted") {
+                        store.exploreAmbiguity(includingResolvedConflicts: exploresResolvedConflicts)
+                    }
+                    Text(store.sampleInput).font(.system(.caption, design: .monospaced))
+                        .lineLimit(1).foregroundStyle(.secondary)
+                }
+                if let result = store.generalizedResult {
+                    Divider()
+                    Label(
+                        researchStatus(result),
+                        systemImage: result.isAmbiguous ? "square.stack.3d.up.fill" : "checkmark.circle.fill"
+                    )
+                    .font(.headline)
+                    .foregroundStyle(result.isAmbiguous ? .orange : (result.isAccepted ? .green : .red))
+                    Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 6) {
+                        GridRow { Text("Explored configurations"); Text("\(result.metrics.exploredConfigurations)") }
+                        GridRow { Text("Peak pending"); Text("\(result.metrics.peakPendingConfigurations)") }
+                        GridRow { Text("Branch points"); Text("\(result.metrics.branchPoints)") }
+                        GridRow { Text("Duplicate configurations"); Text("\(result.metrics.duplicateConfigurations)") }
+                        GridRow { Text("Discarded configurations"); Text("\(result.metrics.discardedConfigurations)") }
+                    }
+                    .font(.caption.monospacedDigit())
+                    ForEach(Array(result.alternatives.enumerated()), id: \.offset) { index, tree in
+                        DisclosureGroup("Alternative \(index + 1)") {
+                            Text(tree.rendered())
+                                .font(.system(.caption, design: .monospaced))
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(.top, 5)
+                        }
+                    }
+                } else {
+                    ContentUnavailableView(
+                        "No research result", systemImage: "point.3.connected.trianglepath.dotted",
+                        description: Text("Enter input in Sample, then explore its parse alternatives here.")
+                    )
+                }
+            }
+            .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func researchStatus(_ result: GrammarGeneralizedParseResult) -> String {
+        switch result.status {
+        case .accepted: "One accepted parse"
+        case .ambiguous: "\(result.alternatives.count) accepted alternatives"
+        case .truncated: "Bound reached after finding \(result.alternatives.count) alternative(s)"
+        case .rejected: "No accepted alternatives"
+        case .invalidGrammar: "Grammar is invalid"
+        case .lexicalError: "Input has lexical errors"
         }
     }
 

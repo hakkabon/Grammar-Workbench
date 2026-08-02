@@ -1,0 +1,24 @@
+%start Document
+%token TEXT /[^"{]+/
+%token QUOTE /"/ %push STRING
+%token LBRACE /\{/
+%token RBRACE /\}/
+%skip /\s+/
+
+%mode STRING
+%token STRING_TEXT /[^"{]+/
+%token INTERPOLATION /\{/ %push EXPR
+%token QUOTE /"/ %pop
+
+%mode EXPR
+%token NAME /[A-Za-z_][A-Za-z0-9_]*/
+%token RBRACE /\}/ %pop
+%skip /\s+/
+
+%mode DEFAULT
+Document : Parts ;
+Parts : Parts Part | ;
+Part : TEXT | LBRACE | RBRACE | String ;
+String : QUOTE StringParts QUOTE ;
+StringParts : StringParts StringPart | ;
+StringPart : STRING_TEXT | INTERPOLATION NAME RBRACE ;

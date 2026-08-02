@@ -94,5 +94,8 @@ if [ -n "$NOTARY_PROFILE" ]; then
 fi
 
 "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench"
+"$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" > SHA256SUMS)
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"
+echo "Created $OUTPUT_DIR/SHA256SUMS"

@@ -105,8 +105,11 @@ public enum GrammarGeneratorRegistryError: Error, LocalizedError, Sendable {
     case duplicateIdentifier(String)
     case unknownGenerator(String)
     case compilationFailed(String)
+    case unknownOption(String)
     case invalidOption(name: String, value: String)
     case emptyResult(String)
+    case invalidFilename(String)
+    case duplicateFilename(String)
 
     public var errorDescription: String? {
         switch self {
@@ -115,6 +118,9 @@ public enum GrammarGeneratorRegistryError: Error, LocalizedError, Sendable {
         case .compilationFailed(let message): "Generation requires a valid grammar: \(message)"
         case .invalidOption(let name, let value): "Invalid value ‘\(value)’ for generator option ‘\(name)’."
         case .emptyResult(let id): "Generator ‘\(id)’ did not produce any files."
+        case .unknownOption(let name): "Unknown generator option ‘\(name)’."
+        case .invalidFilename(let name): "Generator output filename ‘\(name)’ is not a safe leaf filename."
+        case .duplicateFilename(let name): "Generator produced the output filename ‘\(name)’ more than once."
         }
     }
 }
@@ -160,10 +166,34 @@ public actor GrammarGeneratorRegistry {
         guard let generator = generators[identifier] else {
             throw GrammarGeneratorRegistryError.unknownGenerator(identifier)
         }
+        let declaredOptions = Dictionary(
+            generator.descriptor.options.map { ($0.name, $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        for (name, value) in options.values {
+            guard let declaration = declaredOptions[name] else {
+                throw GrammarGeneratorRegistryError.unknownOption(name)
+            }
+            if !declaration.allowedValues.isEmpty,
+               !declaration.allowedValues.contains(value) {
+                throw GrammarGeneratorRegistryError.invalidOption(name: name, value: value)
+            }
+        }
         let result = try await Task.detached(priority: .userInitiated) {
             try generator.generate(from: compilation, options: options)
         }.value
         guard !result.files.isEmpty else { throw GrammarGeneratorRegistryError.emptyResult(identifier) }
+        var filenames: Set<String> = []
+        for file in result.files {
+            let filename = file.suggestedFilename
+            guard !filename.isEmpty, filename != ".", filename != "..",
+                  !filename.contains("/"), !filename.contains("\\"), !filename.contains("\0") else {
+                throw GrammarGeneratorRegistryError.invalidFilename(filename)
+            }
+            guard filenames.insert(filename.lowercased()).inserted else {
+                throw GrammarGeneratorRegistryError.duplicateFilename(filename)
+            }
+        }
         return result
     }
 }

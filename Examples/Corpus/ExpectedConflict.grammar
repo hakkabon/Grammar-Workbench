@@ -1,0 +1,12 @@
+%start Statement
+%expect 1
+%token IF /if\b/
+%token THEN /then\b/
+%token ELSE /else\b/
+%token NAME /[A-Za-z_][A-Za-z0-9_]*/
+%skip /\s+/
+
+Statement : IF NAME THEN Statement
+          | IF NAME THEN Statement ELSE Statement
+          | NAME
+          ;

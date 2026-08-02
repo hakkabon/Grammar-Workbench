@@ -11,7 +11,8 @@ List : List ',' ID | ID | ;
 private struct SummaryGenerator: GrammarGenerator {
     let descriptor = GrammarGeneratorDescriptor(
         id: "test-summary", displayName: "Test Summary", summary: "Test extension",
-        defaultFileExtension: "txt", mediaType: "text/plain"
+        defaultFileExtension: "txt", mediaType: "text/plain",
+        options: [.init(name: "name", summary: "Output base name.", defaultValue: "grammar")]
     )
 
     func generate(
@@ -23,6 +24,23 @@ private struct SummaryGenerator: GrammarGenerator {
         return .init(generator: descriptor, files: [
             .init(suggestedFilename: "\(name).txt", mediaType: "text/plain", text: "\(count) productions")
         ])
+    }
+}
+
+private struct UnsafeOutputGenerator: GrammarGenerator {
+    let filenames: [String]
+    let descriptor = GrammarGeneratorDescriptor(
+        id: "unsafe-output", displayName: "Unsafe output", summary: "Test extension",
+        defaultFileExtension: "txt", mediaType: "text/plain"
+    )
+
+    func generate(
+        from compilation: GrammarCompilation,
+        options: GrammarGeneratorOptions
+    ) throws -> GrammarGenerationResult {
+        .init(generator: descriptor, files: filenames.map {
+            .init(suggestedFilename: $0, mediaType: "text/plain", text: "test")
+        })
     }
 }
 
@@ -49,6 +67,36 @@ private struct SummaryGenerator: GrammarGenerator {
     try await registry.register(SummaryGenerator())
     await #expect(throws: GrammarGeneratorRegistryError.self) {
         try await registry.register(SummaryGenerator())
+    }
+}
+
+@Test func registryValidatesOptionsAndOutputFilenames() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
+    let registry = GrammarGeneratorRegistry()
+
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.generate(
+            identifier: "swift", from: compilation,
+            options: .init(["unknown": "value"])
+        )
+    }
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.generate(
+            identifier: "swift", from: compilation,
+            options: .init(["accessLevel": "package"])
+        )
+    }
+
+    try await registry.register(UnsafeOutputGenerator(filenames: ["../outside.txt"]))
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.generate(identifier: "unsafe-output", from: compilation)
+    }
+    try await registry.register(
+        UnsafeOutputGenerator(filenames: ["Result.txt", "result.TXT"]),
+        replacingExisting: true
+    )
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.generate(identifier: "unsafe-output", from: compilation)
     }
 }
 

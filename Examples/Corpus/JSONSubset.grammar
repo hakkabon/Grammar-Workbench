@@ -1,0 +1,22 @@
+%start Value
+%token LBRACE /\{/
+%token RBRACE /\}/
+%token LBRACKET /\[/
+%token RBRACKET /\]/
+%token COLON /:/
+%token COMMA /,/
+%token TRUE /true/
+%token FALSE /false/
+%token NULL /null/
+%token NUMBER /-?(0|[1-9][0-9]*)(\.[0-9]+)?/
+%token STRING /"([^"\\]|\\.)*"/
+%skip /\s+/
+
+Value : Object | Array | STRING | NUMBER | TRUE | FALSE | NULL ;
+Object : LBRACE MembersOpt RBRACE ;
+MembersOpt : Members | ;
+Members : Pair | Members COMMA Pair ;
+Pair : STRING COLON Value ;
+Array : LBRACKET ElementsOpt RBRACKET ;
+ElementsOpt : Elements | ;
+Elements : Value | Elements COMMA Value ;

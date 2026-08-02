@@ -71,9 +71,15 @@ The **Compare** workspace constructs SLR(1), LALR(1), and canonical LR(1) lazily
 
 `Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
 
+## Production validation
+
+`Examples/Corpus` contains compatibility grammars covering recursive JSON-like data, a precedence-based statement language, nested lexer modes, and an intentional dangling-else conflict. The test suite compiles the applicable SLR, LALR, and canonical LR variants and checks strict accepted and rejected inputs. It also enforces generous construction-size and latency ceilings on a generated representative grammar; these ceilings are regression tripwires rather than microbenchmarks.
+
+`Scripts/smoke-release.sh CLI_PATH` validates every corpus grammar through the packaged CLI, exports comparison and artifact JSON, invokes the generic Swift and BNF generators, and asks `swiftc` to parse the generated Swift source. Release packaging runs this smoke test automatically and emits `SHA256SUMS` beside the application and CLI archives. Pull requests and pushes to the primary development branches run the full suite, a release CLI build, corpus smoke tests, and metadata validation.
+
 ## Production packaging
 
-`Scripts/package-release.sh` builds the SwiftUI application and CLI, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate ZIP archives. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
+`Scripts/package-release.sh` builds the SwiftUI application and CLI, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
 
 For a local Developer ID release, provide `SIGNING_IDENTITY="Developer ID Application: …"`. Add `NOTARY_PROFILE` for an `xcrun notarytool` keychain profile; the script submits, waits, staples, rebuilds the archive, and validates the result. A deterministic default icon is included; `APP_ICON` may point to a replacement `.icns`. Regenerate the default and its inspectable PNG iconset with `swift Scripts/generate-app-icon.swift /tmp/GrammarWorkbench.iconset Packaging/AppIcon.icns`. Signing identities and notarization credentials are intentionally not stored in the repository. Tagged GitHub builds run the full suite and publish unsigned review artifacts; signed distribution can use the same script in a credentialed release environment.
 

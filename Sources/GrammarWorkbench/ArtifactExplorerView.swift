@@ -20,6 +20,7 @@ public struct ArtifactExplorerView: View {
         self._store = State(initialValue: ExplorerStore(
             source: value.source,
             algorithm: LRAlgorithm(rawValue: value.algorithm) ?? .lalr,
+            notation: value.notation,
             sampleInput: selectedInput,
             documentName: documentName
         ))
@@ -55,6 +56,12 @@ public struct ArtifactExplorerView: View {
                 Picker("LR algorithm", selection: algorithmBinding) { ForEach(LRAlgorithm.allCases) { Text($0.rawValue).tag($0) } }
                     .frame(width: 180)
             }
+            ToolbarItem {
+                Picker("Grammar notation", selection: notationBinding) {
+                    ForEach(GrammarSourceNotation.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 130)
+            }
             if store.isRegenerating {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
             } else if let performance = store.constructionPerformance {
@@ -85,6 +92,9 @@ public struct ArtifactExplorerView: View {
         .onChange(of: document?.wrappedValue.source) { _, source in
             if let source { store.updateSource(source) }
         }
+        .onChange(of: document?.wrappedValue.notation) { _, notation in
+            if let notation, store.notation != notation { store.notation = notation }
+        }
     }
 
     private func performanceLabel(_ performance: GrammarConstructionPerformance) -> String {
@@ -109,8 +119,8 @@ public struct ArtifactExplorerView: View {
             GrammarSourceEditor(
                 text: sourceBinding,
                 diagnostics: store.frontEnd.diagnostics,
-                selectedRange: store.sourceSelection,
-                completions: GrammarEditorIntelligence.completions(for: store.frontEnd),
+                selectedRange: store.notation == .workbench ? store.sourceSelection : nil,
+                completions: GrammarEditorIntelligence.completions(for: store.frontEnd, notation: store.notation),
                 isEditable: document != nil
             )
                 .frame(minHeight: 280)
@@ -296,6 +306,38 @@ public struct ArtifactExplorerView: View {
                     validationSummary(grammar)
                     Divider()
                     LabeledContent("Start symbol", value: grammar.startSymbol)
+                    LabeledContent("Source notation", value: store.notation.rawValue)
+                    if let difference = store.latestArtifactDiff {
+                        DisclosureGroup("Impact of latest valid edit") {
+                            Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 5) {
+                                GridRow { Text("States"); Text(signed(difference.stateDelta)) }
+                                GridRow { Text("Transitions"); Text(signed(difference.transitionDelta)) }
+                                GridRow { Text("Table entries"); Text(signed(difference.tableEntryDelta)) }
+                                GridRow { Text("Decisions"); Text(signed(difference.decisionDelta)) }
+                            }
+                            .font(.caption.monospacedDigit())
+                            if !difference.addedProductions.isEmpty {
+                                Text("Added: \(difference.addedProductions.joined(separator: " · "))")
+                                    .font(.caption).foregroundStyle(.green)
+                            }
+                            if !difference.removedProductions.isEmpty {
+                                Text("Removed: \(difference.removedProductions.joined(separator: " · "))")
+                                    .font(.caption).foregroundStyle(.red)
+                            }
+                        }
+                    }
+                    if store.notation == .ebnf,
+                       let lowering = try? GrammarWorkbenchAPI.lowerEBNF(sourceBinding.wrappedValue) {
+                        DisclosureGroup("Lowered BNF (\(lowering.syntheticNonterminals.count) synthetic symbols)") {
+                            ScrollView(.horizontal) {
+                                Text(lowering.loweredSource)
+                                    .font(.system(.caption, design: .monospaced))
+                                    .textSelection(.enabled)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .padding(.top, 6)
+                        }
+                    }
                     LabeledContent(
                         "Terminal mode",
                         value: grammar.lexerRules.isEmpty
@@ -379,6 +421,10 @@ public struct ArtifactExplorerView: View {
         Text("{ \(values.sorted().joined(separator: ", ")) }")
             .font(.system(.body, design: .monospaced))
             .textSelection(.enabled)
+    }
+
+    private func signed(_ value: Int) -> String {
+        value > 0 ? "+\(value)" : "\(value)"
     }
 
     private func lexerActionLabel(_ action: LexerModeAction) -> String {
@@ -924,6 +970,7 @@ public struct ArtifactExplorerView: View {
         do {
             let imported = try GrammarInterchangeCodec.decode(Data(contentsOf: url))
             document.wrappedValue = imported
+            store.notation = imported.notation
             store.load(source: imported.source, documentName: url.lastPathComponent)
             store.algorithm = LRAlgorithm(rawValue: imported.algorithm) ?? .lalr
             store.sampleInput = imported.samples.first { $0.id == imported.selectedSampleID }?.input ?? ""
@@ -943,7 +990,9 @@ public struct ArtifactExplorerView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let data = try GrammarInterchangeCodec.encodeArtifact(
-                source: store.frontEnd.source, algorithm: store.algorithm.rawValue
+                source: sourceBinding.wrappedValue,
+                algorithm: store.algorithm.rawValue,
+                notation: store.notation
             )
             try data.write(to: url, options: .atomic)
             exportMessage = "Exported artifact interchange to \(url.lastPathComponent)."
@@ -962,7 +1011,7 @@ public struct ArtifactExplorerView: View {
                 throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
             }
             let compilation = GrammarWorkbenchAPI.compile(.init(
-                source: store.frontEnd.source, algorithm: algorithm
+                source: sourceBinding.wrappedValue, algorithm: algorithm, notation: store.notation
             ))
             let source = try compilation.generateSwiftParser()
             try source.write(to: url, atomically: true, encoding: .utf8)
@@ -982,7 +1031,7 @@ public struct ArtifactExplorerView: View {
                 throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
             }
             let compilation = GrammarWorkbenchAPI.compile(.init(
-                source: store.frontEnd.source, algorithm: algorithm
+                source: sourceBinding.wrappedValue, algorithm: algorithm, notation: store.notation
             ))
             let result = try BNFGrammarGenerator().generate(from: compilation, options: .init())
             guard let file = result.files.first else {
@@ -1031,6 +1080,19 @@ public struct ArtifactExplorerView: View {
                 guard let document else { return }
                 var updated = document.wrappedValue
                 updated.algorithm = value.rawValue
+                document.wrappedValue = updated
+            }
+        )
+    }
+
+    private var notationBinding: Binding<GrammarSourceNotation> {
+        Binding(
+            get: { store.notation },
+            set: { value in
+                store.notation = value
+                guard let document else { return }
+                var updated = document.wrappedValue
+                updated.notation = value
                 document.wrappedValue = updated
             }
         )

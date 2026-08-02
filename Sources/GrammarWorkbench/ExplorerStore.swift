@@ -3,7 +3,9 @@ import SwiftUI
 @MainActor
 @Observable
 final class ExplorerStore {
-    var algorithm: LRAlgorithm = .lalr { didSet { scheduleCompilation(source: frontEnd.source) } }
+    var algorithm: LRAlgorithm = .lalr { didSet { scheduleCompilation(source: sourceText) } }
+    var notation: GrammarSourceNotation = .workbench { didSet { scheduleCompilation(source: sourceText) } }
+    private var sourceText: String
     private(set) var frontEnd: GrammarFrontEndResult
     private(set) var artifact: GrammarArtifact
     private(set) var documentName = "Expression grammar"
@@ -15,6 +17,7 @@ final class ExplorerStore {
     private(set) var isComparingAlgorithms = false
     private(set) var isRegenerating = false
     private(set) var constructionPerformance: GrammarConstructionPerformance?
+    private(set) var latestArtifactDiff: GrammarArtifactDiff?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -28,20 +31,25 @@ final class ExplorerStore {
     init(
         source: String = SampleArtifact.grammarSource,
         algorithm: LRAlgorithm = .lalr,
+        notation: GrammarSourceNotation = .workbench,
         sampleInput: String = "id + id * id",
         documentName: String = "Expression grammar"
     ) {
         let compilation = GrammarWorkbenchAPI.compile(.init(
             source: source,
-            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr
+            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr,
+            notation: notation
         ))
         let initialArtifact = compilation.compiledArtifact ?? SampleArtifact.make(algorithm: algorithm)
         self.frontEnd = compilation.frontEndResult
         self.artifact = initialArtifact
         self.algorithm = algorithm
+        self.notation = notation
+        self.sourceText = source
         self.sampleInput = sampleInput
         self.documentName = documentName
         self.constructionPerformance = compilation.performance
+        self.latestArtifactDiff = nil
         if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
             let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             self.lexerResult = lexed
@@ -88,12 +96,15 @@ final class ExplorerStore {
         constructionRevision += 1
         let compilation = GrammarWorkbenchAPI.compile(.init(
             source: source,
-            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr
+            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr,
+            notation: notation
         ))
+        sourceText = source
         frontEnd = compilation.frontEndResult
         self.documentName = documentName
         if let compiledArtifact = compilation.compiledArtifact { artifact = compiledArtifact }
         constructionPerformance = compilation.performance
+        latestArtifactDiff = nil
         sampleInput = compilation.frontEndResult.grammar?.terminals.first ?? ""
         parseSample()
         resetSelection()
@@ -132,6 +143,7 @@ final class ExplorerStore {
     }
 
     func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
+        sourceText = source
         scheduleCompilation(source: source, debounceNanoseconds: debounceNanoseconds)
     }
 
@@ -193,12 +205,17 @@ final class ExplorerStore {
             }
             guard !Task.isCancelled, let self else { return }
             let compilation = await self.incrementalCompiler.compile(.init(
-                source: source, algorithm: selectedAlgorithm
+                source: source, algorithm: selectedAlgorithm, notation: self.notation
             ))
             guard !Task.isCancelled, revision == self.constructionRevision else { return }
             self.frontEnd = compilation.frontEndResult
             self.constructionPerformance = compilation.performance
             if let compiledArtifact = compilation.compiledArtifact {
+                if let current = compilation.artifact {
+                    self.latestArtifactDiff = GrammarArtifactDiff(
+                        previous: GrammarArtifactSnapshot(self.artifact), current: current
+                    )
+                }
                 self.artifact = compiledArtifact
                 self.parseSample()
                 self.resetSelection()

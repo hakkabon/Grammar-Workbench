@@ -33,6 +33,13 @@
             <key>LSHandlerRank</key><string>Alternate</string>
             <key>LSItemContentTypes</key><array><string>public.plain-text</string></array>
         </dict>
+        <dict>
+            <key>CFBundleTypeExtensions</key><array><string>ebnf</string></array>
+            <key>CFBundleTypeName</key><string>Extended Backus-Naur Form Grammar</string>
+            <key>CFBundleTypeRole</key><string>Editor</string>
+            <key>LSHandlerRank</key><string>Alternate</string>
+            <key>LSItemContentTypes</key><array><string>org.iso.ebnf-source</string></array>
+        </dict>
     </array>
     <key>UTExportedTypeDeclarations</key>
     <array>
@@ -42,6 +49,16 @@
             <key>UTTypeIdentifier</key><string>com.grammar-workbench.document</string>
             <key>UTTypeTagSpecification</key>
             <dict><key>public.filename-extension</key><array><string>grammarworkbench</string></array></dict>
+        </dict>
+    </array>
+    <key>UTImportedTypeDeclarations</key>
+    <array>
+        <dict>
+            <key>UTTypeConformsTo</key><array><string>public.plain-text</string></array>
+            <key>UTTypeDescription</key><string>Extended Backus-Naur Form Grammar</string>
+            <key>UTTypeIdentifier</key><string>org.iso.ebnf-source</string>
+            <key>UTTypeTagSpecification</key>
+            <dict><key>public.filename-extension</key><array><string>ebnf</string></array></dict>
         </dict>
     </array>
 </dict>

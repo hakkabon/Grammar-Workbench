@@ -57,9 +57,10 @@ public enum GrammarTestRunner {
     public static func run(
         _ tests: [WorkbenchTestCase],
         source: String,
-        algorithm: String = "LALR(1)"
+        algorithm: String = "LALR(1)",
+        notation: GrammarSourceNotation = .workbench
     ) -> WorkbenchTestReport {
-        let frontEnd = GrammarFrontEnd.process(source)
+        let frontEnd = GrammarFrontEnd.process(source, notation: notation)
         guard let grammar = frontEnd.grammar, let analysis = frontEnd.analysis,
               let selectedAlgorithm = LRAlgorithm(rawValue: algorithm) else {
             let message = frontEnd.diagnostics.first(where: { $0.severity == .error })?.message
@@ -132,10 +133,11 @@ public enum GrammarTestRunner {
 }
 
 public struct GrammarWorkbenchInterchange: Codable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
     public let schemaVersion: Int
     public let source: String
     public let algorithm: String
+    public let notation: GrammarSourceNotation
     public let samples: [WorkbenchSample]
     public let selectedSampleID: UUID
     public let tests: [WorkbenchTestCase]
@@ -144,9 +146,25 @@ public struct GrammarWorkbenchInterchange: Codable, Sendable {
         schemaVersion = Self.currentSchemaVersion
         source = document.source
         algorithm = document.algorithm
+        notation = document.notation
         samples = document.samples
         selectedSampleID = document.selectedSampleID
         tests = document.tests
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, source, algorithm, notation, samples, selectedSampleID, tests
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try values.decode(Int.self, forKey: .schemaVersion)
+        source = try values.decode(String.self, forKey: .source)
+        algorithm = try values.decode(String.self, forKey: .algorithm)
+        notation = try values.decodeIfPresent(GrammarSourceNotation.self, forKey: .notation) ?? .workbench
+        samples = try values.decode([WorkbenchSample].self, forKey: .samples)
+        selectedSampleID = try values.decode(UUID.self, forKey: .selectedSampleID)
+        tests = try values.decodeIfPresent([WorkbenchTestCase].self, forKey: .tests) ?? []
     }
 }
 
@@ -211,12 +229,16 @@ public enum GrammarInterchangeCodec {
         return try encoder.encode(GrammarWorkbenchInterchange(document: document))
     }
 
-    public static func encodeArtifact(source: String, algorithm: String = "LALR(1)") throws -> Data {
+    public static func encodeArtifact(
+        source: String,
+        algorithm: String = "LALR(1)",
+        notation: GrammarSourceNotation = .workbench
+    ) throws -> Data {
         guard let selectedAlgorithm = GrammarAlgorithm(rawValue: algorithm) else {
             throw GrammarInterchangeError.invalidAlgorithm(algorithm)
         }
         return try encodeArtifact(compilation: GrammarWorkbenchAPI.compile(.init(
-            source: source, algorithm: selectedAlgorithm
+            source: source, algorithm: selectedAlgorithm, notation: notation
         )))
     }
 
@@ -267,18 +289,18 @@ public enum GrammarInterchangeCodec {
 
     public static func decode(_ data: Data) throws -> GrammarWorkbenchDocument {
         let value = try JSONDecoder().decode(GrammarWorkbenchInterchange.self, from: data)
-        guard value.schemaVersion == GrammarWorkbenchInterchange.currentSchemaVersion else {
+        guard (1...GrammarWorkbenchInterchange.currentSchemaVersion).contains(value.schemaVersion) else {
             throw GrammarInterchangeError.unsupportedVersion(value.schemaVersion)
         }
         guard LRAlgorithm(rawValue: value.algorithm) != nil else {
             throw GrammarInterchangeError.invalidAlgorithm(value.algorithm)
         }
-        let result = GrammarFrontEnd.process(value.source)
+        let result = GrammarFrontEnd.process(value.source, notation: value.notation)
         if let diagnostic = result.diagnostics.first(where: { $0.severity == .error }) {
             throw GrammarInterchangeError.invalidGrammar(diagnostic.message)
         }
         return GrammarWorkbenchDocument(
-            source: value.source, algorithm: value.algorithm, samples: value.samples,
+            source: value.source, algorithm: value.algorithm, notation: value.notation, samples: value.samples,
             selectedSampleID: value.selectedSampleID, tests: value.tests
         )
     }

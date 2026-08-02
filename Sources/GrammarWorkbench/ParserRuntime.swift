@@ -39,8 +39,24 @@ struct ParserDiagnostic: Hashable, Codable, Sendable {
 
 struct ParserRecoveryConfiguration: Sendable {
     let maximumDiagnostics: Int
-    static let disabled = ParserRecoveryConfiguration(maximumDiagnostics: 0)
-    static let diagnostic = ParserRecoveryConfiguration(maximumDiagnostics: 8)
+    let synchronizationTerminals: Set<String>
+    let preferredInsertions: [String]
+
+    init(
+        maximumDiagnostics: Int,
+        synchronizationTerminals: Set<String> = [],
+        preferredInsertions: [String] = []
+    ) {
+        self.maximumDiagnostics = maximumDiagnostics
+        self.synchronizationTerminals = synchronizationTerminals
+        self.preferredInsertions = preferredInsertions
+    }
+    static let disabled = ParserRecoveryConfiguration(
+        maximumDiagnostics: 0, synchronizationTerminals: [], preferredInsertions: []
+    )
+    static let diagnostic = ParserRecoveryConfiguration(
+        maximumDiagnostics: 8, synchronizationTerminals: [], preferredInsertions: []
+    )
 }
 
 enum ParseOutcome: Hashable, Sendable {
@@ -165,6 +181,8 @@ enum LRParserRuntime {
                 let expected = artifact.terminals.filter {
                     artifact.cell(.init(state: state, symbol: $0))?.actions.isEmpty == false
                 }.sorted()
+                let insertionCandidates = recovery.preferredInsertions.filter(expected.contains)
+                    + expected.filter { !recovery.preferredInsertions.contains($0) }
                 frames.append(frame(
                     index: frames.count,
                     action: "error: no action for ‘\(lookahead)’",
@@ -180,7 +198,7 @@ enum LRParserRuntime {
                     return result(.rejected(message: "Recovery made no progress at ‘\(lookahead)’ in \(state).", expected: expected))
                 }
 
-                if let inserted = expected.first(where: { symbol in
+                if let inserted = insertionCandidates.first(where: { symbol in
                     guard symbol != "$", let action = artifact.cell(.init(state: state, symbol: symbol))?.actions.first else { return false }
                     switch action {
                     case .reduce: return true
@@ -220,7 +238,7 @@ enum LRParserRuntime {
                     continue
                 }
 
-                if let inserted = expected.first(where: { symbol in
+                if let inserted = insertionCandidates.first(where: { symbol in
                     guard symbol != "$", let candidate = artifact.cell(.init(state: state, symbol: symbol)) else { return false }
                     return candidate.actions.contains { if case .shift = $0 { true } else { false } }
                 }) {
@@ -238,7 +256,10 @@ enum LRParserRuntime {
                     continue
                 }
 
-                if let point = synchronizationPoint(input: input, cursor: cursor, states: states, artifact: artifact) {
+                if let point = synchronizationPoint(
+                    input: input, cursor: cursor, states: states, artifact: artifact,
+                    preferredTerminals: recovery.synchronizationTerminals
+                ) {
                     let discarded = Array(input[cursor..<point.cursor])
                     if point.pops > 0 {
                         states.removeLast(point.pops)
@@ -387,9 +408,13 @@ enum LRParserRuntime {
     }
 
     private static func synchronizationPoint(
-        input: [String], cursor: Int, states: [StateID], artifact: GrammarArtifact
+        input: [String], cursor: Int, states: [StateID], artifact: GrammarArtifact,
+        preferredTerminals: Set<String>
     ) -> (cursor: Int, pops: Int)? {
         for inputIndex in cursor..<input.count {
+            if !preferredTerminals.isEmpty,
+               input[inputIndex] != "$",
+               !preferredTerminals.contains(input[inputIndex]) { continue }
             for stackIndex in states.indices.reversed() {
                 let cell = CellID(state: states[stackIndex], symbol: input[inputIndex])
                 if artifact.cell(cell)?.actions.isEmpty == false {

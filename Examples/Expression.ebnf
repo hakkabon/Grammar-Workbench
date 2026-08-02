@@ -1,0 +1,6 @@
+lexical {
+    NUMBER = /[0-9]+/ ;
+}
+
+expression = term { "+" term } ;
+term = NUMBER | "(" expression ")" ;

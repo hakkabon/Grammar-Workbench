@@ -20,6 +20,9 @@ done
 "$CLI_PATH" export-artifact "$ROOT_DIR/Examples/Corpus/JSONSubset.grammar" "$WORK_DIR/artifact.json"
 "$CLI_PATH" generate swift "$ROOT_DIR/Examples/Corpus/MiniLanguage.grammar" "$WORK_DIR/GeneratedParser.swift" "LALR(1)" typeName=SmokeParser
 "$CLI_PATH" generate bnf "$ROOT_DIR/Examples/Corpus/JSONSubset.grammar" "$WORK_DIR/JSONSubset.bnf"
+"$CLI_PATH" validate "$ROOT_DIR/Examples/Expression.ebnf" >/dev/null
+"$CLI_PATH" lower-ebnf "$ROOT_DIR/Examples/Expression.ebnf" "$WORK_DIR/Expression.bnf"
+"$CLI_PATH" diff "$ROOT_DIR/Examples/Expression.grammar" "$ROOT_DIR/Examples/Corpus/JSONSubset.grammar" "$WORK_DIR/diff.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"

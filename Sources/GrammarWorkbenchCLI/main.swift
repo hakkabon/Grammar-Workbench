@@ -26,7 +26,9 @@ struct GrammarWorkbenchCLI {
         case "validate":
             guard arguments.count == 2 else { throw CLIError.usage("validate requires a grammar file") }
             let source = try read(arguments[1])
-            let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: source, notation: notation(for: arguments[1])
+            ))
             for diagnostic in compilation.diagnostics {
                 print("\(diagnostic.severity.rawValue):\(diagnostic.range.start.line):\(diagnostic.range.start.column): \(diagnostic.message)")
             }
@@ -44,7 +46,9 @@ struct GrammarWorkbenchCLI {
             guard let algorithm = GrammarAlgorithm(rawValue: document.algorithm) else {
                 throw CLIError.usage("unknown LR algorithm ‘\(document.algorithm)’")
             }
-            let compilation = GrammarWorkbenchAPI.compile(.init(source: document.source, algorithm: algorithm))
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: document.source, algorithm: algorithm, notation: document.notation
+            ))
             let report = compilation.runTests(document.tests)
             for result in report.results {
                 print("\(result.status.rawValue.uppercased()) \(result.name): \(result.message)")
@@ -57,7 +61,9 @@ struct GrammarWorkbenchCLI {
             }
             let source = try read(arguments[1])
             let algorithm = arguments.count == 4 ? arguments[3] : "LALR(1)"
-            let data = try GrammarInterchangeCodec.encodeArtifact(source: source, algorithm: algorithm)
+            let data = try GrammarInterchangeCodec.encodeArtifact(
+                source: source, algorithm: algorithm, notation: notation(for: arguments[1])
+            )
             try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2])")
         case "generate-swift":
@@ -70,7 +76,9 @@ struct GrammarWorkbenchCLI {
                 throw CLIError.usage("unknown LR algorithm ‘\(algorithmName)’")
             }
             let typeName = arguments.count == 5 ? arguments[4] : "GeneratedParser"
-            let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: algorithm))
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: source, algorithm: algorithm, notation: notation(for: arguments[1])
+            ))
             let generated = try compilation.generateSwiftParser(options: .init(typeName: typeName))
             try Data(generated.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2])")
@@ -106,7 +114,9 @@ struct GrammarWorkbenchCLI {
                 }
                 values[parts[0]] = parts[1]
             }
-            let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: algorithm))
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: source, algorithm: algorithm, notation: notation(for: arguments[2])
+            ))
             let registry = GrammarGeneratorRegistry()
             let result = try await registry.generate(
                 identifier: arguments[1], from: compilation, options: .init(values)
@@ -118,7 +128,9 @@ struct GrammarWorkbenchCLI {
                 throw CLIError.usage("compare requires GRAMMAR [OUTPUT]")
             }
             let source = try read(arguments[1])
-            let comparison = try GrammarWorkbenchAPI.compile(.init(source: source)).compareAlgorithms()
+            let comparison = try GrammarWorkbenchAPI.compile(.init(
+                source: source, notation: notation(for: arguments[1])
+            )).compareAlgorithms()
             if arguments.count == 3 {
                 let encoder = JSONEncoder()
                 encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
@@ -132,6 +144,38 @@ struct GrammarWorkbenchCLI {
                 }
                 print("Recommended: \(comparison.recommendedAlgorithm.rawValue) — \(comparison.recommendation)")
             }
+        case "lower-ebnf":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("lower-ebnf requires EBNF OUTPUT")
+            }
+            let lowering = try GrammarWorkbenchAPI.lowerEBNF(try read(arguments[1]))
+            try Data(lowering.loweredSource.utf8).write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]) (\(lowering.syntheticNonterminals.count) synthetic nonterminals)")
+        case "diff":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("diff requires OLD NEW [OUTPUT]")
+            }
+            let old = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            let new = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[2]), notation: notation(for: arguments[2])
+            ))
+            let difference = try new.diff(from: old)
+            if arguments.count == 4 {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                try encoder.encode(difference).write(
+                    to: URL(fileURLWithPath: arguments[3]), options: .atomic
+                )
+                print("Wrote \(arguments[3])")
+            } else {
+                print("States \(signed(difference.stateDelta)), transitions \(signed(difference.transitionDelta)), table entries \(signed(difference.tableEntryDelta)), decisions \(signed(difference.decisionDelta))")
+                for production in difference.addedProductions { print("+ \(production)") }
+                for production in difference.removedProductions { print("- \(production)") }
+            }
         default:
             throw CLIError.usage("unknown command ‘\(command)’")
         }
@@ -139,6 +183,14 @@ struct GrammarWorkbenchCLI {
 
     private static func read(_ path: String) throws -> String {
         try String(contentsOf: URL(fileURLWithPath: path), encoding: .utf8)
+    }
+
+    private static func notation(for path: String) -> GrammarSourceNotation {
+        URL(fileURLWithPath: path).pathExtension.lowercased() == "ebnf" ? .ebnf : .workbench
+    }
+
+    private static func signed(_ value: Int) -> String {
+        value > 0 ? "+\(value)" : "\(value)"
     }
 
     private static func write(_ files: [GrammarGeneratedFile], to path: String) throws {
@@ -167,6 +219,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench list-generators
       grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]
       grammar-workbench compare GRAMMAR [OUTPUT]
+      grammar-workbench lower-ebnf EBNF OUTPUT
+      grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).

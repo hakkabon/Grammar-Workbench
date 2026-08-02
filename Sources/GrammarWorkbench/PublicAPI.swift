@@ -200,7 +200,9 @@ public struct GrammarCompilation: Sendable {
     public let analysis: GrammarAnalysisSnapshot?
     public let lexerAnalysis: LexerModeAnalysis?
     public let artifact: GrammarArtifactSnapshot?
+    public let performance: GrammarConstructionPerformance
 
+    let frontEndResult: GrammarFrontEndResult
     let compiledGrammar: ParsedGrammar?
     let compiledAnalysis: GrammarAnalysis?
     let compiledArtifact: GrammarArtifact?
@@ -330,6 +332,23 @@ public struct GrammarCompilation: Sendable {
         .init(status: .invalidGrammar, message: message, tokens: tokens, expectedTerminals: [],
               tree: nil, trace: [], conflictState: nil, conflictSymbol: nil, diagnostics: [])
     }
+
+    func withReuse(_ reuse: GrammarConstructionReuse, delivery: Double) -> GrammarCompilation {
+        .init(
+            apiVersion: apiVersion, request: request, diagnostics: diagnostics,
+            grammar: grammar, analysis: analysis, lexerAnalysis: lexerAnalysis,
+            artifact: artifact,
+            performance: .init(
+                frontEndMilliseconds: performance.frontEndMilliseconds,
+                constructionMilliseconds: performance.constructionMilliseconds,
+                totalMilliseconds: delivery, reuse: reuse,
+                stateCount: performance.stateCount, itemCount: performance.itemCount,
+                tableEntryCount: performance.tableEntryCount
+            ),
+            frontEndResult: frontEndResult, compiledGrammar: compiledGrammar,
+            compiledAnalysis: compiledAnalysis, compiledArtifact: compiledArtifact
+        )
+    }
 }
 
 public enum GrammarWorkbenchAPIError: Error, LocalizedError, Sendable {
@@ -346,21 +365,41 @@ public enum GrammarWorkbenchAPI {
     public static let version = GrammarWorkbenchAPIVersion.current
 
     public static func compile(_ request: GrammarCompilationRequest) -> GrammarCompilation {
+        let totalStart = ContinuousClock.now
+        let frontEndStart = ContinuousClock.now
         let result = GrammarFrontEnd.process(request.source)
+        let frontEndMilliseconds = elapsedMilliseconds(since: frontEndStart)
         guard !result.hasErrors, let grammar = result.grammar, let analysis = result.analysis else {
             return .init(apiVersion: version, request: request, diagnostics: result.diagnostics,
                          grammar: nil, analysis: nil, lexerAnalysis: result.lexerAnalysis, artifact: nil,
+                         performance: .init(
+                            frontEndMilliseconds: frontEndMilliseconds, constructionMilliseconds: 0,
+                            totalMilliseconds: elapsedMilliseconds(since: totalStart), reuse: .none,
+                            stateCount: 0, itemCount: 0, tableEntryCount: 0
+                         ),
+                         frontEndResult: result,
                          compiledGrammar: nil, compiledAnalysis: nil, compiledArtifact: nil)
         }
+        let constructionStart = ContinuousClock.now
         let core = LRConstructionEngine.construct(
             grammar: grammar, analysis: analysis, source: request.source,
             algorithm: request.algorithm.coreValue
         )
+        let constructionMilliseconds = elapsedMilliseconds(since: constructionStart)
         return .init(
             apiVersion: version, request: request, diagnostics: result.diagnostics,
             grammar: GrammarSummary(grammar), analysis: GrammarAnalysisSnapshot(analysis),
             lexerAnalysis: result.lexerAnalysis,
-            artifact: GrammarArtifactSnapshot(core), compiledGrammar: grammar,
+            artifact: GrammarArtifactSnapshot(core),
+            performance: .init(
+                frontEndMilliseconds: frontEndMilliseconds,
+                constructionMilliseconds: constructionMilliseconds,
+                totalMilliseconds: elapsedMilliseconds(since: totalStart), reuse: .none,
+                stateCount: core.states.count,
+                itemCount: core.states.reduce(0) { $0 + $1.items.count },
+                tableEntryCount: core.cells.count
+            ),
+            frontEndResult: result, compiledGrammar: grammar,
             compiledAnalysis: analysis, compiledArtifact: core
         )
     }

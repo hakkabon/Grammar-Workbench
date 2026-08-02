@@ -2,6 +2,15 @@ import Foundation
 import Testing
 @testable import GrammarWorkbench
 
+@MainActor
+private func awaitRegeneration(_ store: ExplorerStore) async throws {
+    for _ in 0..<200 {
+        if !store.isRegenerating { return }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    Issue.record("Artifact regeneration did not finish within two seconds.")
+}
+
 @Test func documentRoundTripPreservesWorkbenchState() throws {
     let selectedID = UUID()
     let document = GrammarWorkbenchDocument(
@@ -39,7 +48,7 @@ import Testing
     let second = "%start S\nS : 'second' ;"
     store.updateSource(first, debounceNanoseconds: 30_000_000)
     store.updateSource(second, debounceNanoseconds: 30_000_000)
-    try await Task.sleep(nanoseconds: 100_000_000)
+    try await awaitRegeneration(store)
     #expect(store.frontEnd.source == second)
     #expect(store.artifact.grammarSource == second)
     #expect(store.artifact.terminals.contains("second"))
@@ -51,7 +60,7 @@ import Testing
     let store = ExplorerStore()
     let validSource = store.artifact.grammarSource
     store.updateSource("Broken 'token' ;", debounceNanoseconds: 10_000_000)
-    try await Task.sleep(nanoseconds: 50_000_000)
+    try await awaitRegeneration(store)
     #expect(store.frontEnd.hasErrors)
     #expect(store.artifact.grammarSource == validSource)
 }

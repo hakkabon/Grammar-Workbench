@@ -3,7 +3,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class ExplorerStore {
-    var algorithm: LRAlgorithm = .lalr { didSet { reload() } }
+    var algorithm: LRAlgorithm = .lalr { didSet { scheduleCompilation(source: frontEnd.source) } }
     private(set) var frontEnd: GrammarFrontEndResult
     private(set) var artifact: GrammarArtifact
     private(set) var documentName = "Expression grammar"
@@ -14,6 +14,7 @@ final class ExplorerStore {
     private(set) var algorithmComparison: GrammarAlgorithmComparison?
     private(set) var isComparingAlgorithms = false
     private(set) var isRegenerating = false
+    private(set) var constructionPerformance: GrammarConstructionPerformance?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -21,6 +22,8 @@ final class ExplorerStore {
 
     @ObservationIgnored private var regenerationTask: Task<Void, Never>?
     @ObservationIgnored private var comparisonTask: Task<Void, Never>?
+    @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
+    @ObservationIgnored private var constructionRevision = 0
 
     init(
         source: String = SampleArtifact.grammarSource,
@@ -28,21 +31,25 @@ final class ExplorerStore {
         sampleInput: String = "id + id * id",
         documentName: String = "Expression grammar"
     ) {
-        let frontEnd = GrammarFrontEnd.process(source)
-        let artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
-        self.frontEnd = frontEnd
-        self.artifact = artifact
+        let compilation = GrammarWorkbenchAPI.compile(.init(
+            source: source,
+            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr
+        ))
+        let initialArtifact = compilation.compiledArtifact ?? SampleArtifact.make(algorithm: algorithm)
+        self.frontEnd = compilation.frontEndResult
+        self.artifact = initialArtifact
         self.algorithm = algorithm
         self.sampleInput = sampleInput
         self.documentName = documentName
-        if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
+        self.constructionPerformance = compilation.performance
+        if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
             let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             self.lexerResult = lexed
-            self.runtimeResult = Self.runtimeResult(for: lexed, artifact: artifact)
+            self.runtimeResult = Self.runtimeResult(for: lexed, artifact: initialArtifact)
         } else {
             self.lexerResult = nil
             let tokens = (try? SampleInputTokenizer.tokenize(sampleInput).get()) ?? []
-            self.runtimeResult = LRParserRuntime.parse(tokens, artifact: artifact, recovery: .diagnostic)
+            self.runtimeResult = LRParserRuntime.parse(tokens, artifact: initialArtifact, recovery: .diagnostic)
         }
         self.testReport = nil
         self.algorithmComparison = nil
@@ -78,13 +85,16 @@ final class ExplorerStore {
 
     func load(source: String, documentName: String) {
         regenerationTask?.cancel()
-        let result = GrammarFrontEnd.process(source)
-        frontEnd = result
+        constructionRevision += 1
+        let compilation = GrammarWorkbenchAPI.compile(.init(
+            source: source,
+            algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr
+        ))
+        frontEnd = compilation.frontEndResult
         self.documentName = documentName
-        if !result.hasErrors {
-            artifact = FrontEndArtifact.make(result: result, algorithm: algorithm)
-        }
-        sampleInput = result.grammar?.terminals.first ?? ""
+        if let compiledArtifact = compilation.compiledArtifact { artifact = compiledArtifact }
+        constructionPerformance = compilation.performance
+        sampleInput = compilation.frontEndResult.grammar?.terminals.first ?? ""
         parseSample()
         resetSelection()
         testReport = nil
@@ -122,15 +132,7 @@ final class ExplorerStore {
     }
 
     func updateSource(_ source: String, debounceNanoseconds: UInt64 = 350_000_000) {
-        regenerationTask?.cancel()
-        invalidateComparison()
-        isRegenerating = true
-        sourceSelection = nil
-        regenerationTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: debounceNanoseconds)
-            guard !Task.isCancelled, let self else { return }
-            self.regenerate(source)
-        }
+        scheduleCompilation(source: source, debounceNanoseconds: debounceNanoseconds)
     }
 
     func parseSample() {
@@ -177,25 +179,34 @@ final class ExplorerStore {
         replayIndex = index
     }
 
-    private func reload() {
-        guard !frontEnd.hasErrors else { return }
-        artifact = FrontEndArtifact.make(result: frontEnd, algorithm: algorithm)
-        parseSample()
-        resetSelection()
-        testReport = nil
-    }
-
-    private func regenerate(_ source: String) {
-        let result = GrammarFrontEnd.process(source)
-        frontEnd = result
-        if !result.hasErrors {
-            artifact = FrontEndArtifact.make(result: result, algorithm: algorithm)
-            parseSample()
-            resetSelection()
-        }
-        isRegenerating = false
-        testReport = nil
+    private func scheduleCompilation(source: String, debounceNanoseconds: UInt64? = nil) {
+        regenerationTask?.cancel()
+        constructionRevision += 1
+        let revision = constructionRevision
+        let selectedAlgorithm = GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr
         invalidateComparison()
+        isRegenerating = true
+        sourceSelection = nil
+        regenerationTask = Task { [weak self] in
+            if let debounceNanoseconds {
+                try? await Task.sleep(nanoseconds: debounceNanoseconds)
+            }
+            guard !Task.isCancelled, let self else { return }
+            let compilation = await self.incrementalCompiler.compile(.init(
+                source: source, algorithm: selectedAlgorithm
+            ))
+            guard !Task.isCancelled, revision == self.constructionRevision else { return }
+            self.frontEnd = compilation.frontEndResult
+            self.constructionPerformance = compilation.performance
+            if let compiledArtifact = compilation.compiledArtifact {
+                self.artifact = compiledArtifact
+                self.parseSample()
+                self.resetSelection()
+            }
+            self.isRegenerating = false
+            self.testReport = nil
+            self.regenerationTask = nil
+        }
     }
 
     private func resetSelection() {

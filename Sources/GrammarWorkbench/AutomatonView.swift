@@ -173,6 +173,12 @@ enum AutomatonSVG {
         let nodes = states.compactMap { state -> String? in
             guard let node = nodeMap[state.id] else { return nil }
             let frame = node.frame
+            let summary = artifact.decisionSummary(for: state.id)
+            let dispositionClass = summary.map { " decision-\($0.disposition.rawValue)" } ?? ""
+            let decisionBadge = summary.map {
+                "<g class='decision-badge \($0.disposition.rawValue)'><circle cx='\(frame.maxX - 16)' cy='\(frame.minY + 17)' r='11'/><text x='\(frame.maxX - 16)' y='\(frame.minY + 21)'>\($0.decisions.count)</text></g>"
+            } ?? ""
+            let accessibility = summary.map { ", \($0.disposition.label), \($0.decisions.count) decision\($0.decisions.count == 1 ? "" : "s")" } ?? ""
             let lines: String
             if compact {
                 lines = "<text class='count' x='\(frame.midX)' y='\(frame.minY + 34)'>\(state.items.count) items</text>"
@@ -182,13 +188,15 @@ enum AutomatonSVG {
                 }.joined()
             }
             return """
-            <g class='node\(compact ? " compact" : "")\(state.id == selected ? " selected" : "")' data-state='\(state.id.rawValue)' onclick='selectState(\(state.id.rawValue))'>
+            <g class='node\(compact ? " compact" : "")\(dispositionClass)\(state.id == selected ? " selected" : "")' data-state='\(state.id.rawValue)' role='button' aria-label='\(state.id)\(accessibility)' onclick='selectState(\(state.id.rawValue))'>
+            <title>\(state.id)\(accessibility)</title>
             <rect x='\(frame.minX)' y='\(frame.minY)' width='\(frame.width)' height='\(frame.height)' rx='11'/>
-            <text class='title' x='\(compact ? frame.midX : frame.minX + 12)' y='\(frame.minY + 23)'>\(state.id)</text>\(lines)</g>
+            <text class='title' x='\(compact ? frame.midX : frame.minX + 12)' y='\(frame.minY + 23)'>\(state.id)</text>\(lines)\(decisionBadge)</g>
             """
         }.joined()
         let minimapNodes = layout.nodes.map {
-            "<rect x='\($0.frame.minX)' y='\($0.frame.minY)' width='\($0.frame.width)' height='\($0.frame.height)' class='\($0.id == selected ? "mini-selected" : "mini-node")'/>"
+            let disposition = artifact.decisionSummary(for: $0.id)?.disposition.rawValue
+            return "<rect x='\($0.frame.minX)' y='\($0.frame.minY)' width='\($0.frame.width)' height='\($0.frame.height)' class='mini-node\(disposition.map { " mini-\($0)" } ?? "")\($0.id == selected ? " mini-selected" : "")'/>"
         }.joined()
         let controls = interactive ? """
         <div id='graph-controls'><button onclick='zoomBy(1.25)' aria-label='Zoom in'>＋</button><button onclick='zoomBy(.8)' aria-label='Zoom out'>−</button><button onclick='fitGraph()' aria-label='Fit graph'>Fit</button></div>
@@ -213,9 +221,9 @@ enum AutomatonSVG {
         """
         .edge path{stroke:#8792a5;stroke-width:1.5;fill:none;marker-end:url(#arrow)}.arrow{fill:#8792a5;stroke:none}
         .edge-label-bg{fill:#fff;opacity:.88}.edge-label{text-anchor:middle;font:11px system-ui;fill:#4b5565}
-        .node{cursor:pointer}.node rect{fill:#f5f7fb;stroke:#7b879b;stroke-width:1.5}.node:hover rect,.node.selected rect{fill:#d9eaff;stroke:#1671d9;stroke-width:3}
+        .node{cursor:pointer}.node rect{fill:#f5f7fb;stroke:#7b879b;stroke-width:1.5}.node.decision-resolved>rect{fill:#e7f1ff;stroke:#3478c9;stroke-width:2.5}.node.decision-unresolved>rect{fill:#ffe5e2;stroke:#c43b32;stroke-width:3}.node.decision-expected>rect{fill:#e3f6e9;stroke:#2d8a50;stroke-width:2.5}.node:hover>rect{filter:brightness(.96)}.node.selected>rect{stroke:#1266c5;stroke-width:4}
         .title{font:700 15px system-ui;fill:#172033}.node .count{font:11px system-ui;fill:#596579}.node.compact .title,.node.compact .count{text-anchor:middle}
-        .item{font:11px ui-monospace,monospace;fill:#303949}.mini-node{fill:#8391a8}.mini-selected{fill:#1671d9}
+        .item{font:11px ui-monospace,monospace;fill:#303949}.decision-badge circle{stroke:#fff;stroke-width:1.5}.decision-badge text{text-anchor:middle;font:700 11px system-ui;fill:#fff}.decision-badge.resolved circle{fill:#3478c9}.decision-badge.unresolved circle{fill:#c43b32}.decision-badge.expected circle{fill:#2d8a50}.mini-node{fill:#8391a8}.mini-resolved{fill:#3478c9}.mini-unresolved{fill:#c43b32}.mini-expected{fill:#2d8a50}.mini-selected{stroke:#1266c5;stroke-width:8;vector-effect:non-scaling-stroke}
         """
     }
 
@@ -233,6 +241,15 @@ struct AutomatonFilterResult {
     let truncated: Bool
 }
 
+enum DecisionStateFilter: String, CaseIterable, Identifiable {
+    case all = "All states"
+    case decisions = "All decisions"
+    case unresolved = "Unresolved"
+    case resolved = "Resolved"
+    case expected = "Expected"
+    var id: Self { self }
+}
+
 enum AutomatonFilter {
     static func apply(
         artifact: GrammarArtifact,
@@ -241,10 +258,33 @@ enum AutomatonFilter {
         limit: Int,
         selected: StateID?
     ) -> AutomatonFilterResult {
+        apply(
+            artifact: artifact,
+            query: query,
+            decisionFilter: decisionStatesOnly ? .decisions : .all,
+            limit: limit,
+            selected: selected
+        )
+    }
+
+    static func apply(
+        artifact: GrammarArtifact,
+        query: String,
+        decisionFilter: DecisionStateFilter,
+        limit: Int,
+        selected: StateID?
+    ) -> AutomatonFilterResult {
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let decisionStates = Set(artifact.decisions.map(\.cell.state))
         let matches = artifact.states.filter { state in
-            if decisionStatesOnly && !decisionStates.contains(state.id) { return false }
+            let disposition = artifact.decisionSummary(for: state.id)?.disposition
+            switch decisionFilter {
+            case .all: break
+            case .decisions where disposition == nil: return false
+            case .unresolved where disposition != .unresolved: return false
+            case .resolved where disposition != .resolved: return false
+            case .expected where disposition != .expected: return false
+            default: break
+            }
             guard !normalized.isEmpty else { return true }
             if state.id.description.lowercased().contains(normalized) { return true }
             if state.items.contains(where: { $0.text.lowercased().contains(normalized) }) { return true }
@@ -268,7 +308,7 @@ struct AutomatonView: View {
     let selection: ArtifactIdentity?
     let onSelect: (StateID) -> Void
     @State private var query = ""
-    @State private var decisionStatesOnly = false
+    @State private var decisionFilter = DecisionStateFilter.all
     @State private var detail = AutomatonDetail.automatic
 
     private let renderingLimit = 400
@@ -279,8 +319,10 @@ struct AutomatonView: View {
                 TextField("Find state, item, or transition", text: $query)
                     .textFieldStyle(.roundedBorder)
                     .frame(maxWidth: 300)
-                Toggle("Decision states", isOn: $decisionStatesOnly)
-                    .toggleStyle(.checkbox)
+                Picker("States", selection: $decisionFilter) {
+                    ForEach(DecisionStateFilter.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .frame(width: 145)
                 Picker("Detail", selection: $detail) {
                     ForEach(AutomatonDetail.allCases) { Text($0.rawValue).tag($0) }
                 }
@@ -307,7 +349,7 @@ struct AutomatonView: View {
         AutomatonFilter.apply(
             artifact: artifact,
             query: query,
-            decisionStatesOnly: decisionStatesOnly,
+            decisionFilter: decisionFilter,
             limit: renderingLimit,
             selected: selectedState
         )

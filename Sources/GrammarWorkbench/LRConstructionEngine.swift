@@ -89,7 +89,8 @@ enum LRConstructionEngine {
                 branches: decision.branches,
                 provenance: decision.provenance,
                 branchAnalyses: decision.branchAnalyses,
-                isExpected: expectation?.matches == true && artifactCellIsConflict(decision.cell, cells: table.cells)
+                isExpected: expectation?.matches == true && artifactCellIsConflict(decision.cell, cells: table.cells),
+                candidateActions: decision.candidateActions
             )
         }
         let artifact = GrammarArtifact(
@@ -419,7 +420,8 @@ enum LRConstructionEngine {
             explanation: "\(kinds). \(status)",
             witness: witness,
             branches: branches,
-            provenance: provenance
+            provenance: provenance,
+            candidateActions: original
         )
     }
 

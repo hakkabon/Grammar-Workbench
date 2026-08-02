@@ -7,5 +7,6 @@ Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artif
 3. Choose an LR algorithm and inspect analysis, automaton, table, decisions, samples, and tests.
 4. Export a standalone HTML report, project interchange JSON, generated artifact JSON, or a standalone Swift parser.
 5. Enter malformed sample input to inspect expected tokens, recovery decisions, the recovered tree, and replay trace.
+6. Open Compare to inspect state merging, table differences, conflicts, and the recommended LR algorithm.
 
 Documents autosave through the macOS document architecture. Release builds are sandboxed and only access files explicitly selected by the user.

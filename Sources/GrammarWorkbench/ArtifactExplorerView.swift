@@ -26,7 +26,7 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case analysis = "Analysis", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", tests = "Tests"
+        case analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", tests = "Tests"
         var id: Self { self }
     }
 
@@ -129,6 +129,7 @@ public struct ArtifactExplorerView: View {
     @ViewBuilder private var selectedTab: some View {
         switch tab {
         case .analysis: analysisView
+        case .comparison: comparisonView
         case .automaton:
             AutomatonView(artifact: store.artifact, selection: store.selection) { store.select(.state($0)) }
         case .table: tableView
@@ -136,6 +137,132 @@ public struct ArtifactExplorerView: View {
         case .sample: sampleView
         case .tests: testsView
         }
+    }
+
+    private var comparisonView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                if store.isComparingAlgorithms {
+                    HStack { ProgressView(); Text("Constructing and comparing all LR algorithms…") }
+                } else if let comparison = store.algorithmComparison {
+                    Label(
+                        "Recommended: \(comparison.recommendedAlgorithm.rawValue)",
+                        systemImage: "checkmark.seal.fill"
+                    )
+                    .font(.headline).foregroundStyle(.green)
+                    Text(comparison.recommendation).foregroundStyle(.secondary)
+
+                    Text("Construction metrics").font(.headline)
+                    VStack(spacing: 7) {
+                        HStack {
+                            Text("Algorithm").bold().frame(maxWidth: .infinity, alignment: .leading)
+                            Text("States").bold(); Text("Edges").bold(); Text("Entries").bold()
+                            Text("Conflicts").bold(); Text("Resolved").bold()
+                        }
+                        ForEach(comparison.algorithmMetrics, id: \GrammarAlgorithmMetrics.algorithm) { (metric: GrammarAlgorithmMetrics) in
+                            HStack {
+                                Text(metric.algorithm.rawValue).frame(maxWidth: .infinity, alignment: .leading)
+                                Text("\(metric.states)"); Text("\(metric.transitions)")
+                                Text("\(metric.tableEntries)"); Text("\(metric.unresolvedConflicts)")
+                                    .foregroundStyle(metric.unresolvedConflicts == 0 ? Color.secondary : Color.red)
+                                Text("\(metric.resolvedDecisions)")
+                            }
+                        }
+                    }
+
+                    let merges = comparison.stateCorrespondences.filter(\.isCanonicalMerge)
+                    Divider()
+                    Text("Canonical state merging").font(.headline)
+                    if merges.isEmpty {
+                        Text("No canonical LR(1) states share an LR(0) core.").foregroundStyle(.secondary)
+                    } else {
+                        Text("\(merges.count) LALR state group(s) merge canonical states.")
+                            .foregroundStyle(.secondary)
+                        ForEach(merges) { correspondence in
+                            comparisonStateRow(correspondence)
+                        }
+                    }
+
+                    Divider()
+                    Text("Table differences").font(.headline)
+                    if comparison.tableDifferences.isEmpty {
+                        Text("All corresponding cells have equivalent actions.").foregroundStyle(.secondary)
+                    } else {
+                        Text("\(comparison.tableDifferences.count) corresponding cell(s) differ.")
+                            .foregroundStyle(.secondary)
+                        ForEach(comparison.tableDifferences.prefix(250)) { difference in
+                            comparisonDifferenceRow(difference)
+                        }
+                        if comparison.tableDifferences.count > 250 {
+                            Text("Showing the first 250 differences.").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } else if store.frontEnd.hasErrors {
+                    ContentUnavailableView("Grammar has errors", systemImage: "exclamationmark.triangle")
+                } else {
+                    Button("Compare algorithms", systemImage: "arrow.triangle.branch") {
+                        store.compareAlgorithms()
+                    }
+                }
+            }
+            .padding().frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .task { store.compareAlgorithms() }
+    }
+
+    private func comparisonStateRow(_ correspondence: GrammarStateCorrespondence) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                algorithmStateLinks("SLR", states: correspondence.slrStates)
+                algorithmStateLinks("LALR", states: correspondence.lalrStates)
+                algorithmStateLinks("Canonical", states: correspondence.canonicalStates)
+            }
+            Text(correspondence.coreItems.joined(separator: " · "))
+                .font(.system(.caption, design: .monospaced)).lineLimit(2).foregroundStyle(.secondary)
+        }
+        .padding(8).background(.quaternary.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func algorithmStateLinks(_ label: String, states: [Int]) -> some View {
+        HStack(spacing: 3) {
+            Text("\(label):").bold()
+            ForEach(states, id: \.self) { state in
+                Button("I\(state)") {
+                    store.selectComparisonState(algorithm: comparisonAlgorithm(label), state: state)
+                }.buttonStyle(.link)
+            }
+        }.font(.caption)
+    }
+
+    private func comparisonDifferenceRow(_ difference: GrammarTableDifference) -> some View {
+        HStack(alignment: .top) {
+            Label(difference.symbol, systemImage: difference.kind == .conflict ? "exclamationmark.triangle.fill" : "arrow.left.arrow.right")
+                .foregroundStyle(difference.kind == .conflict ? .red : .primary)
+                .frame(width: 120, alignment: .leading)
+            comparisonCells("SLR", difference.slr, symbol: difference.symbol)
+            comparisonCells("LALR", difference.lalr, symbol: difference.symbol)
+            comparisonCells("Canonical", difference.canonical, symbol: difference.symbol)
+        }
+        .font(.caption).padding(.vertical, 4)
+    }
+
+    private func comparisonCells(_ label: String, _ cells: [GrammarComparedCell], symbol: String) -> some View {
+        VStack(alignment: .leading) {
+            Text(label).bold()
+            ForEach(cells) { cell in
+                let value = "I\(cell.state): \(cell.actions.map(\.label).joined(separator: " / "))"
+                Button(value) {
+                    store.selectComparisonCell(
+                        algorithm: comparisonAlgorithm(label), state: cell.state, symbol: symbol
+                    )
+                }.buttonStyle(.link)
+            }
+            if cells.isEmpty { Text("—").foregroundStyle(.secondary) }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func comparisonAlgorithm(_ label: String) -> GrammarAlgorithm {
+        switch label { case "SLR": .slr; case "Canonical": .canonical; default: .lalr }
     }
 
     private var analysisView: some View {
@@ -745,7 +872,7 @@ public struct ArtifactExplorerView: View {
     private func exportHTML() {
         let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "grammar-artifact.html"
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult, lexer: store.lexerResult, testReport: store.testReport).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
+        do { try HTMLExporter.render(store.artifact, runtime: store.runtimeResult, lexer: store.lexerResult, testReport: store.testReport, algorithmComparison: store.algorithmComparison).write(to: url, atomically: true, encoding: .utf8); exportMessage = "Exported to \(url.lastPathComponent)." }
         catch { exportMessage = "Could not export: \(error.localizedDescription)" }
     }
 

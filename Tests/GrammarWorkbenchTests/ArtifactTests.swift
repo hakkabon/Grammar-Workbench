@@ -25,3 +25,19 @@ import Testing
     #expect(html.contains("E → E + E"))
     #expect(html.contains("<svg"))
 }
+
+@Test func standaloneExportCanIncludeAlgorithmComparison() throws {
+    let frontEnd = GrammarFrontEnd.process(SampleArtifact.grammarSource)
+    let grammar = try #require(frontEnd.grammar)
+    let analysis = try #require(frontEnd.analysis)
+    let artifact = LRConstructionEngine.construct(
+        grammar: grammar, analysis: analysis, source: frontEnd.source, algorithm: .lalr
+    )
+    let comparison = AlgorithmComparisonEngine.compare(
+        grammar: grammar, analysis: analysis, source: frontEnd.source, reusing: artifact
+    )
+    let html = HTMLExporter.render(artifact, algorithmComparison: comparison)
+    #expect(html.contains("Algorithm comparison"))
+    #expect(html.contains("Recommended:"))
+    #expect(html.contains("Canonical LR(1)"))
+}

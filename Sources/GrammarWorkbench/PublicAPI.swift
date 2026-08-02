@@ -202,6 +202,7 @@ public struct GrammarCompilation: Sendable {
     public let artifact: GrammarArtifactSnapshot?
 
     let compiledGrammar: ParsedGrammar?
+    let compiledAnalysis: GrammarAnalysis?
     let compiledArtifact: GrammarArtifact?
 
     public var succeeded: Bool { compiledArtifact != nil }
@@ -309,6 +310,18 @@ public struct GrammarCompilation: Sendable {
         )
     }
 
+    /// Builds SLR(1), LALR(1), and canonical LR(1) artifacts from the same
+    /// grammar and compares state cores, tables, and conflict behavior.
+    public func compareAlgorithms() throws -> GrammarAlgorithmComparison {
+        guard let compiledGrammar, let compiledAnalysis, let compiledArtifact else {
+            throw GrammarWorkbenchAPIError.compilationFailed(firstError)
+        }
+        return AlgorithmComparisonEngine.compare(
+            grammar: compiledGrammar, analysis: compiledAnalysis,
+            source: request.source, reusing: compiledArtifact
+        )
+    }
+
     private var firstError: String {
         diagnostics.first(where: { $0.severity == .error })?.message ?? "The grammar did not compile."
     }
@@ -337,7 +350,7 @@ public enum GrammarWorkbenchAPI {
         guard !result.hasErrors, let grammar = result.grammar, let analysis = result.analysis else {
             return .init(apiVersion: version, request: request, diagnostics: result.diagnostics,
                          grammar: nil, analysis: nil, lexerAnalysis: result.lexerAnalysis, artifact: nil,
-                         compiledGrammar: nil, compiledArtifact: nil)
+                         compiledGrammar: nil, compiledAnalysis: nil, compiledArtifact: nil)
         }
         let core = LRConstructionEngine.construct(
             grammar: grammar, analysis: analysis, source: request.source,
@@ -347,7 +360,8 @@ public enum GrammarWorkbenchAPI {
             apiVersion: version, request: request, diagnostics: result.diagnostics,
             grammar: GrammarSummary(grammar), analysis: GrammarAnalysisSnapshot(analysis),
             lexerAnalysis: result.lexerAnalysis,
-            artifact: GrammarArtifactSnapshot(core), compiledGrammar: grammar, compiledArtifact: core
+            artifact: GrammarArtifactSnapshot(core), compiledGrammar: grammar,
+            compiledAnalysis: analysis, compiledArtifact: core
         )
     }
 }
@@ -372,7 +386,7 @@ private extension GrammarAnalysisSnapshot {
     }
 }
 
-private extension GrammarActionSnapshot {
+extension GrammarActionSnapshot {
     init(_ action: TableAction) {
         switch action {
         case .shift(let state): self.init(kind: .shift, targetState: state.rawValue, production: nil, label: action.label)

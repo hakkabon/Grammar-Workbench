@@ -74,6 +74,25 @@ struct GrammarWorkbenchCLI {
             let generated = try compilation.generateSwiftParser(options: .init(typeName: typeName))
             try Data(generated.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2])")
+        case "compare":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("compare requires GRAMMAR [OUTPUT]")
+            }
+            let source = try read(arguments[1])
+            let comparison = try GrammarWorkbenchAPI.compile(.init(source: source)).compareAlgorithms()
+            if arguments.count == 3 {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                try encoder.encode(comparison).write(
+                    to: URL(fileURLWithPath: arguments[2]), options: .atomic
+                )
+                print("Wrote \(arguments[2])")
+            } else {
+                for metric in comparison.algorithmMetrics {
+                    print("\(metric.algorithm.rawValue): \(metric.states) states, \(metric.tableEntries) entries, \(metric.unresolvedConflicts) unresolved conflicts")
+                }
+                print("Recommended: \(comparison.recommendedAlgorithm.rawValue) — \(comparison.recommendation)")
+            }
         default:
             throw CLIError.usage("unknown command ‘\(command)’")
         }
@@ -91,6 +110,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench test PROJECT
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
+      grammar-workbench compare GRAMMAR [OUTPUT]
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).

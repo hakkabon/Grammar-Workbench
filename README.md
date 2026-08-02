@@ -14,6 +14,30 @@ swift run grammar-workbench-app
 
 The automation-friendly executable is available with `swift run grammar-workbench --help`. It validates grammar files, runs persisted project test suites with CI-friendly exit codes, and exports versioned artifact JSON.
 
+## Library API
+
+Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.
+
+```swift
+import GrammarWorkbench
+
+let compilation = GrammarWorkbenchAPI.compile(.init(
+    source: grammarSource,
+    algorithm: .lalr
+))
+
+guard compilation.succeeded else {
+    print(compilation.diagnostics)
+    return
+}
+
+let parse = compilation.parse("name + value")
+print(parse.status, parse.tree ?? "")
+let portableJSON = try compilation.encodeArtifactSnapshot()
+```
+
+`GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
+
 `Examples/Expression.grammar` and `Examples/ExpressionTests.json` provide ready-to-run grammar and project-interchange fixtures for both the app and CLI.
 
 ## Production packaging
@@ -43,6 +67,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 ## Architecture
 
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
+- `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
 - `GrammarFrontEnd.swift`: source-located grammar parsing, diagnostics, and set analysis.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.

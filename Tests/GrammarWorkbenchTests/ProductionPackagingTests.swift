@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import GrammarWorkbench
 
@@ -11,4 +12,24 @@ import Testing
 @Test func packagedGettingStartedResourceIsAvailable() {
     #expect(GrammarWorkbenchRelease.gettingStarted.contains("Grammar Workbench"))
     #expect(GrammarWorkbenchRelease.gettingStarted.contains("%token"))
+}
+
+@Test func packagedAppDeclaresTextGrammarDocuments() throws {
+    let testFile = URL(fileURLWithPath: #filePath)
+    let packageRoot = testFile
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+        .deletingLastPathComponent()
+    let plist = try PropertyListSerialization.propertyList(
+        from: Data(contentsOf: packageRoot.appendingPathComponent("Packaging/Info.plist")),
+        format: nil
+    ) as? [String: Any]
+    let documentTypes = plist?["CFBundleDocumentTypes"] as? [[String: Any]]
+    let grammarSource = documentTypes?.first {
+        ($0["CFBundleTypeName"] as? String) == "Grammar Source"
+    }
+    let extensions = grammarSource?["CFBundleTypeExtensions"] as? [String]
+
+    #expect(extensions?.contains("grammar") == true)
+    #expect(extensions?.contains("txt") == true)
 }

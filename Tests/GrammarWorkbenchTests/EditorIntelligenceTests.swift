@@ -1,3 +1,4 @@
+import AppKit
 import Testing
 @testable import GrammarWorkbench
 
@@ -62,4 +63,14 @@ import Testing
     let fixed = fix.applying(to: source)
     #expect(fixed.hasPrefix("%token Missing\n"))
     #expect(!GrammarFrontEnd.process(fixed).hasErrors)
+}
+
+@MainActor
+@Test func editorDocumentViewStartsWithVisibleDimensions() {
+    let textView = GrammarSourceEditor.makeTextView(contentSize: NSSize(width: 320, height: 240))
+
+    #expect(textView.frame.size == NSSize(width: 320, height: 240))
+    #expect(textView.minSize.height == 240)
+    #expect(textView.isVerticallyResizable)
+    #expect(textView.textContainer?.heightTracksTextView == false)
 }

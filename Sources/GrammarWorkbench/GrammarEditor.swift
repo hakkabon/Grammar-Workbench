@@ -69,6 +69,25 @@ struct GrammarSourceEditor: NSViewRepresentable {
         Coordinator(text: $text)
     }
 
+    static func makeTextView(contentSize: NSSize) -> NSTextView {
+        let textView = NSTextView(frame: NSRect(origin: .zero, size: contentSize))
+        textView.minSize = NSSize(width: 0, height: contentSize.height)
+        textView.maxSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        textView.isHorizontallyResizable = true
+        textView.isVerticallyResizable = true
+        textView.autoresizingMask = [.width]
+        textView.textContainer?.widthTracksTextView = false
+        textView.textContainer?.heightTracksTextView = false
+        textView.textContainer?.containerSize = NSSize(
+            width: CGFloat.greatestFiniteMagnitude,
+            height: CGFloat.greatestFiniteMagnitude
+        )
+        return textView
+    }
+
     func makeNSView(context: Context) -> NSScrollView {
         let scrollView = NSScrollView()
         scrollView.hasVerticalScroller = true
@@ -79,7 +98,10 @@ struct GrammarSourceEditor: NSViewRepresentable {
         scrollView.backgroundColor = .textBackgroundColor
         scrollView.contentView.postsBoundsChangedNotifications = true
 
-        let textView = NSTextView()
+        // A scroll view does not size a newly installed document view for us.
+        // Starting at zero size makes the editor appear blank when hosted by
+        // NSViewRepresentable.
+        let textView = Self.makeTextView(contentSize: scrollView.contentSize)
         textView.delegate = context.coordinator
         textView.string = text
         textView.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
@@ -91,12 +113,6 @@ struct GrammarSourceEditor: NSViewRepresentable {
         textView.allowsUndo = true
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
-        textView.isHorizontallyResizable = true
-        textView.isVerticallyResizable = true
-        textView.autoresizingMask = [.width]
-        textView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        textView.textContainer?.widthTracksTextView = false
-        textView.textContainer?.containerSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
         scrollView.documentView = textView
 
         let ruler = GrammarLineNumberRulerView(textView: textView, scrollView: scrollView)

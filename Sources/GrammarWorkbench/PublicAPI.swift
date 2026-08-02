@@ -444,7 +444,7 @@ private extension GrammarTraceFrameSnapshot {
     }
 }
 
-private extension GrammarArtifactSnapshot {
+extension GrammarArtifactSnapshot {
     init(_ artifact: GrammarArtifact) {
         self.init(
             apiVersion: GrammarWorkbenchAPIVersion.current,

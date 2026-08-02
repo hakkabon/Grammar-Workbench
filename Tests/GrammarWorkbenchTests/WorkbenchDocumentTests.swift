@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import UniformTypeIdentifiers
 @testable import GrammarWorkbench
 
 @MainActor
@@ -39,6 +40,17 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
     )
     #expect(document.samples.count == 1)
     #expect(document.selectedSampleID == document.samples[0].id)
+}
+
+@Test func documentReadsUTF8PlainTextGrammar() throws {
+    let source = "%start S\nS : 'text' ;"
+    let document = try GrammarWorkbenchDocument(
+        fileData: Data(source.utf8),
+        contentType: UTType.plainText
+    )
+
+    #expect(document.source == source)
+    #expect(document.samples.count == 1)
 }
 
 @MainActor

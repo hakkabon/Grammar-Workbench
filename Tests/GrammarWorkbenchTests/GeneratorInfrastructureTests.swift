@@ -1,0 +1,96 @@
+import Foundation
+import Testing
+import GrammarWorkbench
+
+private let generatorGrammar = """
+%token ID /[a-z]+/
+%start List
+List : List ',' ID | ID | ;
+"""
+
+private struct SummaryGenerator: GrammarGenerator {
+    let descriptor = GrammarGeneratorDescriptor(
+        id: "test-summary", displayName: "Test Summary", summary: "Test extension",
+        defaultFileExtension: "txt", mediaType: "text/plain"
+    )
+
+    func generate(
+        from compilation: GrammarCompilation,
+        options: GrammarGeneratorOptions
+    ) throws -> GrammarGenerationResult {
+        let name = options["name"] ?? "grammar"
+        let count = compilation.grammar?.productions.count ?? 0
+        return .init(generator: descriptor, files: [
+            .init(suggestedFilename: "\(name).txt", mediaType: "text/plain", text: "\(count) productions")
+        ])
+    }
+}
+
+@Test func registryExposesBuiltInsAndRunsExternalGenerator() async throws {
+    let registry = GrammarGeneratorRegistry()
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
+
+    #expect(await registry.availableGenerators().map(\.id) == ["artifact-json", "bnf", "swift"])
+    try await registry.register(SummaryGenerator())
+    let result = try await registry.generate(
+        identifier: "test-summary", from: compilation, options: .init(["name": "List"])
+    )
+
+    #expect(result.files.first?.suggestedFilename == "List.txt")
+    #expect(result.files.first?.text == "3 productions")
+    #expect(await registry.unregister(identifier: "test-summary"))
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.generate(identifier: "test-summary", from: compilation)
+    }
+}
+
+@Test func registryRejectsDuplicateAndEmptyGeneratorResults() async throws {
+    let registry = GrammarGeneratorRegistry(includingBuiltIns: false)
+    try await registry.register(SummaryGenerator())
+    await #expect(throws: GrammarGeneratorRegistryError.self) {
+        try await registry.register(SummaryGenerator())
+    }
+}
+
+@Test func portableBNFPreservesAlternativesAndEmptyProductions() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
+    let result = try BNFGrammarGenerator().generate(
+        from: compilation, options: .init(["name": "lists"])
+    )
+    let text = try #require(result.files.first?.text)
+
+    #expect(result.files.first?.suggestedFilename == "lists.bnf")
+    #expect(text.contains(#"<List> ::= <List> "," "ID""#))
+    #expect(text.contains("| ε"))
+}
+
+@Test func swiftBuiltInUsesGenericOptions() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: "%start S\nS : 'id' ;"))
+    let result = try SwiftGrammarGenerator().generate(
+        from: compilation,
+        options: .init(["typeName": "CustomParser", "accessLevel": "internal"])
+    )
+    let text = try #require(result.files.first?.text)
+    #expect(result.files.first?.suggestedFilename == "CustomParser.swift")
+    #expect(text.contains("enum CustomParser"))
+    #expect(!text.contains("public enum CustomParser"))
+}
+
+@Test func publicArtifactInterchangeRoundTripsAndValidatesEnvelope() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar, algorithm: .slr))
+    let date = Date(timeIntervalSince1970: 1_700_000_000)
+    let data = try GrammarInterchangeCodec.encodeArtifact(compilation: compilation, generatedAt: date)
+    let decoded = try GrammarInterchangeCodec.decodeArtifact(data)
+
+    #expect(decoded.schemaVersion == GrammarArtifactInterchange.currentSchemaVersion)
+    #expect(decoded.generatedAt == date)
+    #expect(decoded.artifact == compilation.artifact)
+    #expect(decoded.artifact.algorithm == .slr)
+
+    var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    object["kind"] = "some-other-tool"
+    let invalid = try JSONSerialization.data(withJSONObject: object)
+    #expect(throws: GrammarInterchangeError.self) {
+        try GrammarInterchangeCodec.decodeArtifact(invalid)
+    }
+}

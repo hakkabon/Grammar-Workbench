@@ -315,7 +315,7 @@ public final class JSONRPCConnection: Connection {
   // swift-format-ignore
   public func start(
     receiveHandler: MessageHandler,
-    closeHandler: nonisolated(nonsending) @escaping @Sendable () async -> Void = {}
+    closeHandler: @escaping @Sendable () async -> Void = {}
   ) {
     queue.sync {
       precondition(state == .created)

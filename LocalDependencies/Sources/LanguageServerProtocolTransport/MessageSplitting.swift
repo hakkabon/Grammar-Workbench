@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-package import Foundation
+import Foundation
 import LanguageServerProtocol
 @_spi(SourceKitLSP) import SKLogging
 

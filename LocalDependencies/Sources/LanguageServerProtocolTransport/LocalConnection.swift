@@ -14,8 +14,6 @@ import Dispatch
 import Foundation
 public import LanguageServerProtocol
 @_spi(SourceKitLSP) import SKLogging
-import Synchronization
-@_spi(SourceKitLSP) import ToolsProtocolsSwiftExtensions
 
 /// A connection between two message handlers in the same process.
 ///
@@ -40,7 +38,10 @@ public final class LocalConnection: Connection, Sendable {
   /// The queue guarding `_nextRequestID`.
   private let queue: DispatchQueue = DispatchQueue(label: "local-connection-queue")
 
-  private let _nextRequestID = Atomic<UInt32>(0)
+  /// A lock-guarded request ID counter (upstream uses `Atomic`, which requires
+  /// macOS 15; this replacement is equivalent for the pre-increment use below).
+  private let requestIDLock = NSLock()
+  private nonisolated(unsafe) var _nextRequestID: UInt32 = 0
 
   /// - Important: Must only be accessed from `queue`
   nonisolated(unsafe) private var state: State = .ready
@@ -88,7 +89,11 @@ public final class LocalConnection: Connection, Sendable {
   }
 
   public func nextRequestID() -> RequestID {
-    return .string("sk-\(_nextRequestID.wrappingAdd(1, ordering: .relaxed).oldValue)")
+    requestIDLock.lock()
+    defer { requestIDLock.unlock() }
+    let id = _nextRequestID
+    _nextRequestID &+= 1
+    return .string("sk-\(id)")
   }
 
   public func send<Notification: NotificationType>(_ notification: Notification) {

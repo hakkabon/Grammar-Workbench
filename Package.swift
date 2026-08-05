@@ -38,18 +38,15 @@ let package = Package(
             name: "LanguageServerProtocol",
             path: "\(lspVendoredPath)/LanguageServerProtocol"
         ),
-        .target(
-            name: "ToolsProtocolsSwiftExtensions",
-            path: "\(lspVendoredPath)/ToolsProtocolsSwiftExtensions"
-        ),
+        // A local, minimal stand-in for the upstream `SKLogging` module (which
+        // requires Swift 6.2 / macOS 15); see LocalDependencies/README.md.
         .target(
             name: "SKLogging",
-            dependencies: ["ToolsProtocolsSwiftExtensions"],
             path: "\(lspVendoredPath)/SKLogging"
         ),
         .target(
             name: "LanguageServerProtocolTransport",
-            dependencies: ["LanguageServerProtocol", "SKLogging", "ToolsProtocolsSwiftExtensions"],
+            dependencies: ["LanguageServerProtocol", "SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocolTransport"
         ),
 

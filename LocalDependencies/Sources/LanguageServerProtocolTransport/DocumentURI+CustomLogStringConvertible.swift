@@ -17,8 +17,8 @@ import LanguageServerProtocol
 // MARK: - DocumentURI
 
 extension DocumentURI {
-  package var redactedDescription: String {
+  public var redactedDescription: String {
     return "<DocumentURI length=\(description.count) hash=\(description.hashForLogging)>"
   }
 }
-@_spi(SourceKitLSP) extension DocumentURI: SKLogging.CustomLogStringConvertible {}
+extension DocumentURI: SKLogging.CustomLogStringConvertible {}

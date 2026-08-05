@@ -13,8 +13,6 @@
 public import Foundation
 public import LanguageServerProtocol
 @_spi(SourceKitLSP) import SKLogging
-import Synchronization
-@_spi(SourceKitLSP) import ToolsProtocolsSwiftExtensions
 
 #if canImport(Darwin)
 import Darwin
@@ -94,7 +92,11 @@ public final class JSONRPCConnection: Connection {
   private nonisolated(unsafe) var state: State = .created
 
   /// An integer that hasn't been used for a request ID yet.
-  let nextRequestIDStorage = Atomic<UInt32>(0)
+  ///
+  /// Upstream uses `Atomic<UInt32>`, which requires macOS 15; a lock-guarded
+  /// counter is equivalent for this pre-increment use.
+  private let requestIDLock = NSLock()
+  private nonisolated(unsafe) var nextRequestIDValue: UInt32 = 0
 
   struct OutstandingRequest: Sendable {
     var responseType: ResponseType.Type
@@ -156,77 +158,9 @@ public final class JSONRPCConnection: Connection {
     globallyDisableSigpipeIfNeeded()
   }
 
-  #if os(macOS) || !canImport(Darwin)
-  /// Creates and starts a `JSONRPCConnection` that connects to a subprocess launched with the specified arguments.
-  ///
-  /// `client` is the message handler that handles the messages sent from the subprocess to SourceKit-LSP.
-  public static func start(
-    executable: URL,
-    arguments: [String],
-    name: StaticString,
-    protocol messageRegistry: MessageRegistry,
-    stderrLoggingCategory: String,
-    client: MessageHandler,
-    terminationHandler: @Sendable @escaping (_ terminationReason: TerminationReason) -> Void
-  ) throws -> (connection: JSONRPCConnection, process: Process) {
-    let clientToServer = Pipe()
-    let serverToClient = Pipe()
-
-    let connection = JSONRPCConnection(
-      name: "\(name)",
-      protocol: messageRegistry,
-      receiveFD: serverToClient.fileHandleForReading,
-      sendFD: clientToServer.fileHandleForWriting
-    )
-
-    connection.start(receiveHandler: client) {
-      // Keep the pipes alive until we close the connection.
-      withExtendedLifetime((clientToServer, serverToClient)) {}
-    }
-    let process = Foundation.Process()
-    logger.log(
-      "Launching JSON-RPC connection to \(executable.description) with options [\(arguments.joined(separator: " "))]"
-    )
-    process.executableURL = executable
-    process.arguments = arguments
-    process.standardOutput = serverToClient
-    process.standardInput = clientToServer
-    let logForwarder = PipeAsStringHandler {
-      Logger(subsystem: LoggingScope.subsystem, category: stderrLoggingCategory).info("\($0)")
-    }
-    let stderrHandler = Pipe()
-    Self.readInBackground(
-      fileHandle: stderrHandler.fileHandleForReading,
-      queueLabel: "\(name)-stderr-read-queue"
-    ) { data in
-      logForwarder.handleDataFromPipe(data)
-    }
-    process.standardError = stderrHandler
-    process.terminationHandler = { process in
-      logger.log(
-        level: process.terminationReason == .exit ? .default : .error,
-        "\(name) exited: \(process.terminationReason.rawValue) \(process.terminationStatus)"
-      )
-      connection.close()
-      let terminationReason: TerminationReason
-      switch process.terminationReason {
-      case .exit:
-        terminationReason = .exited(exitCode: process.terminationStatus)
-      case .uncaughtSignal:
-        terminationReason = .uncaughtSignal
-      @unknown default:
-        logger.fault(
-          "Process terminated with unknown termination reason: \(process.terminationReason.rawValue, privacy: .public)"
-        )
-        terminationReason = .exited(exitCode: 0)
-      }
-      terminationHandler(terminationReason)
-    }
-    try process.run()
-
-    return (connection, process)
-  }
-  #endif  // os(macOS) || !canImport(Darwin)
+  // Note: The upstream `start(executable:...)` helper that connects to a
+  // subprocess was removed. Grammar Workbench only uses `JSONRPCConnection`
+  // in server mode, where it is wired directly to stdin/stdout.
 
   /// Read from `fileHandle` on a dedicated background queue with a blocking loop, forwarding each chunk to
   /// `receiveData` until end-of-file, then invoke `reachedEndOfFile`.
@@ -671,7 +605,11 @@ public final class JSONRPCConnection: Connection {
 
   /// Request id for the next outgoing request.
   public func nextRequestID() -> RequestID {
-    return .string("sk-\(nextRequestIDStorage.wrappingAdd(1, ordering: .relaxed).oldValue)")
+    requestIDLock.lock()
+    defer { requestIDLock.unlock() }
+    let id = nextRequestIDValue
+    nextRequestIDValue &+= 1
+    return .string("sk-\(id)")
   }
 
   // MARK: Connection interface

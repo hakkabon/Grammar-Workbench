@@ -5,7 +5,7 @@ let lspVendoredPath = "LocalDependencies/Sources"
 
 let package = Package(
     name: "GrammarWorkbench",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v15)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
         .executable(name: "grammar-workbench-app", targets: ["GrammarWorkbenchApp"]),
@@ -38,18 +38,18 @@ let package = Package(
             name: "LanguageServerProtocol",
             path: "\(lspVendoredPath)/LanguageServerProtocol"
         ),
-        .target(
-            name: "ToolsProtocolsSwiftExtensions",
-            path: "\(lspVendoredPath)/ToolsProtocolsSwiftExtensions"
-        ),
-        .target(
-            name: "SKLogging",
-            dependencies: ["ToolsProtocolsSwiftExtensions"],
-            path: "\(lspVendoredPath)/SKLogging"
-        ),
+//        .target(
+//            name: "ToolsProtocolsSwiftExtensions",
+//            path: "\(lspVendoredPath)/ToolsProtocolsSwiftExtensions"
+//        ),
+//        .target(
+//            name: "SKLogging",
+//            dependencies: ["ToolsProtocolsSwiftExtensions"],
+//            path: "\(lspVendoredPath)/SKLogging"
+//        ),
         .target(
             name: "LanguageServerProtocolTransport",
-            dependencies: ["LanguageServerProtocol", "SKLogging", "ToolsProtocolsSwiftExtensions"],
+            dependencies: ["LanguageServerProtocol"],
             path: "\(lspVendoredPath)/LanguageServerProtocolTransport"
         ),
 

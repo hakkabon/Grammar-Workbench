@@ -1,6 +1,7 @@
 import Dispatch
 import Darwin
 import Foundation
+import GrammarWorkbenchLSP
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
 

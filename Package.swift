@@ -10,7 +10,8 @@ let package = Package(
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
         .executable(name: "grammar-workbench-app", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
-        .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSP"]),
+        .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
+        .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
     ],
     dependencies: [
@@ -50,7 +51,7 @@ let package = Package(
             name: "SKLogging",
             path: "\(lspVendoredPath)/SKLogging"
         ),
-        .executableTarget(
+        .target(
             name: "GrammarWorkbenchLSP",
             dependencies: [
                 "GrammarWorkbench",
@@ -58,6 +59,7 @@ let package = Package(
                 "LanguageServerProtocolTransport",
             ]
         ),
+        .executableTarget(name: "GrammarWorkbenchLSPApp", dependencies: ["GrammarWorkbenchLSP"]),
         .testTarget(
             name: "GrammarWorkbenchLSPTests",
             dependencies: [

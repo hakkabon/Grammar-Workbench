@@ -1,5 +1,18 @@
 import Foundation
 import LanguageServerProtocol
+import LanguageServerProtocolTransport
+
+/// A `Connection` that can also be closed, as required for server shutdown.
+///
+/// The LSP `Connection` protocol only defines message sending; the concrete
+/// connections additionally expose `close()`. This protocol preserves the
+/// ability to close from code that only holds an existential.
+public protocol ServerConnection: Connection {
+    func close()
+}
+
+extension JSONRPCConnection: ServerConnection {}
+extension LocalConnection: ServerConnection {}
 
 /// The Grammar Workbench language server.
 ///
@@ -16,14 +29,14 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     public let documentStore: DocumentStore
 
     /// The connection to the client, used to send notifications.
-    private let connection: any Connection
+    private let connection: any ServerConnection
 
     /// Whether the client has sent a `shutdown` request. Drives the process
     /// exit code: the LSP spec requires exit code 0 only if shutdown was
     /// received.
     private var shutdownReceived: Bool = false
 
-    public init(connection: any Connection, documentStore: DocumentStore = DocumentStore()) {
+    public init(connection: any ServerConnection, documentStore: DocumentStore = DocumentStore()) {
         self.connection = connection
         self.documentStore = documentStore
     }
@@ -54,9 +67,9 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         reply: @Sendable @escaping (LSPResult<Request.Response>) -> Void
     ) {
         if let initialize = request as? InitializeRequest {
-            Task { reply(.success(await self.initialize(initialize))) }
+            Task { reply(.success(await self.initialize(initialize) as! Request.Response)) }
         } else if let shutdown = request as? ShutdownRequest {
-            Task { reply(.success(await self.shutdown(shutdown))) }
+            Task { reply(.success(await self.shutdown(shutdown) as! Request.Response)) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }

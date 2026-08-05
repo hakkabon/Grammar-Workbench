@@ -82,6 +82,10 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             Task { reply(.success(await self.initialize(initialize) as! Request.Response)) }
         } else if let shutdown = request as? ShutdownRequest {
             Task { reply(.success(await self.shutdown(shutdown) as! Request.Response)) }
+        } else if let folding = request as? FoldingRangeRequest {
+            Task { reply(.success(await self.foldingRanges(folding) as! Request.Response)) }
+        } else if let symbols = request as? DocumentSymbolRequest {
+            Task { reply(.success(await self.documentSymbols(symbols) as! Request.Response)) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
@@ -89,10 +93,42 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
 
     // MARK: - Requests
 
+    /// Folding ranges for the document at `request`'s URI, derived from the
+    /// parse tree of the document's grammar.
+    private func foldingRanges(_ request: FoldingRangeRequest) async -> [FoldingRange]? {
+        guard let (tree, text) = await syntaxTree(for: request.textDocument.uri) else { return nil }
+        return SyntaxTreeOutline(tree: tree, text: text).foldingRanges
+    }
+
+    /// Hierarchical document symbols for the document at `request`'s URI,
+    /// derived from the parse tree of the document's grammar.
+    private func documentSymbols(_ request: DocumentSymbolRequest) async -> DocumentSymbolResponse? {
+        guard let (tree, text) = await syntaxTree(for: request.textDocument.uri) else { return nil }
+        return .documentSymbols(SyntaxTreeOutline(tree: tree, text: text).documentSymbols)
+    }
+
+    /// Parses the source document at `uri` with its associated grammar and
+    /// returns the syntax tree together with the document text, used to
+    /// resolve token positions for grammars without lexer rules.
+    private func syntaxTree(for uri: DocumentURI) async -> (tree: GrammarSyntaxNode, text: String)? {
+        guard let document = await documentStore.document(for: uri),
+              uri.grammarWorkbenchKind == .source,
+              let compilation = await diagnosticsManager.grammarCompilation(for: document.language.rawValue),
+              let tree = compilation.parse(document.text).syntaxTree
+        else {
+            return nil
+        }
+        return (tree, document.text)
+    }
+
     private func initialize(_ request: InitializeRequest) -> InitializeResult {
         let syncOptions = TextDocumentSyncOptions(openClose: true, change: .full)
         return InitializeResult(
-            capabilities: ServerCapabilities(textDocumentSync: .options(syncOptions))
+            capabilities: ServerCapabilities(
+                textDocumentSync: .options(syncOptions),
+                documentSymbolProvider: .bool(true),
+                foldingRangeProvider: .bool(true)
+            )
         )
     }
 

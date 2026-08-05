@@ -15,7 +15,12 @@ import LanguageServerProtocolTransport
 enum GrammarWorkbenchLSPMain {
     static func main() {
         let registry = MessageRegistry(
-            requests: [InitializeRequest.self, ShutdownRequest.self],
+            requests: [
+                InitializeRequest.self,
+                ShutdownRequest.self,
+                FoldingRangeRequest.self,
+                DocumentSymbolRequest.self,
+            ],
             notifications: [
                 DidOpenTextDocumentNotification.self,
                 DidChangeTextDocumentNotification.self,

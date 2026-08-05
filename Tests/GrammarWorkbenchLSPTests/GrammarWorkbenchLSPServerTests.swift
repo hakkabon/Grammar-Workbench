@@ -99,8 +99,8 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     }
 
     func testUnknownRequestRepliesMethodNotFound() async {
-        let result: LSPResult<DocumentSymbolRequest.Response> = await send(
-            DocumentSymbolRequest(textDocument: TextDocumentIdentifier(mockURI))
+        let result: LSPResult<HoverRequest.Response> = await send(
+            HoverRequest(textDocument: TextDocumentIdentifier(mockURI), position: Position(line: 0, utf16index: 0))
         )
         guard case .failure(let error) = result else {
             return XCTFail("expected methodNotFound failure, got \(result)")
@@ -309,5 +309,153 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false
         }
         XCTAssertTrue(cleared, "server did not re-analyze sources after the grammar closed")
+    }
+
+    // MARK: - M2: folding ranges and document symbols
+
+    func testInitializeAdvertisesFoldingAndSymbolCapabilities() async {
+        let result = await send(InitializeRequest(
+            processId: nil,
+            rootPath: nil,
+            rootURI: nil,
+            capabilities: ClientCapabilities(),
+            workspaceFolders: nil
+        ))
+        guard case .success(let initializeResult) = result else {
+            return XCTFail("initialize failed: \(result)")
+        }
+        XCTAssertTrue(initializeResult.capabilities.foldingRangeProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.documentSymbolProvider?.isSupported ?? false)
+    }
+
+    /// Waits until the server has published diagnostics for `uri`, which
+    /// implies the document was opened and analyzed before requests run.
+    private func waitForPublish(uri: DocumentURI) async -> Bool {
+        await waitUntil { !self.client.publishDiagnostics(uri: uri).isEmpty }
+    }
+
+    func testDocumentSymbolsForSourceDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/prog.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %start Program
+            Program : Stmt Program | Stmt ;
+            Stmt : 'print' Expr ;
+            Expr : 'number' | 'string' ;
+            """)
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number\nprint string\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentSymbolRequest.Response> = await send(
+            DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let response) = result, case .documentSymbols(let symbols) = response else {
+            return XCTFail("documentSymbol request failed: \(result)")
+        }
+        XCTAssertEqual(symbols.map(\.name), ["Stmt", "Program"])
+        XCTAssertEqual(symbols[0].range.lowerBound.line, 0)
+        XCTAssertEqual(symbols[0].children?.first?.name, "Expr")
+        XCTAssertEqual(symbols[1].children?.first?.name, "Stmt")
+        XCTAssertEqual(symbols[1].range.lowerBound.line, 1)
+        XCTAssertEqual(symbols[0].selectionRange.lowerBound.utf16index, 0)
+        XCTAssertEqual(symbols[0].selectionRange.upperBound.utf16index, 5)
+    }
+
+    func testFoldingRangesForSourceDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %start List
+            List : 'item' List | 'item' ;
+            """)
+        let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<FoldingRangeRequest.Response> = await send(
+            FoldingRangeRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let ranges) = result, let ranges else {
+            return XCTFail("foldingRange request failed: \(result)")
+        }
+        // The root is not folded; only the middle `List` spans multiple lines.
+        XCTAssertEqual(ranges.count, 1)
+        XCTAssertEqual(ranges[0].startLine, 1)
+        XCTAssertEqual(ranges[0].endLine, 2)
+        XCTAssertEqual(ranges[0].collapsedText, "List")
+    }
+
+    func testDocumentSymbolsForLexerRuleGrammar() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %token ITEM /item/
+            %skip /[ \\t\\n]+/
+            %start List
+            List : ITEM List | ITEM ;
+            """)
+        let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentSymbolRequest.Response> = await send(
+            DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let response) = result, case .documentSymbols(let symbols) = response else {
+            return XCTFail("documentSymbol request failed: \(result)")
+        }
+        XCTAssertEqual(symbols.map(\.name), ["List"])
+        XCTAssertEqual(symbols[0].range.lowerBound.line, 1)
+        XCTAssertEqual(symbols[0].range.upperBound.line, 2)
+    }
+
+    func testOutlineRequestsReturnNilForGrammarDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %start List
+            List : 'item' List | 'item' ;
+            """)
+        let analyzed = await waitForPublish(uri: grammarURI)
+        XCTAssertTrue(analyzed, "server did not compile the grammar document")
+
+        let symbolsResult: LSPResult<DocumentSymbolRequest.Response> = await send(
+            DocumentSymbolRequest(textDocument: TextDocumentIdentifier(grammarURI))
+        )
+        guard case .success(let response) = symbolsResult else {
+            return XCTFail("documentSymbol request failed: \(symbolsResult)")
+        }
+        XCTAssertNil(response)
+
+        let foldingResult: LSPResult<FoldingRangeRequest.Response> = await send(
+            FoldingRangeRequest(textDocument: TextDocumentIdentifier(grammarURI))
+        )
+        guard case .success(let ranges) = foldingResult else {
+            return XCTFail("foldingRange request failed: \(foldingResult)")
+        }
+        XCTAssertNil(ranges)
+    }
+
+    func testOutlineRequestsReturnNilWithoutGrammar() async {
+        let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let symbolsResult: LSPResult<DocumentSymbolRequest.Response> = await send(
+            DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let response) = symbolsResult else {
+            return XCTFail("documentSymbol request failed: \(symbolsResult)")
+        }
+        XCTAssertNil(response)
+
+        let foldingResult: LSPResult<FoldingRangeRequest.Response> = await send(
+            FoldingRangeRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let ranges) = foldingResult else {
+            return XCTFail("foldingRange request failed: \(foldingResult)")
+        }
+        XCTAssertNil(ranges)
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 import XCTest
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
-@testable import GrammarWorkbenchLSP
+@testable import grammar_workbench_lsp
 
 final class GrammarWorkbenchLSPServerTests: XCTestCase {
     private var client: TestClient!

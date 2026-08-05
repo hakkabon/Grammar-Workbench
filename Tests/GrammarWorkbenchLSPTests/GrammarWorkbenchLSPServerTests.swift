@@ -27,7 +27,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     }
 
     private var mockURI: DocumentURI {
-        DocumentURI(filePath: "/tmp/mock-document.txt")
+        DocumentURI(filePath: "/tmp/mock-document.txt", isDirectory: false)
     }
 
     /// Sends `request` from the client to the server and awaits the reply.
@@ -40,6 +40,21 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
                 continuation.resume(returning: result)
             }
         }
+    }
+
+    /// Polls `condition` until it returns true or `timeout` elapses. Notifications
+    /// are handled by the server in separate tasks, so tests must wait for them.
+    private func waitUntil(
+        timeout: Duration = .seconds(2),
+        _ condition: @escaping () async -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if await condition() { return true }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return await condition()
     }
 
     func testInitializeReturnsFullTextSyncCapabilities() async {
@@ -73,7 +88,8 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         guard case .success = result else {
             return XCTFail("shutdown failed: \(result)")
         }
-        XCTAssertTrue(await server.hasReceivedShutdown)
+        let hasReceivedShutdown = await server.hasReceivedShutdown
+        XCTAssertTrue(hasReceivedShutdown)
     }
 
     func testUnknownRequestRepliesMethodNotFound() async {
@@ -83,23 +99,23 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         guard case .failure(let error) = result else {
             return XCTFail("expected methodNotFound failure, got \(result)")
         }
-        XCTAssertEqual(error.errorCode, .methodNotFound)
+        XCTAssertEqual(error.code, .methodNotFound)
     }
 
     func testDidOpenStoresDocument() async {
-        let uri = DocumentURI(filePath: "/tmp/test.grammar")
+        let uri = DocumentURI(filePath: "/tmp/test.grammar", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
             uri: uri,
             language: Language(rawValue: "mygrammar"),
             version: 1,
             text: "hello world"
         )))
-        let text = await server.documentStore.text(for: uri)
-        XCTAssertEqual(text, "hello world")
+        let stored = await waitUntil { await self.server.documentStore.text(for: uri) == "hello world" }
+        XCTAssertTrue(stored, "server did not store the opened document")
     }
 
     func testDidChangeFullSyncReplacesDocument() async {
-        let uri = DocumentURI(filePath: "/tmp/test.grammar")
+        let uri = DocumentURI(filePath: "/tmp/test.grammar", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
             uri: uri,
             language: Language(rawValue: "grammar"),
@@ -110,14 +126,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             textDocument: VersionedTextDocumentIdentifier(uri, version: 2),
             contentChanges: [TextDocumentContentChangeEvent(range: nil, rangeLength: nil, text: "second version")]
         ))
-        let text = await server.documentStore.text(for: uri)
-        XCTAssertEqual(text, "second version")
+        let replaced = await waitUntil { await self.server.documentStore.text(for: uri) == "second version" }
+        XCTAssertTrue(replaced, "server did not apply the full-sync change")
         let version = await server.documentStore.document(for: uri)?.version
         XCTAssertEqual(version, 2)
     }
 
     func testDidCloseRemovesDocument() async {
-        let uri = DocumentURI(filePath: "/tmp/test.txt")
+        let uri = DocumentURI(filePath: "/tmp/test.txt", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
             uri: uri,
             language: Language(rawValue: "grammar"),
@@ -125,11 +141,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             text: "content"
         )))
         connection.send(DidCloseTextDocumentNotification(textDocument: TextDocumentIdentifier(uri)))
-        let text = await server.documentStore.text(for: uri)
-        XCTAssertNil(text)
+        let removed = await waitUntil { await self.server.documentStore.text(for: uri) == nil }
+        XCTAssertTrue(removed, "server did not remove the closed document")
     }
 
-    func testUnknownNotificationIsIgnored() async {
+    func testUnknownNotificationIsIgnored() async throws {
         // A notification our server does not handle must not crash the server.
         connection.send(SetTraceNotification(value: .off))
         try await Task.sleep(for: .milliseconds(50))

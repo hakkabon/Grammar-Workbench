@@ -15,6 +15,13 @@ public final class TestClient: MessageHandler, @unchecked Sendable {
         notifications.append(notification)
     }
 
+    /// `PublishDiagnosticsNotification`s received for `uri`, in arrival order.
+    public func publishDiagnostics(uri: DocumentURI) -> [PublishDiagnosticsNotification] {
+        notifications
+            .compactMap { $0 as? PublishDiagnosticsNotification }
+            .filter { $0.uri == uri }
+    }
+
     public func handle<Request: RequestType>(
         _ request: Request,
         id: RequestID,

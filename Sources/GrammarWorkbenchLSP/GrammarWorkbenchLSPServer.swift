@@ -1,4 +1,5 @@
 import Foundation
+import GrammarWorkbench
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
 
@@ -20,10 +21,12 @@ extension LocalConnection: ServerConnection {}
 /// ecosystem: a developer supplies a grammar and the server instantly provides
 /// IDE services for the resulting language.
 ///
-/// M0 (this milestone) establishes the protocol skeleton: `initialize`,
-/// `shutdown`/`exit` handling, and full-document text synchronization. Later
-/// milestones add diagnostics, folding ranges, document symbols, and
-/// completion powered by `GrammarCompilation`.
+/// M0 established the protocol skeleton: `initialize`, `shutdown`/`exit`
+/// handling, and full-document text synchronization. M1 adds
+/// `textDocument/publishDiagnostics` for grammar documents (compile errors)
+/// and source documents (lexical and parse errors) using the open grammars.
+/// Later milestones add folding ranges, document symbols, and completion
+/// powered by `GrammarCompilation`.
 public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// Storage of open documents, mirroring client editor contents.
     public let documentStore: DocumentStore
@@ -31,14 +34,23 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// The connection to the client, used to send notifications.
     private let connection: any ServerConnection
 
+    /// Compiles open grammars and produces diagnostics for both grammar and
+    /// source documents.
+    private let diagnosticsManager: DiagnosticsManager
+
     /// Whether the client has sent a `shutdown` request. Drives the process
     /// exit code: the LSP spec requires exit code 0 only if shutdown was
     /// received.
     private var shutdownReceived: Bool = false
 
-    public init(connection: any ServerConnection, documentStore: DocumentStore = DocumentStore()) {
+    public init(
+        connection: any ServerConnection,
+        documentStore: DocumentStore = DocumentStore(),
+        diagnosticsManager: DiagnosticsManager = DiagnosticsManager()
+    ) {
         self.connection = connection
         self.documentStore = documentStore
+        self.diagnosticsManager = diagnosticsManager
     }
 
     /// Whether the client has sent the LSP `shutdown` request.
@@ -99,6 +111,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             version: item.version,
             text: item.text
         )
+        await publishDiagnostics(for: item.uri)
     }
 
     private func didChange(_ notification: DidChangeTextDocumentNotification) async {
@@ -108,10 +121,59 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             version: identifier.version,
             contentChanges: notification.contentChanges
         )
+        await publishDiagnostics(for: identifier.uri)
     }
 
     private func didClose(_ notification: DidCloseTextDocumentNotification) async {
-        await documentStore.close(uri: notification.textDocument.uri)
+        let uri = notification.textDocument.uri
+        let kind = uri.grammarWorkbenchKind
+        await documentStore.close(uri: uri)
+        // Publish an empty set so the client clears diagnostics for the
+        // document, as required by the LSP spec.
+        connection.send(PublishDiagnosticsNotification(uri: uri, diagnostics: []))
+        guard case .grammar = kind else { return }
+        await diagnosticsManager.removeGrammar(uri: uri)
+        // Source documents lose (or change) their grammar; re-analyze them all.
+        await republishSourceDiagnostics()
+    }
+
+    /// Computes and publishes diagnostics for the document at `uri`. Grammar
+    /// documents are compiled, source documents are parsed with the grammar
+    /// associated with their language id. Source documents are also re-analyzed
+    /// whenever a grammar document changes.
+    private func publishDiagnostics(for uri: DocumentURI) async {
+        guard let document = await documentStore.document(for: uri) else { return }
+        switch uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            let compilation = await diagnosticsManager.compileGrammar(
+                uri: uri, source: document.text, notation: notation
+            )
+            let diagnostics = await diagnosticsManager.lspDiagnostics(
+                compilation: compilation, grammarSource: document.text
+            )
+            connection.send(PublishDiagnosticsNotification(
+                uri: uri, version: document.version, diagnostics: diagnostics
+            ))
+            await republishSourceDiagnostics()
+        case .source:
+            guard let compilation = await diagnosticsManager.grammarCompilation(for: document.language.rawValue) else {
+                // No grammar is open; clear any stale diagnostics.
+                connection.send(PublishDiagnosticsNotification(uri: uri, version: document.version, diagnostics: []))
+                return
+            }
+            let diagnostics = await diagnosticsManager.lspDiagnostics(
+                compilation: compilation, sourceText: document.text
+            )
+            connection.send(PublishDiagnosticsNotification(
+                uri: uri, version: document.version, diagnostics: diagnostics
+            ))
+        }
+    }
+
+    private func republishSourceDiagnostics() async {
+        for uri in await documentStore.openURIs where uri.grammarWorkbenchKind == .source {
+            await publishDiagnostics(for: uri)
+        }
     }
 
     private func handleExit() async {

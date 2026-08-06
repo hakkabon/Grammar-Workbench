@@ -21,33 +21,81 @@ public struct SyntaxTreeOutline {
     /// start-symbol node's children.
     public let documentSymbols: [DocumentSymbol]
 
+    private let tree: GrammarSyntaxNode
+    private let text: String
+
     public init(tree: GrammarSyntaxNode, text: String) {
+        self.tree = tree
+        self.text = text
         var scanner = TokenPositionScanner(text: text)
         var ranges: [FoldingRange] = []
-        let results = tree.children.map { $0.walk(scanner: &scanner, foldingRanges: &ranges) }
+        var located: [(node: GrammarSyntaxNode, parent: GrammarSyntaxNode?, range: SourceRange, depth: Int)] = []
+        let results = tree.children.map { $0.walk(scanner: &scanner, foldingRanges: &ranges, located: &located, parent: nil, depth: 0) }
         foldingRanges = ranges.sorted()
         documentSymbols = results.compactMap(\.symbol)
     }
+
+    /// The deepest node whose source range contains `position`, together with
+    /// its parent (for production context) and engine range. `nil` when the
+    /// position falls outside the tree (whitespace, missing tokens, or a
+    /// document that did not parse).
+    public func node(at position: Position) -> (node: GrammarSyntaxNode, parent: GrammarSyntaxNode?, range: SourceRange)? {
+        var scanner = TokenPositionScanner(text: text)
+        var located: [(node: GrammarSyntaxNode, parent: GrammarSyntaxNode?, range: SourceRange, depth: Int)] = []
+        var ignoredRanges: [FoldingRange] = []
+        let target = SourcePosition(offset: 0, line: position.line + 1, column: position.utf16index + 1)
+        _ = tree.walk(scanner: &scanner, foldingRanges: &ignoredRanges, located: &located, parent: nil, depth: 0)
+        guard let match = located
+            .filter({ contains($0.range, target) })
+            .max(by: { $0.depth < $1.depth })
+        else {
+            return nil
+        }
+        return (match.node, match.parent, match.range)
+    }
+}
+
+private func contains(_ range: SourceRange, _ position: SourcePosition) -> Bool {
+    if range.start == range.end { return position == range.start }
+    return positionIsLessThanOrEqualTo(range.start, position) && positionIsLessThan(position, range.end)
+}
+
+private func positionIsLessThanOrEqualTo(_ a: SourcePosition, _ b: SourcePosition) -> Bool {
+    a.line < b.line || (a.line == b.line && a.column <= b.column)
+}
+
+private func positionIsLessThan(_ a: SourcePosition, _ b: SourcePosition) -> Bool {
+    a.line < b.line || (a.line == b.line && a.column < b.column)
 }
 
 private extension GrammarSyntaxNode {
     /// Walks this subtree, aligning tokens with `text` when their ranges are
-    /// missing. Appends folding ranges for multi-line non-terminals and
-    /// returns this node's source range and document symbol.
+    /// missing. Appends folding ranges for multi-line non-terminals and every
+    /// located node to `located`; returns this node's source range and
+    /// document symbol.
     func walk(
         scanner: inout TokenPositionScanner,
-        foldingRanges: inout [FoldingRange]
+        foldingRanges: inout [FoldingRange],
+        located: inout [(node: GrammarSyntaxNode, parent: GrammarSyntaxNode?, range: SourceRange, depth: Int)],
+        parent: GrammarSyntaxNode?,
+        depth: Int
     ) -> (range: SourceRange?, symbol: DocumentSymbol?) {
         if isTerminal {
+            let tokenRange: SourceRange?
             if let token, token.range == nil {
-                return (scanner.consume(token.lexeme), nil)
+                tokenRange = scanner.consume(token.lexeme)
+            } else {
+                tokenRange = token?.range ?? range
             }
-            return (token?.range ?? range, nil)
+            if let tokenRange {
+                located.append((node: self, parent: parent, range: tokenRange, depth: depth))
+            }
+            return (tokenRange, nil)
         }
-        let results = children.map { $0.walk(scanner: &scanner, foldingRanges: &foldingRanges) }
-        let located = results.compactMap(\.range)
-        let nodeRange = located.first.flatMap { first in
-            located.last.map { SourceRange(start: first.start, end: $0.end) }
+        let results = children.map { $0.walk(scanner: &scanner, foldingRanges: &foldingRanges, located: &located, parent: self, depth: depth + 1) }
+        let locatedChildren = results.compactMap(\.range)
+        let nodeRange = locatedChildren.first.flatMap { first in
+            locatedChildren.last.map { SourceRange(start: first.start, end: $0.end) }
         }
         if let nodeRange {
             let start = lspPosition(nodeRange.start)
@@ -61,11 +109,12 @@ private extension GrammarSyntaxNode {
                     collapsedText: symbol
                 ))
             }
+            located.append((node: self, parent: parent, range: nodeRange, depth: depth))
         }
         let childSymbols = results.compactMap(\.symbol)
         let documentSymbol = nodeRange.map { nodeRange in
             let range = lspRange(nodeRange)
-            let selectionRange = located.first.map(lspRange) ?? range
+            let selectionRange = locatedChildren.first.map(lspRange) ?? range
             return DocumentSymbol(
                 name: symbol,
                 kind: .struct,

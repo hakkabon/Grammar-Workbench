@@ -20,6 +20,8 @@ enum GrammarWorkbenchLSPMain {
                 ShutdownRequest.self,
                 FoldingRangeRequest.self,
                 DocumentSymbolRequest.self,
+                CompletionRequest.self,
+                HoverRequest.self,
             ],
             notifications: [
                 DidOpenTextDocumentNotification.self,

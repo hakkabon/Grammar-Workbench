@@ -99,9 +99,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     }
 
     func testUnknownRequestRepliesMethodNotFound() async {
-        let result: LSPResult<HoverRequest.Response> = await send(
-            HoverRequest(textDocument: TextDocumentIdentifier(mockURI), position: Position(line: 0, utf16index: 0))
-        )
+        let result: LSPResult<WorkspaceFoldersRequest.Response> = await send(WorkspaceFoldersRequest())
         guard case .failure(let error) = result else {
             return XCTFail("expected methodNotFound failure, got \(result)")
         }
@@ -457,5 +455,264 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("foldingRange request failed: \(foldingResult)")
         }
         XCTAssertNil(ranges)
+    }
+
+    // MARK: - M3: completion and hover
+
+    private func progGrammarURI() -> DocumentURI {
+        DocumentURI(filePath: "/tmp/prog.grammarworkbench", isDirectory: false)
+    }
+
+    private func openProgGrammar() async {
+        openDocument(uri: progGrammarURI(), language: "grammar", text: """
+            %start Program
+            Program : Stmt Program | Stmt ;
+            Stmt : 'print' Expr ;
+            Expr : 'number' | 'string' ;
+            """)
+        let published = await waitForPublish(uri: progGrammarURI())
+        XCTAssertTrue(published, "server did not compile the grammar document")
+    }
+
+    func testInitializeAdvertisesCompletionAndHoverCapabilities() async {
+        let result = await send(InitializeRequest(
+            processId: nil,
+            rootPath: nil,
+            rootURI: nil,
+            capabilities: ClientCapabilities(),
+            workspaceFolders: nil
+        ))
+        guard case .success(let initializeResult) = result else {
+            return XCTFail("initialize failed: \(result)")
+        }
+        XCTAssertNotNil(initializeResult.capabilities.completionProvider)
+        XCTAssertEqual(initializeResult.capabilities.hoverProvider, .bool(true))
+    }
+
+    func testCompletionOffersExpectedTokensFilteredByPrefix() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print nu")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 8))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        XCTAssertFalse(list.isIncomplete)
+        XCTAssertEqual(list.items.map(\.label), ["number"])
+        let item = list.items[0]
+        XCTAssertEqual(item.kind, .keyword)
+        guard case .textEdit(let edit) = item.textEdit else {
+            return XCTFail("expected a textEdit, got \(String(describing: item.textEdit))")
+        }
+        XCTAssertEqual(edit.newText, "number")
+        XCTAssertEqual(edit.range, Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 8))
+    }
+
+    func testCompletionAtDocumentStartOffersReachableTerminals() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        // State 0's closure includes every production's first symbol, so all
+        // reachable terminals are expected at the start of the document.
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 0))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        XCTAssertEqual(list.items.map(\.label), ["number", "print", "string"])
+        guard case .textEdit(let edit) = list.items[0].textEdit else {
+            return XCTFail("expected a textEdit, got \(String(describing: list.items[0].textEdit))")
+        }
+        XCTAssertEqual(edit.range, Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 0))
+    }
+
+    func testCompletionAtEndOfValidDocumentOffersContinuation() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number ")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 13))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        // After a complete Stmt the parser can continue the Program list
+        // ('print') or begin a new Expr inside the list's closure.
+        XCTAssertEqual(list.items.map(\.label), ["number", "print", "string"])
+    }
+
+    func testCompletionMatchesFuzzySubsequence() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print srg")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 10))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        XCTAssertEqual(list.items.map(\.label), ["string"])
+    }
+
+    func testCompletionRanksPrefixMatchAboveSubsequenceMatch() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 7))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        // 'number' is a prefix match, 'print' and 'string' are subsequence
+        // matches ('n' occurs inside both); the prefix match ranks first.
+        XCTAssertEqual(list.items.map(\.label), ["number", "print", "string"])
+    }
+
+    func testCompletionForLexerRuleGrammarUsesTokenPattern() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %token ITEM /item/
+            %skip /[ \\t\\n]+/
+            %start List
+            List : ITEM List | ITEM ;
+            """)
+        let published = await waitForPublish(uri: grammarURI)
+        XCTAssertTrue(published, "server did not compile the grammar document")
+        let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "list", text: "item\nite")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 1, utf16index: 3))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        XCTAssertEqual(list.items.map(\.label), ["ITEM"])
+        let item = list.items[0]
+        XCTAssertEqual(item.kind, .class)
+        guard case .textEdit(let edit) = item.textEdit else {
+            return XCTFail("expected a textEdit, got \(String(describing: item.textEdit))")
+        }
+        XCTAssertEqual(edit.newText, "item")
+        XCTAssertEqual(edit.range, Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 3))
+    }
+
+    func testCompletionReturnsEmptyListForGrammarDocument() async {
+        await openProgGrammar()
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 0))
+        )
+        guard case .success(let list) = result else {
+            return XCTFail("completion request failed: \(result)")
+        }
+        XCTAssertTrue(list.items.isEmpty)
+    }
+
+    func testHoverOnTerminalShowsTokenAndProduction() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<HoverRequest.Response> = await send(
+            HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 6))
+        )
+        guard case .success(let response) = result, let response else {
+            return XCTFail("hover request failed: \(result)")
+        }
+        guard case .markupContent(let contents) = response.contents else {
+            return XCTFail("expected markup content, got \(response.contents)")
+        }
+        XCTAssertEqual(contents.kind, .markdown)
+        XCTAssertTrue(contents.value.contains("Token `number`"), contents.value)
+        XCTAssertTrue(contents.value.contains("Expr → 'number'"), contents.value)
+        XCTAssertEqual(response.range, Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 12))
+    }
+
+    func testHoverShowsLexerTokenProduction() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: """
+            %token ITEM /item/
+            %skip /[ \\t\\n]+/
+            %start List
+            List : ITEM List | ITEM ;
+            """)
+        let published = await waitForPublish(uri: grammarURI)
+        XCTAssertTrue(published, "server did not compile the grammar document")
+        let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "list", text: "item\nitem\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<HoverRequest.Response> = await send(
+            HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 2))
+        )
+        guard case .success(let response) = result, let response else {
+            return XCTFail("hover request failed: \(result)")
+        }
+        guard case .markupContent(let contents) = response.contents else {
+            return XCTFail("expected markup content, got \(response.contents)")
+        }
+        XCTAssertTrue(contents.value.contains("Token `ITEM`"), contents.value)
+        XCTAssertTrue(contents.value.contains("List → ITEM List"), contents.value)
+    }
+
+    func testHoverOverWhitespaceShowsEnclosingProduction() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        // Whitespace between tokens is inside the enclosing statement, so the
+        // hover shows its production without a token line.
+        let whitespaceResult: LSPResult<HoverRequest.Response> = await send(
+            HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 5))
+        )
+        guard case .success(let response) = whitespaceResult else {
+            return XCTFail("hover request failed: \(whitespaceResult)")
+        }
+        guard let response else {
+            return XCTFail("expected the enclosing production, got nil")
+        }
+        guard case .markupContent(let contents) = response.contents else {
+            return XCTFail("expected markup content, got \(response.contents)")
+        }
+        XCTAssertTrue(contents.value.contains("Stmt → 'print' Expr"), contents.value)
+    }
+
+    func testHoverReturnsNilWithoutGrammar() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/other.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "other", text: "print number")
+        let result: LSPResult<HoverRequest.Response> = await send(
+            HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 0))
+        )
+        guard case .success(let response) = result else {
+            return XCTFail("hover request failed: \(result)")
+        }
+        XCTAssertNil(response)
     }
 }

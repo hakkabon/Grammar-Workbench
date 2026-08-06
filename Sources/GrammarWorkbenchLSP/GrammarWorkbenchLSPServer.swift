@@ -86,6 +86,10 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             Task { reply(.success(await self.foldingRanges(folding) as! Request.Response)) }
         } else if let symbols = request as? DocumentSymbolRequest {
             Task { reply(.success(await self.documentSymbols(symbols) as! Request.Response)) }
+        } else if let completion = request as? CompletionRequest {
+            Task { reply(.success(await self.completions(completion) as! Request.Response)) }
+        } else if let hover = request as? HoverRequest {
+            Task { reply(.success(await self.hover(hover) as! Request.Response)) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
@@ -107,6 +111,30 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         return .documentSymbols(SyntaxTreeOutline(tree: tree, text: text).documentSymbols)
     }
 
+    /// Completion items for the document at `request`'s URI, derived from the
+    /// terminals the parser expects at the cursor position.
+    private func completions(_ request: CompletionRequest) async -> CompletionList {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .source,
+              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
+        else {
+            return CompletionList(isIncomplete: false, items: [])
+        }
+        return CompletionProvider.completions(in: document.text, at: request.position, compilation: compilation)
+    }
+
+    /// Hover information for the token at `request`'s position, derived from
+    /// the parse tree and the productions that matched it.
+    private func hover(_ request: HoverRequest) async -> HoverResponse? {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .source,
+              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
+        else {
+            return nil
+        }
+        return HoverProvider.hover(in: document.text, at: request.position, compilation: compilation)
+    }
+
     /// Parses the source document at `uri` with its associated grammar and
     /// returns the syntax tree together with the document text, used to
     /// resolve token positions for grammars without lexer rules.
@@ -126,6 +154,8 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         return InitializeResult(
             capabilities: ServerCapabilities(
                 textDocumentSync: .options(syncOptions),
+                hoverProvider: .bool(true),
+                completionProvider: CompletionOptions(),
                 documentSymbolProvider: .bool(true),
                 foldingRangeProvider: .bool(true)
             )

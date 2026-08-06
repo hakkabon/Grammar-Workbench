@@ -75,6 +75,15 @@ public actor DiagnosticsManager {
         return mostRecentGrammarURI.flatMap { grammarDocuments[$0]?.compilation }
     }
 
+    /// The compilation for a source document whose language id matches a
+    /// grammar exactly, or `nil` when no grammar declares that language.
+    /// Unlike `grammarCompilation(for:)` this never falls back to another
+    /// grammar, so a source document is never completed or hovered with the
+    /// wrong grammar.
+    public func exactGrammarCompilation(for languageId: String) -> GrammarCompilation? {
+        grammarDocuments.values.first { $0.uri.grammarFileBaseName == languageId }?.compilation
+    }
+
     /// LSP diagnostics for a grammar document compiled from `grammarSource`.
     public func lspDiagnostics(compilation: GrammarCompilation, grammarSource: String) -> [Diagnostic] {
         compilation.diagnostics.map(lspDiagnostic)

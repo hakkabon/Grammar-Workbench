@@ -46,8 +46,7 @@ public enum GrammarDocumentProvider {
         let value: String
         switch symbol.kind {
         case .nonterminal:
-            let productions = symbol.productions
-                .map { "\($0.lhs) → \($0.rhs.isEmpty ? "ε" : $0.rhs.joined(separator: " "))" }
+            let productions = symbol.productions.map(\.text)
             guard !productions.isEmpty else { return nil }
             value = "**Nonterminal `\(symbol.text)`**\n\n"
                 + productions.map { "`\($0)`" }.joined(separator: "\n")
@@ -65,8 +64,7 @@ public enum GrammarDocumentProvider {
             }
             value = parts.joined(separator: "\n\n")
         case .terminalLiteral:
-            let productions = symbol.productions
-                .map { "\($0.lhs) → \($0.rhs.isEmpty ? "ε" : $0.rhs.joined(separator: " "))" }
+            let productions = symbol.productions.map(\.text)
             guard !productions.isEmpty else { return nil }
             value = "**Terminal `'\(symbol.text)'`**\n\n"
                 + productions.prefix(5).map { "`\($0)`" }.joined(separator: "\n")

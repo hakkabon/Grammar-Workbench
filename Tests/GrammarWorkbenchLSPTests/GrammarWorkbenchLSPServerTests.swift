@@ -377,7 +377,6 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     %start S
     S : A 'b' ;
     A : 'a' ;
-    %
     """
 
     private func openGrammar(_ uri: DocumentURI, _ text: String) async -> Bool {
@@ -447,22 +446,21 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
 
-        // On the bare `%` line, directives are offered.
+        // On a directive, prefix-matched directives are offered.
         let result: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
-            position: Position(line: 3, utf16index: 1)
+            position: Position(line: 0, utf16index: 1)
         ))
         guard case .success(let list) = result else {
             return XCTFail("completion failed: \(result)")
         }
         let directives = list.items.map(\.label)
-        XCTAssertTrue(directives.contains("%start"), "expected %start among \(directives)")
-        XCTAssertTrue(directives.contains("%token"))
+        XCTAssertEqual(directives, ["%start"])
 
-        // At the start of a production line, grammar symbols are offered.
+        // At the end of a production line, grammar symbols are offered.
         let symbolsResult: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
-            position: Position(line: 1, utf16index: 0)
+            position: Position(line: 1, utf16index: 11)
         ))
         guard case .success(let symbolList) = symbolsResult else {
             return XCTFail("completion failed: \(symbolsResult)")
@@ -500,7 +498,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
               case .markupContent(let contents) = symbolHoverResponse.contents else {
             return XCTFail("expected a symbol hover, got \(symbolHover)")
         }
-        XCTAssertTrue(contents.value.contains("A → 'a'"), contents.value)
+        XCTAssertTrue(contents.value.contains("A → a"), contents.value)
         XCTAssertTrue(contents.value.contains("Nonterminal"))
     }
 
@@ -849,15 +847,15 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(edit.range, Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 3))
     }
 
-    func testCompletionReturnsEmptyListForGrammarDocument() async {
+    func testGrammarDocumentCompletionOffersDirectives() async {
         await openProgGrammar()
         let result: LSPResult<CompletionRequest.Response> = await send(
-            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 0))
+            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 1))
         )
         guard case .success(let list) = result else {
             return XCTFail("completion request failed: \(result)")
         }
-        XCTAssertTrue(list.items.isEmpty)
+        XCTAssertEqual(list.items.map(\.label), ["%start"])
     }
 
     func testHoverOnTerminalShowsTokenAndProduction() async {

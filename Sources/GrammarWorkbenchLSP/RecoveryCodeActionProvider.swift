@@ -200,12 +200,8 @@ public enum RecoveryCodeActionProvider {
         _ diagnostic: GrammarDiagnostic,
         code: String
     ) -> Diagnostic {
-        let range = diagnostic.range ?? SourceRange(
-            start: SourcePosition(offset: 0, line: 1, column: 1),
-            end: SourcePosition(offset: 0, line: 1, column: 1)
-        )
         return Diagnostic(
-            range: DiagnosticsManager.position(range.start)..<DiagnosticsManager.position(range.end),
+            range: DiagnosticsManager.position(diagnostic.range.start)..<DiagnosticsManager.position(diagnostic.range.end),
             severity: diagnostic.severity == .error ? .error : .warning,
             code: .string(code),
             source: "grammar-workbench",

@@ -25,8 +25,10 @@ extension LocalConnection: ServerConnection {}
 /// handling, and full-document text synchronization. M1 adds
 /// `textDocument/publishDiagnostics` for grammar documents (compile errors)
 /// and source documents (lexical and parse errors) using the open grammars.
-/// Later milestones add folding ranges, document symbols, and completion
-/// powered by `GrammarCompilation`.
+/// Later milestones add folding ranges, document symbols, completion, hover,
+/// definitions, semantic tokens, references, rename, quick fixes, and
+/// progress reporting and request cancellation, all powered by
+/// `GrammarCompilation`.
 public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// Storage of open documents, mirroring client editor contents.
     public let documentStore: DocumentStore
@@ -48,6 +50,17 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// wasteful. Changes schedule a publish that supersedes any pending one.
     private var pendingPublishes: [DocumentURI: Task<Void, Never>] = [:]
 
+    /// Requests that are still being processed, keyed by request id, so a
+    /// `$/cancelRequest` can cancel them.
+    private var inFlightRequests: [RequestID: Task<Void, Never>] = [:]
+
+    /// A test seam: when set, every request handler awaits it before doing
+    /// work, which lets tests cancel requests deterministically.
+    private var requestGate: (@Sendable () async -> Void)?
+
+    /// Sequence number for the server's own progress tokens.
+    private var progressCounter = 0
+
     /// How long to wait after the last change before re-analyzing a document.
     private let publishDebounce: Duration = .milliseconds(150)
 
@@ -64,10 +77,26 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// Whether the client has sent the LSP `shutdown` request.
     public var hasReceivedShutdown: Bool { shutdownReceived }
 
+    /// Test seam: requests await `gate` before doing work.
+    internal func setRequestGate(_ gate: (@Sendable () async -> Void)?) {
+        requestGate = gate
+    }
+
+    /// Whether the request `id` is still being processed. Test seam.
+    internal func isRequestInFlight(_ id: RequestID) -> Bool {
+        inFlightRequests[id] != nil
+    }
+
+    /// The tokens of every work-done progress notification sent so far,
+    /// in arrival order. Test seam.
+    internal private(set) var workDoneProgressNotifications: [ProgressToken] = []
+
     // MARK: - MessageHandler
 
     public nonisolated func handle(_ notification: some NotificationType) {
-        if let didOpen = notification as? DidOpenTextDocumentNotification {
+        if let cancel = notification as? CancelRequestNotification {
+            Task { await self.cancelRequest(id: cancel.id) }
+        } else if let didOpen = notification as? DidOpenTextDocumentNotification {
             Task { await self.didOpen(didOpen) }
         } else if let didChange = notification as? DidChangeTextDocumentNotification {
             Task { await self.didChange(didChange) }
@@ -89,22 +118,70 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         reply: @Sendable @escaping (LSPResult<Request.Response>) -> Void
     ) {
         if let initialize = request as? InitializeRequest {
-            Task { reply(.success(await self.initialize(initialize) as! Request.Response)) }
+            respond(id: id, gated: false, reply: reply) { .success(await self.initialize(initialize) as! Request.Response) }
         } else if let shutdown = request as? ShutdownRequest {
-            Task { reply(.success(await self.shutdown(shutdown) as! Request.Response)) }
+            respond(id: id, gated: false, reply: reply) { .success(await self.shutdown(shutdown) as! Request.Response) }
         } else if let folding = request as? FoldingRangeRequest {
-            Task { reply(.success(await self.foldingRanges(folding) as! Request.Response)) }
+            respond(id: id, reply: reply) { .success(await self.foldingRanges(folding) as! Request.Response) }
         } else if let symbols = request as? DocumentSymbolRequest {
-            Task { reply(.success(await self.documentSymbols(symbols) as! Request.Response)) }
+            respond(id: id, reply: reply) { .success(await self.documentSymbols(symbols) as! Request.Response) }
         } else if let completion = request as? CompletionRequest {
-            Task { reply(.success(await self.completions(completion) as! Request.Response)) }
+            respond(id: id, reply: reply) { .success(await self.completions(completion) as! Request.Response) }
         } else if let hover = request as? HoverRequest {
-            Task { reply(.success(await self.hover(hover) as! Request.Response)) }
+            respond(id: id, reply: reply) { .success(await self.hover(hover) as! Request.Response) }
         } else if let definition = request as? DefinitionRequest {
-            Task { reply(.success(await self.definitions(definition) as! Request.Response)) }
+            respond(id: id, reply: reply) { .success(await self.definitions(definition) as! Request.Response) }
+        } else if let tokens = request as? DocumentSemanticTokensRequest {
+            respond(id: id, reply: reply) { .success(await self.semanticTokens(tokens) as! Request.Response) }
+        } else if let references = request as? ReferencesRequest {
+            respond(id: id, reply: reply) { .success(await self.references(references) as! Request.Response) }
+        } else if let rename = request as? RenameRequest {
+            respond(id: id, reply: reply) { await self.rename(rename) as! LSPResult<Request.Response> }
+        } else if let codeActions = request as? CodeActionRequest {
+            respond(id: id, reply: reply) { .success(await self.codeActions(codeActions) as! Request.Response) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
+    }
+
+    /// Runs `body` in a tracked task: the task is registered under `id` so
+    /// `$/cancelRequest` can cancel it, awaits the request gate (a test seam),
+    /// and replies with `.cancelled` when the request was cancelled before
+    /// the work completed.
+    private nonisolated func respond<Response>(
+        id: RequestID,
+        gated: Bool = true,
+        reply: @escaping @Sendable (LSPResult<Response>) -> Void,
+        body: @escaping @Sendable () async -> LSPResult<Response>
+    ) {
+        let task = Task {
+            if gated {
+                await self.waitIfGated()
+            }
+            guard !Task.isCancelled else {
+                reply(.failure(.cancelled))
+                return
+            }
+            reply(await body())
+            await self.untrack(id: id)
+        }
+        Task { await self.track(id: id, task: task) }
+    }
+
+    private func track(id: RequestID, task: Task<Void, Never>) {
+        inFlightRequests[id] = task
+    }
+
+    private func untrack(id: RequestID) {
+        inFlightRequests[id] = nil
+    }
+
+    private func cancelRequest(id: RequestID) {
+        inFlightRequests.removeValue(forKey: id)?.cancel()
+    }
+
+    private func waitIfGated() async {
+        await requestGate?()
     }
 
     // MARK: - Requests
@@ -202,6 +279,92 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         }
     }
 
+    /// Semantic tokens for the document at `request`'s URI. Grammar documents
+    /// tokenize directives, symbols, and punctuation; source documents
+    /// classify the parse tree's terminals by their token rule.
+    private func semanticTokens(_ request: DocumentSemanticTokensRequest) async -> DocumentSemanticTokensResponse? {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri),
+                  let grammar = compilation.parsedGrammar
+            else {
+                return nil
+            }
+            return SemanticTokensProvider.semanticTokens(in: document.text, grammar: grammar)
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue) else {
+                return nil
+            }
+            return SemanticTokensProvider.semanticTokens(in: document.text, compilation: compilation)
+        }
+    }
+
+    /// References to the nonterminal (or token name) under `request`'s
+    /// position within the grammar document: production left-hand sides and
+    /// body uses, `%token` declarations and rule uses.
+    private func references(_ request: ReferencesRequest) async -> [Location] {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .grammar(notation: .workbench),
+              let compilation = await diagnosticsManager.compilation(for: document.uri),
+              let grammar = compilation.parsedGrammar
+        else {
+            return []
+        }
+        return GrammarDocumentProvider.references(
+            in: document.text,
+            at: request.position,
+            grammar: grammar,
+            uri: document.uri,
+            includeDeclaration: request.context.includeDeclaration
+        )
+    }
+
+    /// Renames the nonterminal (or token name) under `request`'s position in
+    /// the grammar document, replacing every occurrence.
+    private func rename(_ request: RenameRequest) async -> LSPResult<WorkspaceEdit?> {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .grammar(notation: .workbench),
+              let compilation = await diagnosticsManager.compilation(for: document.uri),
+              let grammar = compilation.parsedGrammar
+        else {
+            return .success(nil)
+        }
+        return GrammarDocumentProvider.rename(
+            in: document.text,
+            at: request.position,
+            newName: request.newName,
+            grammar: grammar,
+            uri: document.uri
+        )
+    }
+
+    /// Quick fixes for the diagnostics under `request`'s range: recovery
+    /// actions for source documents (insert or delete the recovered token),
+    /// syntax fixes for grammar documents.
+    private func codeActions(_ request: CodeActionRequest) async -> CodeActionRequestResponse? {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri)
+            else {
+                return nil
+            }
+            return .codeActions(RecoveryCodeActionProvider.grammarCodeActions(
+                in: document.text, range: request.range, compilation: compilation, uri: document.uri
+            ))
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue) else {
+                return nil
+            }
+            return .codeActions(RecoveryCodeActionProvider.recoveryCodeActions(
+                in: document.text, range: request.range, compilation: compilation, uri: document.uri
+            ))
+        }
+    }
+
     /// Parses the source document at `uri` with its associated grammar and
     /// returns the syntax tree together with the document text, used to
     /// resolve token positions for grammars without lexer rules.
@@ -230,8 +393,19 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 hoverProvider: .bool(true),
                 completionProvider: CompletionOptions(),
                 definitionProvider: .bool(true),
+                referencesProvider: .value(ReferenceOptions()),
                 documentSymbolProvider: .bool(true),
-                foldingRangeProvider: .bool(true)
+                codeActionProvider: .value(CodeActionServerCapabilities(
+                    clientCapabilities: request.capabilities.textDocument?.codeAction,
+                    codeActionOptions: CodeActionOptions(codeActionKinds: [.quickFix]),
+                    supportsCodeActions: true
+                )),
+                renameProvider: .value(RenameOptions()),
+                foldingRangeProvider: .bool(true),
+                semanticTokensProvider: SemanticTokensOptions(
+                    legend: SemanticTokensProvider.legend,
+                    full: .value(SemanticTokensOptions.SemanticTokensFullOptions())
+                )
             )
         )
     }
@@ -346,10 +520,68 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         pendingPublishes[uri] = nil
     }
 
+    /// Re-analyzes every open source document, reporting progress. Called
+    /// whenever a grammar document is compiled or closed, since either can
+    /// change the diagnostics of every associated source document.
     private func republishSourceDiagnostics() async {
-        for uri in await documentStore.openURIs where uri.grammarWorkbenchKind == .source {
+        let sources = await documentStore.openURIs.filter { $0.grammarWorkbenchKind == .source }
+        guard !sources.isEmpty else { return }
+        let token = await beginWorkDone(title: "Grammar Workbench", message: "Analyzing source documents")
+        for (index, uri) in sources.enumerated() {
             await publishDiagnostics(for: uri)
+            if let token {
+                reportWorkDone(
+                    token,
+                    message: "Analyzed \(index + 1)/\(sources.count) documents",
+                    percentage: Int(Double(index + 1) / Double(sources.count) * 100)
+                )
+            }
         }
+        if let token {
+            endWorkDone(token, message: "\(sources.count) document(s) analyzed")
+        }
+    }
+
+    // MARK: - Work done progress
+
+    /// Asks the client to create a work-done progress token. Returns `nil`
+    /// when the client does not support progress.
+    private func beginWorkDone(title: String, message: String?) async -> ProgressToken? {
+        progressCounter += 1
+        let token = ProgressToken.string("grammar-workbench-\(progressCounter)")
+        let created = await withCheckedContinuation { continuation in
+            connection.send(CreateWorkDoneProgressRequest(token: token)) { result in
+                switch result {
+                case .success:
+                    continuation.resume(returning: true)
+                case .failure:
+                    continuation.resume(returning: false)
+                }
+            }
+        }
+        guard created else { return nil }
+        workDoneProgressNotifications.append(token)
+        connection.send(WorkDoneProgress(
+            token: token,
+            value: .begin(WorkDoneProgressBegin(title: title, message: message))
+        ))
+        return token
+    }
+
+    private func reportWorkDone(_ token: ProgressToken, message: String, percentage: Int) {
+        workDoneProgressNotifications.append(token)
+        connection.send(WorkDoneProgress(
+            token: token,
+            value: .report(WorkDoneProgressReport(message: message, percentage: percentage))
+        ))
+    }
+
+    private func endWorkDone(_ token: ProgressToken, message: String) {
+        workDoneProgressNotifications.append(token)
+        connection.send(WorkDoneProgress(
+            token: token,
+            value: .end(WorkDoneProgressEnd(message: message))
+        ))
     }
 
     private func handleExit() async {

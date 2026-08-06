@@ -71,7 +71,7 @@ public enum GrammarDocumentProvider {
         case .directive:
             guard let summary = symbol.directiveSummary else { return nil }
             value = "**`\(symbol.text)`** — \(summary)"
-        case .comment:
+        case .comment, .lexerPattern:
             return nil
         case .punctuation:
             return nil
@@ -133,5 +133,73 @@ public enum GrammarDocumentProvider {
         let start = DiagnosticsManager.position(range.start)
         let end = DiagnosticsManager.position(range.end)
         return .locations([Location(uri: grammarURI, range: start..<end)])
+    }
+
+    // MARK: - References
+
+    /// Every occurrence of the symbol under `position` in the grammar
+    /// document at `uri`: declarations (production left-hand sides, `%token`
+    /// rules) and uses, controlled by `includeDeclaration`.
+    public static func references(
+        in text: String,
+        at position: Position,
+        grammar: ParsedGrammar,
+        uri: DocumentURI,
+        includeDeclaration: Bool
+    ) -> [Location] {
+        let inspector = GrammarDocumentInspector(source: text, grammar: grammar)
+        guard let symbol = inspector.symbol(at: position) else { return [] }
+        return inspector.references(to: symbol, includeDeclaration: includeDeclaration).map { range in
+            Location(
+                uri: uri,
+                range: DiagnosticsManager.position(range.start)..<DiagnosticsManager.position(range.end)
+            )
+        }
+    }
+
+    // MARK: - Rename
+
+    /// The workspace edit that renames the nonterminal (or token name) under
+    /// `position` to `newName` everywhere in the grammar document at `uri`.
+    ///
+    /// Returns `nil` when there is no renamable symbol at the position, and a
+    /// failure when the symbol cannot be renamed (terminal literals change the
+    /// language) or the new name is not a valid identifier.
+    public static func rename(
+        in text: String,
+        at position: Position,
+        newName: String,
+        grammar: ParsedGrammar,
+        uri: DocumentURI
+    ) -> Result<WorkspaceEdit?, ResponseError> {
+        let inspector = GrammarDocumentInspector(source: text, grammar: grammar)
+        guard let symbol = inspector.symbol(at: position) else {
+            return .success(nil)
+        }
+        guard symbol.kind == .nonterminal || symbol.kind == .tokenName else {
+            return .failure(.invalidParams(
+                "Only nonterminals and token names can be renamed."
+            ))
+        }
+        guard isIdentifier(newName) else {
+            return .failure(.invalidParams(
+                "'\(newName)' is not a valid nonterminal name."
+            ))
+        }
+        let edits = inspector.renameRanges(for: symbol).map { range in
+            TextEdit(
+                range: DiagnosticsManager.position(range.start)..<DiagnosticsManager.position(range.end),
+                newText: newName
+            )
+        }
+        guard !edits.isEmpty else { return .success(nil) }
+        return .success(WorkspaceEdit(changes: [uri: edits]))
+    }
+
+    private static func isIdentifier(_ name: String) -> Bool {
+        let pattern = #"^[A-Za-z_][A-Za-z0-9_′]*$"#
+        guard let expression = try? NSRegularExpression(pattern: pattern) else { return false }
+        let range = NSRange(location: 0, length: (name as NSString).length)
+        return expression.firstMatch(in: name, range: range) != nil
     }
 }

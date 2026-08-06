@@ -944,4 +944,391 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(response)
     }
+
+    // MARK: - M7: semantic tokens, references, rename, code actions, progress
+
+    private static let numGrammar = """
+    %token NUMBER /[0-9]+/
+    %token PRINT /print\\b/
+    %skip /\\s+/
+    %start S
+    S : PRINT NUMBER ;
+    """
+
+    private struct DecodedToken: Equatable {
+        let line: Int
+        let start: Int
+        let length: Int
+        let type: Int
+    }
+
+    /// Decodes relative-encoded `data` into absolute tokens.
+    private func decodeTokens(_ data: [UInt32]) -> [DecodedToken] {
+        var tokens: [DecodedToken] = []
+        var line = 0
+        var start = 0
+        for index in stride(from: 0, to: data.count, by: 5) {
+            line += Int(data[index])
+            start = data[index] == 0 ? start + Int(data[index + 1]) : Int(data[index + 1])
+            tokens.append(DecodedToken(
+                line: line,
+                start: start,
+                length: Int(data[index + 2]),
+                type: Int(data[index + 3])
+            ))
+        }
+        return tokens
+    }
+
+    func testInitializeAdvertisesM7Capabilities() async {
+        let result = await send(InitializeRequest(
+            processId: nil,
+            rootPath: nil,
+            rootURI: nil,
+            capabilities: ClientCapabilities(),
+            workspaceFolders: nil
+        ))
+        guard case .success(let initializeResult) = result else {
+            return XCTFail("initialize failed: \(result)")
+        }
+        XCTAssertEqual(
+            initializeResult.capabilities.semanticTokensProvider?.legend.tokenTypes,
+            ["keyword", "string", "number", "regexp", "comment", "operator", "type", "enumMember", "variable"]
+        )
+        XCTAssertEqual(initializeResult.capabilities.semanticTokensProvider?.legend.tokenModifiers, [])
+        XCTAssertTrue(initializeResult.capabilities.referencesProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.renameProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.codeActionProvider?.isSupported ?? false)
+    }
+
+    func testSemanticTokensForGrammarDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentSemanticTokensRequest.Response> = await send(
+            DocumentSemanticTokensRequest(textDocument: TextDocumentIdentifier(grammarURI))
+        )
+        guard case .success(let response) = result, let response else {
+            return XCTFail("semanticTokens request failed: \(result)")
+        }
+        let tokens = decodeTokens(response.data)
+        XCTAssertEqual(tokens, [
+            DecodedToken(line: 0, start: 0, length: 6, type: 0),   // %start
+            DecodedToken(line: 0, start: 7, length: 1, type: 6),   // S
+            DecodedToken(line: 1, start: 0, length: 1, type: 6),   // S
+            DecodedToken(line: 1, start: 2, length: 1, type: 5),   // :
+            DecodedToken(line: 1, start: 4, length: 1, type: 6),   // A
+            DecodedToken(line: 1, start: 6, length: 3, type: 1),   // 'b'
+            DecodedToken(line: 1, start: 10, length: 1, type: 5),  // ;
+            DecodedToken(line: 2, start: 0, length: 1, type: 6),   // A
+            DecodedToken(line: 2, start: 2, length: 1, type: 5),   // :
+            DecodedToken(line: 2, start: 4, length: 3, type: 1),   // 'a'
+            DecodedToken(line: 2, start: 8, length: 1, type: 5),   // ;
+        ])
+    }
+
+    func testSemanticTokensForSourceDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.numGrammar)
+        XCTAssertTrue(opened)
+
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "num", text: "print 42")
+        let analyzed = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentSemanticTokensRequest.Response> = await send(
+            DocumentSemanticTokensRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let response) = result, let response else {
+            return XCTFail("semanticTokens request failed: \(result)")
+        }
+        let tokens = decodeTokens(response.data)
+        XCTAssertEqual(tokens, [
+            DecodedToken(line: 0, start: 0, length: 5, type: 0),  // print → PRINT → keyword
+            DecodedToken(line: 0, start: 6, length: 2, type: 2),  // 42 → NUMBER → number
+        ])
+    }
+
+    func testSemanticTokensReturnNilWithoutGrammar() async {
+        let sourceURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "orphan", text: "print 42")
+        let result: LSPResult<DocumentSemanticTokensRequest.Response> = await send(
+            DocumentSemanticTokensRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let response) = result else {
+            return XCTFail("semanticTokens request failed: \(result)")
+        }
+        XCTAssertNil(response)
+    }
+
+    func testReferencesForNonterminalIncludesDeclarationByDefault() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // `A` at (1,4) is used in the first production and defined on line 2.
+        let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4),
+            context: ReferencesContext(includeDeclaration: true)
+        ))
+        guard case .success(let locations) = result else {
+            return XCTFail("references request failed: \(result)")
+        }
+        XCTAssertEqual(locations.map(\.range.lowerBound), [
+            Position(line: 1, utf16index: 4),
+            Position(line: 2, utf16index: 0),
+        ])
+        XCTAssertTrue(locations.allSatisfy { $0.uri == grammarURI })
+    }
+
+    func testReferencesForNonterminalCanExcludeDeclaration() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4),
+            context: ReferencesContext(includeDeclaration: false)
+        ))
+        guard case .success(let locations) = result else {
+            return XCTFail("references request failed: \(result)")
+        }
+        XCTAssertEqual(locations.map(\.range.lowerBound), [Position(line: 1, utf16index: 4)])
+    }
+
+    func testReferencesReturnEmptyForSourceDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "two", text: "a")
+
+        let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 0),
+            context: ReferencesContext(includeDeclaration: true)
+        ))
+        guard case .success(let locations) = result else {
+            return XCTFail("references request failed: \(result)")
+        }
+        XCTAssertTrue(locations.isEmpty)
+    }
+
+    func testRenameNonterminalReplacesEveryOccurrence() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<RenameRequest.Response> = await send(RenameRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4),
+            newName: "B"
+        ))
+        guard case .success(let edit) = result, let edit else {
+            return XCTFail("rename failed: \(result)")
+        }
+        XCTAssertEqual(edit.changes?[grammarURI], [
+            TextEdit(range: Position(line: 1, utf16index: 4)..<Position(line: 1, utf16index: 5), newText: "B"),
+            TextEdit(range: Position(line: 2, utf16index: 0)..<Position(line: 2, utf16index: 1), newText: "B"),
+        ])
+    }
+
+    func testRenameRejectsInvalidNamesAndTerminalLiterals() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let invalidName: LSPResult<RenameRequest.Response> = await send(RenameRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4),
+            newName: "1B"
+        ))
+        guard case .failure(let error) = invalidName else {
+            return XCTFail("expected invalidParams failure, got \(invalidName)")
+        }
+        XCTAssertEqual(error.code, .invalidParams)
+
+        let literal: LSPResult<RenameRequest.Response> = await send(RenameRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 7),
+            newName: "B"
+        ))
+        guard case .failure(let literalError) = literal else {
+            return XCTFail("expected invalidParams failure, got \(literal)")
+        }
+        XCTAssertEqual(literalError.code, .invalidParams)
+    }
+
+    func testRenameReturnsNilOutsideGrammarDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "two", text: "a")
+
+        let result: LSPResult<RenameRequest.Response> = await send(RenameRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 0),
+            newName: "B"
+        ))
+        guard case .success(let edit) = result else {
+            return XCTFail("rename failed: \(result)")
+        }
+        XCTAssertNil(edit)
+    }
+
+    func testRecoveryCodeActionInsertsMissingTerminal() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print nu")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        // `nu` at (0,6)-(0,8) is unexpected; the first recovery inserts the
+        // preferred terminal before it.
+        let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
+            range: Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 8),
+            context: CodeActionContext(diagnostics: []),
+            textDocument: TextDocumentIdentifier(sourceURI)
+        ))
+        guard case .success(let response) = result, let response else {
+            return XCTFail("codeAction request failed: \(result)")
+        }
+        guard case .codeActions(let actions) = response else {
+            return XCTFail("expected code actions, got \(response)")
+        }
+        XCTAssertEqual(actions.map(\.title), ["Insert missing ‘number’"])
+        XCTAssertEqual(actions.map(\.kind), [.quickFix])
+        XCTAssertEqual(actions.map(\.isPreferred), [true])
+        guard let changes = actions[0].edit?.changes?[sourceURI] else {
+            return XCTFail("expected a workspace edit for the source document")
+        }
+        XCTAssertEqual(changes, [
+            TextEdit(range: Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 6), newText: "number "),
+        ])
+    }
+
+    func testGrammarCodeActionDeclaresUndefinedSymbol() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/undef.grammarworkbench", isDirectory: false)
+        let grammar = "%token B /b/\n%start S\nS : B A ;\n"
+        let opened = await openGrammar(grammarURI, grammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
+            range: Position(line: 0, utf16index: 0)..<Position(line: 2, utf16index: 8),
+            context: CodeActionContext(diagnostics: []),
+            textDocument: TextDocumentIdentifier(grammarURI)
+        ))
+        guard case .success(let response) = result, let response else {
+            return XCTFail("codeAction request failed: \(result)")
+        }
+        guard case .codeActions(let actions) = response else {
+            return XCTFail("expected code actions, got \(response)")
+        }
+        XCTAssertEqual(actions.map(\.title), ["Declare ‘A’ with %token"])
+        let action = actions[0]
+        XCTAssertEqual(action.kind, .quickFix)
+        XCTAssertEqual(action.isPreferred, true)
+        guard let changes = action.edit?.changes?[grammarURI] else {
+            return XCTFail("expected a workspace edit for the grammar document")
+        }
+        XCTAssertEqual(changes, [
+            TextEdit(range: Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 0), newText: "%token A\n"),
+        ])
+    }
+
+    func testCancelRequestCancelsInFlightRequest() async {
+        final class Gate: @unchecked Sendable {
+            private var continuation: CheckedContinuation<Void, Never>?
+            func wait() async {
+                await withCheckedContinuation { self.continuation = $0 }
+            }
+            func open() {
+                continuation?.resume()
+                continuation = nil
+            }
+        }
+        let gate = Gate()
+        await server.setRequestGate({ await gate.wait() })
+
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // The request id 2 starts and parks at the gate.
+        let connection = self.connection
+        let resultTask = Task {
+            await withCheckedContinuation { continuation in
+                connection!.send(DocumentSemanticTokensRequest(
+                    textDocument: TextDocumentIdentifier(grammarURI)
+                ), id: .number(2)) { (result: LSPResult<DocumentSemanticTokensRequest.Response>) in
+                    continuation.resume(returning: result)
+                }
+            }
+        }
+        let tracked = await waitUntil { await self.server.isRequestInFlight(.number(2)) }
+        XCTAssertTrue(tracked, "request id 2 was not tracked")
+
+        connection!.send(CancelRequestNotification(id: .number(2)))
+        gate.open()
+        let result = await resultTask.value
+        guard case .failure(let error) = result else {
+            return XCTFail("expected a cancelled failure, got \(result)")
+        }
+        XCTAssertEqual(error.code, .cancelled)
+        let inFlight = await server.isRequestInFlight(.number(2))
+        XCTAssertFalse(inFlight, "cancelled request was not untracked")
+        await server.setRequestGate(nil)
+    }
+
+    func testRepublishingReportsWorkDoneProgress() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
+        let firstURI = DocumentURI(filePath: "/tmp/first.txt", isDirectory: false)
+        let secondURI = DocumentURI(filePath: "/tmp/second.txt", isDirectory: false)
+        openDocument(uri: firstURI, language: "expr", text: "hello")
+        openDocument(uri: secondURI, language: "expr", text: "hello")
+        let analyzed = await waitUntil {
+            !self.client.publishDiagnostics(uri: firstURI).isEmpty
+                && !self.client.publishDiagnostics(uri: secondURI).isEmpty
+        }
+        XCTAssertTrue(analyzed)
+
+        // Changing the grammar re-analyzes every source document with progress.
+        changeDocument(uri: grammarURI, version: 2, text: "%start S\nS : 'hi' 'world' ;\n")
+        let progressed = await waitUntil {
+            await self.server.workDoneProgressNotifications.count >= 4
+        }
+        XCTAssertTrue(progressed, "server did not report work-done progress")
+
+        let tokens = await server.workDoneProgressNotifications
+        let sent = client.progressNotifications
+        XCTAssertEqual(sent.map(\.token), tokens)
+
+        let first = sent[0]
+        XCTAssertEqual(first.token, .string("grammar-workbench-1"))
+        guard case .begin(let begin) = first.value else {
+            return XCTFail("expected a begin event, got \(first.value)")
+        }
+        XCTAssertEqual(begin.title, "Grammar Workbench")
+
+        let reports = sent[1...2]
+        let percentages = reports.map { progress -> Int? in
+            guard case .report(let report) = progress.value else { return nil }
+            return report.percentage
+        }
+        XCTAssertEqual(percentages, [50, 100])
+
+        guard case .end(let end) = sent[3].value else {
+            return XCTFail("expected an end event, got \(sent[3].value)")
+        }
+        XCTAssertEqual(end.message, "2 document(s) analyzed")
+    }
 }

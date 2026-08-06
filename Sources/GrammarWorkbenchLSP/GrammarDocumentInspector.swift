@@ -14,14 +14,15 @@ import LanguageServerProtocol
 public struct GrammarDocumentInspector {
     /// A single span in the grammar document and what it refers to.
     public struct Symbol {
-        public enum Kind {
-            case nonterminal
-            case terminalLiteral
-            case tokenName
-            case directive
-            case comment
-            case punctuation
-        }
+    public enum Kind {
+        case nonterminal
+        case terminalLiteral
+        case tokenName
+        case directive
+        case comment
+        case lexerPattern
+        case punctuation
+    }
 
         /// The span as it appears in the document.
         public let span: SourceRange
@@ -159,6 +160,65 @@ public struct GrammarDocumentInspector {
         return start..<end
     }
 
+    /// Every span in the document that resolves to the given text and kind
+    /// (a bare identifier counts as a token name when a lexer rule declares
+    /// it, otherwise as a nonterminal).
+    public func occurrences(of text: String, kind: Symbol.Kind) -> [SourceRange] {
+        spans.compactMap { span in
+            guard span.text == text, resolve(span).kind == kind else { return nil }
+            return span.range
+        }
+    }
+
+    /// All resolved spans in the document, in document order. Used for
+    /// semantic token encoding.
+    public func tokenSpans() -> [(range: SourceRange, kind: Symbol.Kind)] {
+        spans.map { span in (span.range, resolve(span).kind) }
+    }
+
+    /// The spans of the symbol under the cursor: its declarations (production
+    /// left-hand sides, `%token` declarations) and its uses. `includeDeclaration`
+    /// controls whether declarations are part of the result.
+    public func references(to symbol: Symbol, includeDeclaration: Bool) -> [SourceRange] {
+        let all = occurrences(of: symbol.text, kind: symbol.kind)
+        guard !includeDeclaration else { return all }
+        let declarations = declarationRanges(for: symbol)
+        return all.filter { range in
+            !declarations.contains { $0 == range }
+        }
+    }
+
+    /// Every span that a rename of `symbol` must replace: all occurrences,
+    /// declarations included.
+    public func renameRanges(for symbol: Symbol) -> [SourceRange] {
+        occurrences(of: symbol.text, kind: symbol.kind)
+    }
+
+    /// The declaration spans for `symbol`: production left-hand sides for
+    /// nonterminals, `%token` declarations for token names. Other kinds have
+    /// no declarations.
+    private func declarationRanges(for symbol: Symbol) -> [SourceRange] {
+        switch symbol.kind {
+        case .nonterminal:
+            var result: [SourceRange] = []
+            for (index, span) in spans.enumerated()
+                where span.kind == .nonterminal && span.text == symbol.text {
+                // A nonterminal directly followed by `:` is a left-hand side.
+                if let next = spans.dropFirst(index + 1).first, next.text == ":" {
+                    result.append(span.range)
+                }
+            }
+            return result
+        case .tokenName:
+            guard let rule = ruleByToken[symbol.text] else { return [] }
+            return occurrences(of: symbol.text, kind: .tokenName).filter { span in
+                contains(rule.range, span.start) && contains(rule.range, span.end)
+            }
+        default:
+            return []
+        }
+    }
+
     // MARK: - Resolution
 
     private func resolve(_ span: Span) -> Symbol {
@@ -171,7 +231,7 @@ public struct GrammarDocumentInspector {
                 directiveSummary: Self.directiveSummaries[span.text]
                     ?? "Unknown directive."
             )
-        case .comment, .punctuation:
+        case .comment, .lexerPattern, .punctuation:
             return Symbol(span: span.range, kind: span.kind, text: span.text)
         case .terminalLiteral:
             return Symbol(
@@ -273,8 +333,11 @@ public struct GrammarDocumentInspector {
             let nsRange = match.range
             let text = source.substring(with: nsRange)
             let kind: Symbol.Kind
-            if text.hasPrefix("//") || text.hasPrefix("#") || text.hasPrefix("/") {
+            if text.hasPrefix("//") || text.hasPrefix("#") {
                 kind = .comment
+            } else if text.hasPrefix("/") {
+                // A `/pattern/` lexer rule, not a comment.
+                kind = .lexerPattern
             } else if text.hasPrefix("%") {
                 kind = .directive
             } else if text.hasPrefix("'") || text.hasPrefix("\"") {

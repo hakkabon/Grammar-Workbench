@@ -112,10 +112,23 @@ function startClient(vscode, context, options) {
   function handleMessage(message) {
     if (message.id !== undefined && message.id !== null) {
       const entry = pending.get(message.id);
-      if (!entry) return;
-      pending.delete(message.id);
-      if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
-      else entry.resolve(message.result);
+      if (entry) {
+        pending.delete(message.id);
+        if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
+        else entry.resolve(message.result);
+        return;
+      }
+      // Server-initiated requests: acknowledge work-done progress creation.
+      if (message.method === "window/workDoneProgress/create") {
+        send({ jsonrpc: "2.0", id: message.id, result: null });
+        return;
+      }
+      return;
+    }
+    if (message.method === "$/progress") {
+      output.appendLine(
+        `progress ${message.params.value.kind}: ${message.params.value.message || message.params.value.title || ""}`
+      );
       return;
     }
     if (message.method === "textDocument/publishDiagnostics") {
@@ -136,6 +149,24 @@ function startClient(vscode, context, options) {
 
   const positionOf = (position) => new vscode.Position(position.line, position.character);
   const rangeOf = (range) => new vscode.Range(positionOf(range.start), positionOf(range.end));
+
+  // The semantic token types advertised by the server (see
+  // SemanticTokensProvider.legend); the client legend must match it exactly.
+  const LEGEND_TYPES = [
+    "keyword", "string", "number", "regexp", "comment",
+    "operator", "type", "enumMember", "variable",
+  ];
+
+  function workspaceEditOf(edit) {
+    const result = new vscode.WorkspaceEdit();
+    for (const [uri, changes] of Object.entries(edit.changes || {})) {
+      result.set(
+        vscode.Uri.parse(uri),
+        changes.map((change) => vscode.TextEdit.replace(rangeOf(change.range), change.newText))
+      );
+    }
+    return result;
+  }
 
   // MARK: - Document sync
 
@@ -277,6 +308,90 @@ function startClient(vscode, context, options) {
         });
       },
     }),
+    vscode.languages.registerDefinitionProvider(selector(), {
+      provideDefinition(document, position) {
+        if (!child) return null;
+        return request("textDocument/definition", {
+          textDocument: { uri: document.uri.toString() },
+          position: { line: position.line, character: position.character },
+        }).then((result) => {
+          const locations = Array.isArray(result) ? result : result && result.locations;
+          return (locations || []).map((location) =>
+            new vscode.Location(vscode.Uri.parse(location.uri), rangeOf(location.range))
+          );
+        });
+      },
+    }),
+    vscode.languages.registerReferenceProvider(selector(), {
+      provideReferences(document, position, context) {
+        if (!child) return null;
+        return request("textDocument/references", {
+          textDocument: { uri: document.uri.toString() },
+          position: { line: position.line, character: position.character },
+          context: { includeDeclaration: context.includeDeclaration },
+        }).then((locations) =>
+          (locations || []).map((location) =>
+            new vscode.Location(vscode.Uri.parse(location.uri), rangeOf(location.range))
+          )
+        );
+      },
+    }),
+    vscode.languages.registerRenameProvider(selector(), {
+      provideRenameEdits(document, position, newName) {
+        if (!child) return null;
+        return request("textDocument/rename", {
+          textDocument: { uri: document.uri.toString() },
+          position: { line: position.line, character: position.character },
+          newName,
+        }).then((edit) => (edit ? workspaceEditOf(edit) : null));
+      },
+    }),
+    vscode.languages.registerCodeActionsProvider(
+      selector(),
+      {
+        provideCodeActions(document, range, context) {
+          if (!child) return [];
+          return request("textDocument/codeAction", {
+            textDocument: { uri: document.uri.toString() },
+            range: {
+              start: { line: range.start.line, character: range.start.character },
+              end: { line: range.end.line, character: range.end.character },
+            },
+            context: {
+              diagnostics: (context.diagnostics || []).map((diagnostic) => ({
+                range: {
+                  start: { line: diagnostic.range.start.line, character: diagnostic.range.start.character },
+                  end: { line: diagnostic.range.end.line, character: diagnostic.range.end.character },
+                },
+                message: diagnostic.message,
+              })),
+            },
+          }).then((result) => {
+            const actions = Array.isArray(result) ? result : result && result.codeActions;
+            return (actions || []).map((action) => {
+              const codeAction = new vscode.CodeAction(
+                action.title,
+                action.kind === "quickfix" ? vscode.CodeActionKind.QuickFix : undefined
+              );
+              codeAction.isPreferred = action.isPreferred === true;
+              if (action.diagnostics) {
+                codeAction.diagnostics = action.diagnostics.map(
+                  (diagnostic) =>
+                    new vscode.Diagnostic(
+                      rangeOf(diagnostic.range),
+                      diagnostic.message,
+                      diagnostic.severity ? diagnostic.severity - 1 : vscode.DiagnosticSeverity.Error
+                    )
+                );
+              }
+              if (action.edit) codeAction.edit = workspaceEditOf(action.edit);
+              return codeAction;
+            });
+          });
+        },
+      },
+      { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
+    ),
     vscode.languages.registerDocumentSymbolProvider(selector(), {
       provideDocumentSymbols(document) {
         if (!child) return null;
@@ -303,6 +418,21 @@ function startClient(vscode, context, options) {
         );
       },
     }),
+    vscode.languages.registerDocumentSemanticTokensProvider(
+      selector(),
+      {
+        getLegend: () => new vscode.SemanticTokensLegend(LEGEND_TYPES, []),
+        provideDocumentSemanticTokens(document) {
+          if (!child) return null;
+          return request("textDocument/semanticTokens/full", {
+            textDocument: { uri: document.uri.toString() },
+          }).then((result) =>
+            result ? new vscode.SemanticTokens(new Uint32Array(result.data)) : null
+          );
+        },
+      },
+      new vscode.SemanticTokensLegend(LEGEND_TYPES, [])
+    ),
   ];
 
   function symbolOf(symbol) {

@@ -1,8 +1,9 @@
 # Grammar Workbench — VS Code extension
 
 A minimal, dependency-free LSP client for the `grammar-workbench-lsp` server.
-It spawns the server and provides diagnostics, completion, hover, document
-symbols, and folding for grammar and source documents.
+It spawns the server and provides diagnostics, completion, hover, definitions,
+references, rename, quick fixes, semantic tokens, document symbols, and folding
+for grammar and source documents.
 
 ## Install
 
@@ -21,8 +22,9 @@ symbols, and folding for grammar and source documents.
 
 A ready-made demo workspace lives in `Examples/lsp` (repository root): open the
 repository in VS Code, then open `Examples/lsp/sample.proto` — the
-diagnostics, completion, hover, symbols, and folding all work against the
-workspace's own `.build/debug/grammar-workbench-lsp` binary.
+diagnostics, completion, hover, symbols, folding, semantic highlighting,
+references, rename, and quick fixes all work against the workspace's own
+`.build/debug/grammar-workbench-lsp` binary.
 
 ## Package
 
@@ -61,8 +63,14 @@ The produced VSIX is also shipped alongside the server binary by
 Open any `.grammarworkbench`, `.grammar`, or `.ebnf` file: the server compiles
 it and reports grammar errors. Open a source file matching an association:
 diagnostics appear as you type, and completion (expected terminals with fuzzy
-matching), hover (token + grammar production), document symbols, and folding
-work in both document kinds.
+matching), hover (token + grammar production), go-to-definition, document
+symbols, and folding work in both document kinds.
+
+Grammar documents additionally get semantic highlighting (directives,
+terminals, symbols, patterns), references and rename for nonterminals and
+token names, and quick fixes that declare undefined symbols, insert missing
+punctuation, and replace unknown directives. Source documents get quick fixes
+that insert or delete the tokens the parser recovered.
 
 ## Develop
 

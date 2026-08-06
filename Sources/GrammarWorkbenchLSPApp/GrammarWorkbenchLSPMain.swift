@@ -22,13 +22,20 @@ enum GrammarWorkbenchLSPMain {
                 DocumentSymbolRequest.self,
                 CompletionRequest.self,
                 HoverRequest.self,
+                DefinitionRequest.self,
+                DocumentSemanticTokensRequest.self,
+                ReferencesRequest.self,
+                RenameRequest.self,
+                CodeActionRequest.self,
             ],
             notifications: [
                 DidOpenTextDocumentNotification.self,
                 DidChangeTextDocumentNotification.self,
+                DidSaveTextDocumentNotification.self,
                 DidCloseTextDocumentNotification.self,
                 InitializedNotification.self,
                 ExitNotification.self,
+                CancelRequestNotification.self,
             ]
         )
 

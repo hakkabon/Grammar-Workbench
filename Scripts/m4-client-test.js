@@ -3,7 +3,6 @@
 // End-to-end verification of the VS Code extension's protocol handling:
 // runs Clients/vscode/client.js against the real grammar-workbench-lsp server
 // with a stubbed `vscode` API, and drives it like VS Code would.
-
 const assert = require("assert");
 const fs = require("fs");
 const { startClient } = require("../Clients/vscode/client.js");
@@ -58,6 +57,35 @@ class DocumentSymbol {
   }
 }
 class FoldingRange { constructor(startLine, endLine) { this.startLine = startLine; this.endLine = endLine; } }
+class Location { constructor(uri, range) { this.uri = uri; this.range = range; } }
+class WorkspaceEdit {
+  constructor() { this.edits = new Map(); }
+  set(uri, edits) { this.edits.set(uri.toString(), edits); }
+  applyTo(text) {
+    const lines = text.split("\n");
+    const allEdits = [];
+    for (const edits of this.edits.values()) allEdits.push(...edits);
+    allEdits.sort(
+      (a, b) =>
+        b.range.start.line - a.range.start.line ||
+        b.range.start.character - a.range.start.character
+    );
+    for (const edit of allEdits) {
+      const line = lines[edit.range.start.line];
+      lines[edit.range.start.line] =
+        line.slice(0, edit.range.start.character) +
+        edit.newText +
+        line.slice(edit.range.end.character);
+    }
+    return lines.join("\n");
+  }
+}
+class SemanticTokens { constructor(data) { this.data = data; } }
+class SemanticTokensLegend { constructor(tokenTypes, tokenModifiers) { this.tokenTypes = tokenTypes; this.tokenModifiers = tokenModifiers; } }
+class CodeAction {
+  constructor(title, kind) { this.title = title; this.kind = kind; this.isPreferred = false; this.edit = undefined; }
+}
+const CodeActionKind = { QuickFix: "quickfix" };
 class Disposable { constructor(fn) { this.fn = fn; } dispose() { if (this.fn) { const fn = this.fn; this.fn = null; fn(); } } }
 class FakeDocument {
   constructor(fsPath, languageId, text) {
@@ -103,12 +131,18 @@ function makeVscode() {
         }),
         registerCompletionItemProvider: (selector, provider) => { providers.completion = { selector, provider }; return new Disposable(() => {}); },
         registerHoverProvider: (selector, provider) => { providers.hover = { selector, provider }; return new Disposable(() => {}); },
+        registerDefinitionProvider: (selector, provider) => { providers.definition = { selector, provider }; return new Disposable(() => {}); },
+        registerReferenceProvider: (selector, provider) => { providers.references = { selector, provider }; return new Disposable(() => {}); },
+        registerRenameProvider: (selector, provider) => { providers.rename = { selector, provider }; return new Disposable(() => {}); },
+        registerCodeActionsProvider: (selector, provider) => { providers.codeActions = { selector, provider }; return new Disposable(() => {}); },
         registerDocumentSymbolProvider: (selector, provider) => { providers.symbols = { selector, provider }; return new Disposable(() => {}); },
         registerFoldingRangeProvider: (selector, provider) => { providers.folding = { selector, provider }; return new Disposable(() => {}); },
+        registerDocumentSemanticTokensProvider: (selector, provider) => { providers.semanticTokens = { selector, provider }; return new Disposable(() => {}); },
       },
       Uri, Position, Range, Diagnostic, DiagnosticSeverity,
       CompletionItem, CompletionItemKind, MarkdownString, Hover,
-      DocumentSymbol, SymbolKind, FoldingRange,
+      DocumentSymbol, SymbolKind, FoldingRange, Location, WorkspaceEdit,
+      SemanticTokens, SemanticTokensLegend, CodeAction, CodeActionKind,
       TextEdit: { replace: (range, newText) => ({ range, newText }) },
       Disposable,
     },
@@ -133,6 +167,19 @@ function waitFor(check, timeoutMs = 8000) {
     };
     poll();
   });
+}
+
+/** Decodes relative semantic-token data into [line, start, length, type]. */
+function decodeTokens(data) {
+  const tokens = [];
+  let line = 0;
+  let start = 0;
+  for (let i = 0; i < data.length; i += 5) {
+    line += data[i];
+    start = data[i] === 0 ? start + data[i + 1] : data[i + 1];
+    tokens.push([line, start, data[i + 2], data[i + 3]]);
+  }
+  return tokens;
 }
 
 // MARK: - Scenario
@@ -224,10 +271,79 @@ function waitFor(check, timeoutMs = 8000) {
   );
   console.log("PASS: folding ranges round-trip:", JSON.stringify(folding));
 
+  const tokensResult = await harness.providers.semanticTokens.provider.provideDocumentSemanticTokens(grammarDoc);
+  assert.ok(tokensResult, "expected semantic tokens for the grammar document");
+  const tokens = decodeTokens(tokensResult.data);
+  assert.deepStrictEqual(tokens[0], [1, 0, 6, 0], "directive should be a keyword");
+  assert.deepStrictEqual(tokens[1], [1, 7, 7, 6], "start symbol should be a type");
+  assert.ok(
+    tokens.some((t) => t[0] === 4 && t[1] === 7 && t[2] === 8 && t[3] === 1),
+    "literal 'number' should be a string token: " + JSON.stringify(tokens)
+  );
+  console.log("PASS: semantic tokens round-trip:", tokens.length, "tokens");
+
+  const definition = await harness.providers.definition.provider.provideDefinition(
+    source, new Position(0, 7)
+  );
+  assert.ok(definition && definition.length === 1, JSON.stringify(definition));
+  assert.strictEqual(definition[0].uri.fsPath, "/tmp/prog.grammarworkbench");
+  assert.deepStrictEqual(
+    [definition[0].range.start.line, definition[0].range.start.character],
+    [4, 0]
+  );
+  console.log("PASS: definition jumps to the token's rule in the grammar");
+
+  const references = await harness.providers.references.provider.provideReferences(
+    grammarDoc, new Position(3, 0), { includeDeclaration: true }
+  );
+  assert.deepStrictEqual(
+    references.map((location) => [location.range.start.line, location.range.start.character]),
+    [[2, 10], [2, 25], [3, 0]]
+  );
+  console.log("PASS: references round-trip:", references.length, "locations");
+
+  const renameEdit = await harness.providers.rename.provider.provideRenameEdits(
+    grammarDoc, new Position(3, 0), "Action"
+  );
+  assert.ok(renameEdit, "expected rename edits");
+  const renamed = renameEdit.applyTo(grammarDoc.text);
+  assert.ok(renamed.includes("Program : Action Program | Action ;"), renamed);
+  assert.ok(renamed.includes("Action : 'print' Expr ;"), renamed);
+  console.log("PASS: rename round-trip: Stmt -> Action");
+
+  harness.change(source, "print nu");
+  await waitFor(() => {
+    const items = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+    return items && items.length > 0;
+  });
+  const quickFixes = await harness.providers.codeActions.provider.provideCodeActions(
+    source, new Range(new Position(0, 6), new Position(0, 8)), { diagnostics: [] }
+  );
+  assert.strictEqual(quickFixes.length, 1, JSON.stringify(quickFixes));
+  assert.strictEqual(quickFixes[0].title, "Insert missing ‘number’");
+  assert.strictEqual(quickFixes[0].kind, CodeActionKind.QuickFix);
+  assert.strictEqual(quickFixes[0].isPreferred, true);
+  assert.strictEqual(
+    quickFixes[0].edit.edits.get("file:///tmp/sample.prog")[0].newText,
+    "number "
+  );
+  console.log("PASS: recovery code action round-trip:", quickFixes[0].title);
+
+  harness.change(grammarDoc, PROG_GRAMMAR + " ");
+  await waitFor(() =>
+    harness.outputLines.some((line) => line.includes("progress begin") && line.includes("Analyzing source documents"))
+  );
+  assert.ok(
+    harness.outputLines.some((line) => line.includes("Analyzed 2/2 documents")),
+    "expected a per-document progress report"
+  );
+  assert.ok(harness.outputLines.some((line) => line.includes("progress end")), "expected a progress end");
+  console.log("PASS: work-done progress begin/report/end");
+
   for (const subscription of harness.context.subscriptions) subscription.dispose();
   await waitFor(() => harness.outputLines.includes("server exited (0)"));
   console.log("PASS: shutdown + exit on deactivate");
-  console.log("ALL M4 CLIENT CHECKS PASSED");
+  console.log("ALL CLIENT CHECKS PASSED");
   process.exit(0);
 })().catch((error) => {
   console.error("FAILED:", error.message);

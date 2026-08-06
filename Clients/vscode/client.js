@@ -403,6 +403,71 @@ function startClient(vscode, context, options) {
         });
       },
     }),
+    vscode.languages.registerDocumentHighlightProvider(selector(), {
+      provideDocumentHighlights(document, position) {
+        if (!child) return null;
+        return request("textDocument/documentHighlight", {
+          textDocument: { uri: document.uri.toString() },
+          position: { line: position.line, character: position.character },
+        }).then((result) =>
+          (result || []).map((highlight) => {
+            const converted = new vscode.DocumentHighlight(rangeOf(highlight.range));
+            if (highlight.kind !== undefined) converted.kind = highlight.kind - 1;
+            return converted;
+          })
+        );
+      },
+    }),
+    vscode.languages.registerDocumentFormattingEditProvider(selector(), {
+      provideDocumentFormattingEdits(document, options) {
+        if (!child) return null;
+        return request("textDocument/formatting", {
+          textDocument: { uri: document.uri.toString() },
+          options: {
+            tabSize: options.tabSize,
+            insertSpaces: options.insertSpaces,
+            trimTrailingWhitespace: options.trimTrailingWhitespace,
+            insertFinalNewline: options.insertFinalNewline,
+            trimFinalNewlines: options.trimFinalNewlines,
+          },
+        }).then((edits) =>
+          (edits || []).map((edit) => vscode.TextEdit.replace(rangeOf(edit.range), edit.newText))
+        );
+      },
+    }),
+    vscode.languages.registerDocumentRangeFormattingEditProvider(selector(), {
+      provideDocumentRangeFormattingEdits(document, range, options) {
+        if (!child) return null;
+        return request("textDocument/rangeFormatting", {
+          textDocument: { uri: document.uri.toString() },
+          range: {
+            start: { line: range.start.line, character: range.start.character },
+            end: { line: range.end.line, character: range.end.character },
+          },
+          options: {
+            tabSize: options.tabSize,
+            insertSpaces: options.insertSpaces,
+            trimTrailingWhitespace: options.trimTrailingWhitespace,
+            insertFinalNewline: options.insertFinalNewline,
+            trimFinalNewlines: options.trimFinalNewlines,
+          },
+        }).then((edits) =>
+          (edits || []).map((edit) => vscode.TextEdit.replace(rangeOf(edit.range), edit.newText))
+        );
+      },
+    }),
+    vscode.languages.registerDocumentLinkProvider(selector(), {
+      provideDocumentLinks(document) {
+        if (!child) return null;
+        return request("textDocument/documentLink", {
+          textDocument: { uri: document.uri.toString() },
+        }).then((result) =>
+          (result || []).map(
+            (link) => new vscode.DocumentLink(rangeOf(link.range), link.target ? vscode.Uri.parse(link.target) : undefined)
+          )
+        );
+      },
+    }),
     vscode.languages.registerFoldingRangeProvider(selector(), {
       provideFoldingRanges(document) {
         if (!child) return [];

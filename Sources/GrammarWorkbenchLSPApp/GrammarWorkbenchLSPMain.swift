@@ -27,6 +27,10 @@ enum GrammarWorkbenchLSPMain {
                 ReferencesRequest.self,
                 RenameRequest.self,
                 CodeActionRequest.self,
+                DocumentHighlightRequest.self,
+                DocumentFormattingRequest.self,
+                DocumentRangeFormattingRequest.self,
+                DocumentLinkRequest.self,
             ],
             notifications: [
                 DidOpenTextDocumentNotification.self,

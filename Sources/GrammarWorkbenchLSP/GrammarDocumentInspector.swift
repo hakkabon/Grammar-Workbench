@@ -170,6 +170,16 @@ public struct GrammarDocumentInspector {
         }
     }
 
+    /// Every occurrence of `symbol` in the document, marking the declaration
+    /// spans (production left-hand sides, `%token` rules) so highlights can
+    /// distinguish definitions from uses.
+    public func occurrences(of symbol: Symbol) -> [(range: SourceRange, isDeclaration: Bool)] {
+        let declarations = declarationRanges(for: symbol)
+        return occurrences(of: symbol.text, kind: symbol.kind).map { range in
+            (range, declarations.contains { $0 == range })
+        }
+    }
+
     /// All resolved spans in the document, in document order. Used for
     /// semantic token encoding.
     public func tokenSpans() -> [(range: SourceRange, kind: Symbol.Kind)] {

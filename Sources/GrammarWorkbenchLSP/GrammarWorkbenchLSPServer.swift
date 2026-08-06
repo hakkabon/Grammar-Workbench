@@ -26,8 +26,9 @@ extension LocalConnection: ServerConnection {}
 /// `textDocument/publishDiagnostics` for grammar documents (compile errors)
 /// and source documents (lexical and parse errors) using the open grammars.
 /// Later milestones add folding ranges, document symbols, completion, hover,
-/// definitions, semantic tokens, references, rename, quick fixes, and
-/// progress reporting and request cancellation, all powered by
+/// definitions, semantic tokens, references, rename, quick fixes, progress
+/// reporting and request cancellation, and — most recently — document
+/// highlights, formatting, and document links, all powered by
 /// `GrammarCompilation`.
 public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// Storage of open documents, mirroring client editor contents.
@@ -139,6 +140,14 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             respond(id: id, reply: reply) { await self.rename(rename) as! LSPResult<Request.Response> }
         } else if let codeActions = request as? CodeActionRequest {
             respond(id: id, reply: reply) { .success(await self.codeActions(codeActions) as! Request.Response) }
+        } else if let highlights = request as? DocumentHighlightRequest {
+            respond(id: id, reply: reply) { .success(await self.documentHighlights(highlights) as! Request.Response) }
+        } else if let formatting = request as? DocumentFormattingRequest {
+            respond(id: id, reply: reply) { .success(await self.formatting(formatting) as! Request.Response) }
+        } else if let rangeFormatting = request as? DocumentRangeFormattingRequest {
+            respond(id: id, reply: reply) { .success(await self.rangeFormatting(rangeFormatting) as! Request.Response) }
+        } else if let links = request as? DocumentLinkRequest {
+            respond(id: id, reply: reply) { .success(await self.documentLinks(links) as! Request.Response) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
@@ -379,6 +388,76 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         return (tree, document.text)
     }
 
+    /// The ranges to highlight for the symbol under `request`'s position.
+    /// Grammar documents highlight every occurrence of a nonterminal, token
+    /// name, or terminal literal; source documents highlight tokens with the
+    /// same kind and lexeme.
+    private func documentHighlights(_ request: DocumentHighlightRequest) async -> [DocumentHighlight]? {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri),
+                  let grammar = compilation.parsedGrammar
+            else {
+                return nil
+            }
+            return DocumentHighlightProvider.highlights(
+                in: document.text, at: request.position, grammar: grammar
+            )
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue) else {
+                return nil
+            }
+            return DocumentHighlightProvider.highlights(
+                in: document.text, at: request.position, compilation: compilation
+            )
+        }
+    }
+
+    /// The edits that canonicalize the grammar document at `request`'s URI.
+    /// Other document kinds and notations are not formatted.
+    private func formatting(_ request: DocumentFormattingRequest) async -> [TextEdit]? {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .grammar(notation: .workbench)
+        else {
+            return nil
+        }
+        return GrammarDocumentFormatter.format(document.text, options: request.options)
+    }
+
+    /// The edits that canonicalize the lines of the grammar document inside
+    /// `request`'s range. Other document kinds and notations are not
+    /// formatted.
+    private func rangeFormatting(_ request: DocumentRangeFormattingRequest) async -> [TextEdit]? {
+        guard let document = await documentStore.document(for: request.textDocument.uri),
+              document.uri.grammarWorkbenchKind == .grammar(notation: .workbench)
+        else {
+            return nil
+        }
+        return GrammarDocumentFormatter.format(document.text, options: request.options, range: request.range)
+    }
+
+    /// Document links for the document at `request`'s URI: source tokens link
+    /// to their rules in the grammar document; grammar documents have no
+    /// external targets.
+    private func documentLinks(_ request: DocumentLinkRequest) async -> [DocumentLink]? {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar:
+            return []
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue),
+                  let grammarURI = await diagnosticsManager.grammarDocumentURI(for: document.language.rawValue)
+            else {
+                return nil
+            }
+            return DocumentLinkProvider.links(
+                in: document.text, compilation: compilation, grammarURI: grammarURI
+            )
+        }
+    }
+
     private func initialize(_ request: InitializeRequest) -> InitializeResult {
         let syncOptions = TextDocumentSyncOptions(
             openClose: true,
@@ -394,13 +473,17 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 completionProvider: CompletionOptions(),
                 definitionProvider: .bool(true),
                 referencesProvider: .value(ReferenceOptions()),
+                documentHighlightProvider: .bool(true),
                 documentSymbolProvider: .bool(true),
                 codeActionProvider: .value(CodeActionServerCapabilities(
                     clientCapabilities: request.capabilities.textDocument?.codeAction,
                     codeActionOptions: CodeActionOptions(codeActionKinds: [.quickFix]),
                     supportsCodeActions: true
                 )),
+                documentFormattingProvider: .bool(true),
+                documentRangeFormattingProvider: .bool(true),
                 renameProvider: .value(RenameOptions()),
+                documentLinkProvider: DocumentLinkOptions(),
                 foldingRangeProvider: .bool(true),
                 semanticTokensProvider: SemanticTokensOptions(
                     legend: SemanticTokensProvider.legend,

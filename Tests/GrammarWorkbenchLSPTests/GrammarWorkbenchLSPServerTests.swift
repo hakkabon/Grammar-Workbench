@@ -1331,4 +1331,349 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(end.message, "2 document(s) analyzed")
     }
+
+    // MARK: - M8: document highlights, formatting, and document links
+
+    func testInitializeAdvertisesM8Capabilities() async {
+        let result = await send(InitializeRequest(
+            processId: nil,
+            rootPath: nil,
+            rootURI: nil,
+            capabilities: ClientCapabilities(),
+            workspaceFolders: nil
+        ))
+        guard case .success(let initializeResult) = result else {
+            return XCTFail("initialize failed: \(result)")
+        }
+        XCTAssertTrue(initializeResult.capabilities.documentHighlightProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.documentFormattingProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.documentRangeFormattingProvider?.isSupported ?? false)
+        XCTAssertNotNil(initializeResult.capabilities.documentLinkProvider)
+    }
+
+    func testDocumentHighlightsForNonterminalMarkDeclarationsAsWrites() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // `A` at (1,4) is used in the first production and defined on line 2;
+        // the declaration is a write, the use a read.
+        let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4)
+        ))
+        guard case .success(let highlights) = result, let highlights else {
+            return XCTFail("documentHighlight request failed: \(result)")
+        }
+        XCTAssertEqual(highlights.map(\.range), [
+            Position(line: 1, utf16index: 4)..<Position(line: 1, utf16index: 5),
+            Position(line: 2, utf16index: 0)..<Position(line: 2, utf16index: 1),
+        ])
+        XCTAssertEqual(highlights.map(\.kind), [.read, .write])
+    }
+
+    func testDocumentHighlightsForTerminalLiteralHighlightEveryUse() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/lit.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, "%start S\nS : 'a' 'a' 'b' ;\n")
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4)
+        ))
+        guard case .success(let highlights) = result, let highlights else {
+            return XCTFail("documentHighlight request failed: \(result)")
+        }
+        XCTAssertEqual(highlights.map(\.range), [
+            Position(line: 1, utf16index: 4)..<Position(line: 1, utf16index: 7),
+            Position(line: 1, utf16index: 8)..<Position(line: 1, utf16index: 11),
+        ])
+        XCTAssertTrue(highlights.allSatisfy { $0.kind == .read })
+    }
+
+    func testDocumentHighlightsForTokenNameIncludeDeclaration() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.numGrammar)
+        XCTAssertTrue(opened)
+
+        // `NUMBER` in the `%token` declaration is a write; its use in the
+        // production is a read.
+        let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 4, utf16index: 10)
+        ))
+        guard case .success(let highlights) = result, let highlights else {
+            return XCTFail("documentHighlight request failed: \(result)")
+        }
+        XCTAssertEqual(highlights.map(\.range), [
+            Position(line: 0, utf16index: 7)..<Position(line: 0, utf16index: 13),
+            Position(line: 4, utf16index: 10)..<Position(line: 4, utf16index: 16),
+        ])
+        XCTAssertEqual(highlights.map(\.kind), [.write, .read])
+    }
+
+    func testDocumentHighlightsForSourceDocumentHighlightExactTokens() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.numGrammar)
+        XCTAssertTrue(opened)
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "num", text: "print 42\nprint 42\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        // On `print`: every PRINT token; on the number: only the `42`s.
+        let printResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 0)
+        ))
+        guard case .success(let printHighlights) = printResult, let printHighlights else {
+            return XCTFail("documentHighlight request failed: \(printResult)")
+        }
+        XCTAssertEqual(printHighlights.map(\.range), [
+            Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 5),
+            Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 5),
+        ])
+
+        let numberResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 6)
+        ))
+        guard case .success(let numberHighlights) = numberResult, let numberHighlights else {
+            return XCTFail("documentHighlight request failed: \(numberResult)")
+        }
+        XCTAssertEqual(numberHighlights.map(\.range), [
+            Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 8),
+            Position(line: 1, utf16index: 6)..<Position(line: 1, utf16index: 8),
+        ])
+        XCTAssertTrue(numberHighlights.allSatisfy { $0.kind == .read })
+    }
+
+    func testDocumentHighlightsForSourceDocumentWithoutLexerRules() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number\nprint number\n")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 0)
+        ))
+        guard case .success(let highlights) = result, let highlights else {
+            return XCTFail("documentHighlight request failed: \(result)")
+        }
+        XCTAssertEqual(highlights.map(\.range), [
+            Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 5),
+            Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 5),
+        ])
+    }
+
+    func testDocumentHighlightsReturnNilOnWhitespaceOrWithoutGrammar() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let whitespaceResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 1)
+        ))
+        guard case .success(let highlights) = whitespaceResult else {
+            return XCTFail("documentHighlight request failed: \(whitespaceResult)")
+        }
+        XCTAssertNil(highlights)
+
+        let orphanURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
+        openDocument(uri: orphanURI, language: "orphan", text: "print 42")
+        let orphanResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
+            textDocument: TextDocumentIdentifier(orphanURI),
+            position: Position(line: 0, utf16index: 0)
+        ))
+        guard case .success(let orphanHighlights) = orphanResult else {
+            return XCTFail("documentHighlight request failed: \(orphanResult)")
+        }
+        XCTAssertNil(orphanHighlights)
+    }
+
+    func testFormattingCanonicalizesSpacingIndentationAndComments() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/messy.grammarworkbench", isDirectory: false)
+        let messy = "%start  S\n\nS : A |   B ;\n  A : 'a' ;  \nB : 'b' ;\t// comment\n"
+        let opened = await openGrammar(grammarURI, messy)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            options: FormattingOptions(tabSize: 4, insertSpaces: true)
+        ))
+        guard case .success(let edits) = result, let edits else {
+            return XCTFail("formatting request failed: \(result)")
+        }
+        XCTAssertEqual(applying(edits, to: messy), "%start S\n\nS : A | B ;\nA : 'a' ;\nB : 'b' ; // comment\n")
+    }
+
+    func testFormattingReturnsNoEditsForCanonicalDocument() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            options: FormattingOptions(tabSize: 4, insertSpaces: true)
+        ))
+        guard case .success(let edits) = result else {
+            return XCTFail("formatting request failed: \(result)")
+        }
+        XCTAssertEqual(edits, [])
+    }
+
+    func testFormattingPreservesMultiLineProductions() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/multiline.grammarworkbench", isDirectory: false)
+        let grammar = "%start S\nS : A\n  | B ; // alternatives\nA : 'a' ;\n"
+        let opened = await openGrammar(grammarURI, grammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            options: FormattingOptions(tabSize: 4, insertSpaces: true)
+        ))
+        guard case .success(let edits) = result, let edits else {
+            return XCTFail("formatting request failed: \(result)")
+        }
+        XCTAssertEqual(applying(edits, to: grammar), "%start S\nS : A\n| B ; // alternatives\nA : 'a' ;\n")
+    }
+
+    func testRangeFormattingFormatsOnlyRequestedLines() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/messy.grammarworkbench", isDirectory: false)
+        let messy = "%start S\nS : A |  B ;\nA  : 'a' ;\nB : 'b' ;\n"
+        let opened = await openGrammar(grammarURI, messy)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentRangeFormattingRequest.Response> = await send(
+            DocumentRangeFormattingRequest(
+                textDocument: TextDocumentIdentifier(grammarURI),
+                range: Position(line: 1, utf16index: 0)..<Position(line: 3, utf16index: 0),
+                options: FormattingOptions(tabSize: 4, insertSpaces: true)
+            )
+        )
+        guard case .success(let edits) = result, let edits else {
+            return XCTFail("rangeFormatting request failed: \(result)")
+        }
+        XCTAssertEqual(edits.map(\.range.lowerBound.line), [1, 2])
+        XCTAssertEqual(applying(edits, to: messy), "%start S\nS : A | B ;\nA : 'a' ;\nB : 'b' ;\n")
+    }
+
+    func testFormattingReturnsNilForSourceAndEbnfDocuments() async {
+        await openProgGrammar()
+        let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "prog", text: "print number")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let sourceResult: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            options: FormattingOptions(tabSize: 4, insertSpaces: true)
+        ))
+        guard case .success(let edits) = sourceResult else {
+            return XCTFail("formatting request failed: \(sourceResult)")
+        }
+        XCTAssertNil(edits)
+
+        let ebnfURI = DocumentURI(filePath: "/tmp/expr.ebnf", isDirectory: false)
+        openDocument(uri: ebnfURI, language: "ebnf", text: "S = 'a' ;")
+        let ebnfResult: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
+            textDocument: TextDocumentIdentifier(ebnfURI),
+            options: FormattingOptions(tabSize: 4, insertSpaces: true)
+        ))
+        guard case .success(let ebnfEdits) = ebnfResult else {
+            return XCTFail("formatting request failed: \(ebnfResult)")
+        }
+        XCTAssertNil(ebnfEdits)
+    }
+
+    func testDocumentLinksForSourceDocumentPointToGrammarRules() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.numGrammar)
+        XCTAssertTrue(opened)
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "num", text: "print 42")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentLinkRequest.Response> = await send(
+            DocumentLinkRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let links) = result, let links else {
+            return XCTFail("documentLink request failed: \(result)")
+        }
+        XCTAssertEqual(links.map(\.range), [
+            Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 5),
+            Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 8),
+        ])
+        XCTAssertEqual(links.map(\.target), [grammarURI, grammarURI])
+        XCTAssertEqual(links.map(\.tooltip), ["Go to rule for PRINT", "Go to rule for NUMBER"])
+    }
+
+    func testDocumentLinksForLiteralTerminalsPointToContainingProduction() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/block.grammarworkbench", isDirectory: false)
+        let grammar = "%start Program\nProgram : Stmt Program | Stmt ;\nStmt : '{' Stmt '}' | 'expr' ;\n"
+        let opened = await openGrammar(grammarURI, grammar)
+        XCTAssertTrue(opened)
+        let sourceURI = DocumentURI(filePath: "/tmp/sample.blk", isDirectory: false)
+        openDocument(uri: sourceURI, language: "block", text: "expr\n{\nexpr }")
+        let analyzed = await waitForPublish(uri: sourceURI)
+        XCTAssertTrue(analyzed, "server did not analyze the source document")
+
+        let result: LSPResult<DocumentLinkRequest.Response> = await send(
+            DocumentLinkRequest(textDocument: TextDocumentIdentifier(sourceURI))
+        )
+        guard case .success(let links) = result, let links else {
+            return XCTFail("documentLink request failed: \(result)")
+        }
+        XCTAssertEqual(links.map(\.range), [
+            Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 4),
+            Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 1),
+            Position(line: 2, utf16index: 0)..<Position(line: 2, utf16index: 4),
+            Position(line: 2, utf16index: 5)..<Position(line: 2, utf16index: 6),
+        ])
+        XCTAssertEqual(links.map(\.target), [grammarURI, grammarURI, grammarURI, grammarURI])
+    }
+
+    func testDocumentLinksForGrammarDocumentAreEmpty() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        let result: LSPResult<DocumentLinkRequest.Response> = await send(
+            DocumentLinkRequest(textDocument: TextDocumentIdentifier(grammarURI))
+        )
+        guard case .success(let links) = result else {
+            return XCTFail("documentLink request failed: \(result)")
+        }
+        XCTAssertEqual(links, [])
+    }
+
+    func testDocumentLinksReturnNilWithoutGrammar() async {
+        let orphanURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
+        openDocument(uri: orphanURI, language: "orphan", text: "print 42")
+
+        let result: LSPResult<DocumentLinkRequest.Response> = await send(
+            DocumentLinkRequest(textDocument: TextDocumentIdentifier(orphanURI))
+        )
+        guard case .success(let links) = result else {
+            return XCTFail("documentLink request failed: \(result)")
+        }
+        XCTAssertNil(links)
+    }
+
+    /// Applies line-scoped `edits` to `text` and returns the result.
+    private func applying(_ edits: [TextEdit], to text: String) -> String {
+        var lines = text.components(separatedBy: "\n")
+        for edit in edits.sorted(by: { $0.range.lowerBound.line > $1.range.lowerBound.line }) {
+            let index = edit.range.lowerBound.line
+            let start = edit.range.lowerBound.utf16index
+            let end = edit.range.upperBound.utf16index
+            let line = lines[index]
+            lines[index] = String(line.prefix(start)) + edit.newText + String(line.dropFirst(end))
+        }
+        return lines.joined(separator: "\n")
+    }
 }

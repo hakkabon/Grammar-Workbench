@@ -82,6 +82,9 @@ class WorkspaceEdit {
 }
 class SemanticTokens { constructor(data) { this.data = data; } }
 class SemanticTokensLegend { constructor(tokenTypes, tokenModifiers) { this.tokenTypes = tokenTypes; this.tokenModifiers = tokenModifiers; } }
+class DocumentHighlight { constructor(range, kind) { this.range = range; this.kind = kind; } }
+class DocumentLink { constructor(range, target) { this.range = range; this.target = target; } }
+const DocumentHighlightKind = { Text: 0, Read: 1, Write: 2 };
 class CodeAction {
   constructor(title, kind) { this.title = title; this.kind = kind; this.isPreferred = false; this.edit = undefined; }
 }
@@ -138,11 +141,16 @@ function makeVscode() {
         registerDocumentSymbolProvider: (selector, provider) => { providers.symbols = { selector, provider }; return new Disposable(() => {}); },
         registerFoldingRangeProvider: (selector, provider) => { providers.folding = { selector, provider }; return new Disposable(() => {}); },
         registerDocumentSemanticTokensProvider: (selector, provider) => { providers.semanticTokens = { selector, provider }; return new Disposable(() => {}); },
+        registerDocumentHighlightProvider: (selector, provider) => { providers.highlights = { selector, provider }; return new Disposable(() => {}); },
+        registerDocumentFormattingEditProvider: (selector, provider) => { providers.formatting = { selector, provider }; return new Disposable(() => {}); },
+        registerDocumentRangeFormattingEditProvider: (selector, provider) => { providers.rangeFormatting = { selector, provider }; return new Disposable(() => {}); },
+        registerDocumentLinkProvider: (selector, provider) => { providers.links = { selector, provider }; return new Disposable(() => {}); },
       },
       Uri, Position, Range, Diagnostic, DiagnosticSeverity,
       CompletionItem, CompletionItemKind, MarkdownString, Hover,
       DocumentSymbol, SymbolKind, FoldingRange, Location, WorkspaceEdit,
       SemanticTokens, SemanticTokensLegend, CodeAction, CodeActionKind,
+      DocumentHighlight, DocumentHighlightKind, DocumentLink,
       TextEdit: { replace: (range, newText) => ({ range, newText }) },
       Disposable,
     },
@@ -180,6 +188,19 @@ function decodeTokens(data) {
     tokens.push([line, start, data[i + 2], data[i + 3]]);
   }
   return tokens;
+}
+
+/** Applies line-scoped formatting edits to `text` and returns the result. */
+function applyLineEdits(text, edits) {
+  const lines = text.split("\n");
+  for (const edit of [...edits].sort((a, b) => b.range.start.line - a.range.start.line)) {
+    const line = lines[edit.range.start.line];
+    lines[edit.range.start.line] =
+      line.slice(0, edit.range.start.character) +
+      edit.newText +
+      line.slice(edit.range.end.character);
+  }
+  return lines.join("\n");
 }
 
 // MARK: - Scenario
@@ -339,6 +360,53 @@ function decodeTokens(data) {
   );
   assert.ok(harness.outputLines.some((line) => line.includes("progress end")), "expected a progress end");
   console.log("PASS: work-done progress begin/report/end");
+
+  const highlights = await harness.providers.highlights.provider.provideDocumentHighlights(
+    grammarDoc, new Position(3, 0)
+  );
+  assert.deepStrictEqual(
+    highlights.map((h) => [h.range.start.line, h.range.start.character, h.kind]),
+    [[2, 10, DocumentHighlightKind.Read], [2, 25, DocumentHighlightKind.Read], [3, 0, DocumentHighlightKind.Write]]
+  );
+  console.log("PASS: document highlights round-trip:", highlights.length, "highlights");
+
+  const blockHighlights = await harness.providers.highlights.provider.provideDocumentHighlights(
+    blockSource, new Position(0, 0)
+  );
+  assert.deepStrictEqual(
+    blockHighlights.map((h) => [h.range.start.line, h.range.start.character]),
+    [[0, 0], [2, 0]]
+  );
+  console.log("PASS: source document highlights match repeated tokens");
+
+  const MESSY_GRAMMAR = "%start  S\n\nS : A |   B ;\n  A : 'a' ;  \nB : 'b' ;\t// comment\n";
+  const messyDoc = new FakeDocument("/tmp/messy.grammarworkbench", "grammarworkbench", MESSY_GRAMMAR);
+  harness.open(messyDoc);
+  await waitFor(() => harness.diagnosticsByUri.has("file:///tmp/messy.grammarworkbench"));
+  const formatOptions = { tabSize: 4, insertSpaces: true };
+  const formattingEdits = await harness.providers.formatting.provider.provideDocumentFormattingEdits(
+    messyDoc, formatOptions
+  );
+  assert.strictEqual(
+    applyLineEdits(MESSY_GRAMMAR, formattingEdits),
+    "%start S\n\nS : A | B ;\nA : 'a' ;\nB : 'b' ; // comment\n"
+  );
+  console.log("PASS: formatting canonicalizes the grammar document");
+
+  const rangeEdits = await harness.providers.rangeFormatting.provider.provideDocumentRangeFormattingEdits(
+    messyDoc, new Range(new Position(1, 0), new Position(4, 0)), formatOptions
+  );
+  assert.deepStrictEqual(rangeEdits.map((e) => e.range.start.line), [2, 3]);
+  console.log("PASS: range formatting edits only the requested lines");
+
+  const links = await harness.providers.links.provider.provideDocumentLinks(blockSource);
+  assert.strictEqual(links.length, 4, JSON.stringify(links));
+  assert.ok(links.every((link) => link.target.fsPath === "/tmp/block.grammarworkbench"));
+  assert.deepStrictEqual(
+    links.map((link) => [link.range.start.line, link.range.start.character]),
+    [[0, 0], [1, 0], [2, 0], [2, 5]]
+  );
+  console.log("PASS: document links jump to the grammar rules");
 
   for (const subscription of harness.context.subscriptions) subscription.dispose();
   await waitFor(() => harness.outputLines.includes("server exited (0)"));

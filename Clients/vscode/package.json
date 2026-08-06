@@ -1,0 +1,54 @@
+{
+  "name": "grammar-workbench-lsp",
+  "displayName": "Grammar Workbench LSP",
+  "description": "Grammar language server for .grammarworkbench grammars and their source documents",
+  "version": "0.1.0",
+  "publisher": "grammar-workbench",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Linters"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "grammarworkbench",
+        "aliases": [
+          "Grammar Workbench"
+        ],
+        "extensions": [
+          ".grammarworkbench",
+          ".grammar"
+        ]
+      },
+      {
+        "id": "ebnf",
+        "extensions": [
+          ".ebnf"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "Grammar Workbench",
+      "properties": {
+        "grammarWorkbench.serverPath": {
+          "type": "string",
+          "default": "${workspaceFolder}/.build/debug/grammar-workbench-lsp",
+          "description": "Path to the grammar-workbench-lsp server binary (built with: swift build --product grammar-workbench-lsp)."
+        },
+        "grammarWorkbench.associations": {
+          "type": "object",
+          "default": {},
+          "description": "Maps file globs to grammar names, e.g. {\"*.prog\": \"prog\"}. A matching source document is opened with the grammar base name as its language id, so prog.grammarworkbench analyzes *.prog files."
+        }
+      }
+    }
+  }
+}

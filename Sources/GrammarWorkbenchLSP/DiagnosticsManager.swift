@@ -84,6 +84,16 @@ public actor DiagnosticsManager {
         grammarDocuments.values.first { $0.uri.grammarFileBaseName == languageId }?.compilation
     }
 
+    /// The compilation stored for the grammar document at `uri`, if open.
+    public func compilation(for uri: DocumentURI) -> GrammarCompilation? {
+        grammarDocuments[uri]?.compilation
+    }
+
+    /// The URI of the grammar document that declares the given language id.
+    public func grammarDocumentURI(for languageId: String) -> DocumentURI? {
+        grammarDocuments.first { $0.value.uri.grammarFileBaseName == languageId }?.value.uri
+    }
+
     /// LSP diagnostics for a grammar document compiled from `grammarSource`.
     public func lspDiagnostics(compilation: GrammarCompilation, grammarSource: String) -> [Diagnostic] {
         compilation.diagnostics.map(lspDiagnostic)

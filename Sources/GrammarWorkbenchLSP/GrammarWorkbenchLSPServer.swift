@@ -100,6 +100,8 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             Task { reply(.success(await self.completions(completion) as! Request.Response)) }
         } else if let hover = request as? HoverRequest {
             Task { reply(.success(await self.hover(hover) as! Request.Response)) }
+        } else if let definition = request as? DefinitionRequest {
+            Task { reply(.success(await self.definitions(definition) as! Request.Response)) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
@@ -121,28 +123,83 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         return .documentSymbols(SyntaxTreeOutline(tree: tree, text: text).documentSymbols)
     }
 
-    /// Completion items for the document at `request`'s URI, derived from the
+    /// Completion items for the document at `request`'s URI. Grammar documents
+    /// complete directives and grammar symbols; source documents complete the
     /// terminals the parser expects at the cursor position.
     private func completions(_ request: CompletionRequest) async -> CompletionList {
-        guard let document = await documentStore.document(for: request.textDocument.uri),
-              document.uri.grammarWorkbenchKind == .source,
-              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
-        else {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else {
             return CompletionList(isIncomplete: false, items: [])
         }
-        return CompletionProvider.completions(in: document.text, at: request.position, compilation: compilation)
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri),
+                  let grammar = compilation.parsedGrammar
+            else {
+                return CompletionList(isIncomplete: false, items: [])
+            }
+            return GrammarDocumentProvider.completions(
+                in: document.text, at: request.position, grammar: grammar
+            )
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue) else {
+                return CompletionList(isIncomplete: false, items: [])
+            }
+            return CompletionProvider.completions(in: document.text, at: request.position, compilation: compilation)
+        }
     }
 
-    /// Hover information for the token at `request`'s position, derived from
-    /// the parse tree and the productions that matched it.
+    /// Hover information for the token at `request`'s position: productions
+    /// and rules in grammar documents, token + matched production in source
+    /// documents.
     private func hover(_ request: HoverRequest) async -> HoverResponse? {
-        guard let document = await documentStore.document(for: request.textDocument.uri),
-              document.uri.grammarWorkbenchKind == .source,
-              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
-        else {
-            return nil
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri),
+                  let grammar = compilation.parsedGrammar
+            else {
+                return nil
+            }
+            return GrammarDocumentProvider.hover(
+                in: document.text, at: request.position, grammar: grammar
+            )
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue) else {
+                return nil
+            }
+            return HoverProvider.hover(in: document.text, at: request.position, compilation: compilation)
         }
-        return HoverProvider.hover(in: document.text, at: request.position, compilation: compilation)
+    }
+
+    /// Go-to-definition for the symbol under `request`'s position. Grammar
+    /// documents jump between symbols; source documents jump to the token's
+    /// rule in the grammar document.
+    private func definitions(_ request: DefinitionRequest) async -> LocationsOrLocationLinksResponse? {
+        guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
+        switch document.uri.grammarWorkbenchKind {
+        case .grammar(let notation):
+            guard notation == .workbench,
+                  let compilation = await diagnosticsManager.compilation(for: document.uri),
+                  let grammar = compilation.parsedGrammar
+            else {
+                return nil
+            }
+            return GrammarDocumentProvider.definitions(
+                in: document.text, at: request.position, grammar: grammar, uri: document.uri
+            )
+        case .source:
+            guard let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue),
+                  let grammarURI = await diagnosticsManager.grammarDocumentURI(for: document.language.rawValue)
+            else {
+                return nil
+            }
+            return GrammarDocumentProvider.definitions(
+                in: document.text, at: request.position,
+                compilation: compilation, grammarURI: grammarURI
+            )
+        }
     }
 
     /// Parses the source document at `uri` with its associated grammar and
@@ -172,6 +229,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 textDocumentSync: .options(syncOptions),
                 hoverProvider: .bool(true),
                 completionProvider: CompletionOptions(),
+                definitionProvider: .bool(true),
                 documentSymbolProvider: .bool(true),
                 foldingRangeProvider: .bool(true)
             )

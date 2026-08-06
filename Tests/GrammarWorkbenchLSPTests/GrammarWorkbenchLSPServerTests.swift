@@ -371,6 +371,139 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         )
     }
 
+    // MARK: - M6: definition and grammar-document services
+
+    private static let twoRuleGrammar = """
+    %start S
+    S : A 'b' ;
+    A : 'a' ;
+    %
+    """
+
+    private func openGrammar(_ uri: DocumentURI, _ text: String) async -> Bool {
+        openDocument(uri: uri, language: "grammar", text: text)
+        return await waitUntil { !self.client.publishDiagnostics(uri: uri).isEmpty }
+    }
+
+    func testGrammarDocumentDefinitionJumpsToDefiningProduction() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // `A` in the first production's body refers to the production on line 2.
+        let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 4)
+        ))
+        guard case .success(let response) = result,
+              case .locations(let locations)? = response,
+              let location = locations.first
+        else {
+            return XCTFail("expected a definition location, got \(result)")
+        }
+        XCTAssertEqual(location.uri, grammarURI)
+        XCTAssertEqual(location.range.lowerBound.line, 2)
+        XCTAssertEqual(location.range.lowerBound.utf16index, 0)
+        XCTAssertEqual(location.range.upperBound.line, 2)
+    }
+
+    func testSourceDocumentDefinitionJumpsToTokenRule() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
+        let grammar = """
+        %token NUMBER /[0-9]+/
+        %token PRINT /print\\b/
+        %skip /\\s+/
+        %start S
+        S : PRINT NUMBER ;
+        """
+        let opened = await openGrammar(grammarURI, grammar)
+        XCTAssertTrue(opened)
+
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "num", text: "print 42")
+        let published = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(published, "valid source document reported diagnostics")
+
+        // `42` is a NUMBER token; its rule is the first line of the grammar.
+        let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            position: Position(line: 0, utf16index: 7)
+        ))
+        guard case .success(let response) = result,
+              case .locations(let locations)? = response,
+              let location = locations.first
+        else {
+            return XCTFail("expected a definition location, got \(result)")
+        }
+        XCTAssertEqual(location.uri, grammarURI)
+        XCTAssertEqual(location.range.lowerBound.line, 0)
+    }
+
+    func testGrammarDocumentCompletionOffersDirectivesAndSymbols() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // On the bare `%` line, directives are offered.
+        let result: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 3, utf16index: 1)
+        ))
+        guard case .success(let list) = result else {
+            return XCTFail("completion failed: \(result)")
+        }
+        let directives = list.items.map(\.label)
+        XCTAssertTrue(directives.contains("%start"), "expected %start among \(directives)")
+        XCTAssertTrue(directives.contains("%token"))
+
+        // At the start of a production line, grammar symbols are offered.
+        let symbolsResult: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 1, utf16index: 0)
+        ))
+        guard case .success(let symbolList) = symbolsResult else {
+            return XCTFail("completion failed: \(symbolsResult)")
+        }
+        let symbols = symbolList.items.map(\.label)
+        XCTAssertTrue(symbols.contains("S"))
+        XCTAssertTrue(symbols.contains("A"))
+        XCTAssertFalse(symbols.contains("%start"), "non-directive context should not offer directives")
+    }
+
+    func testGrammarDocumentHoverShowsProductionAndDirective() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
+        let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
+        XCTAssertTrue(opened)
+
+        // Hover on the `%start` directive.
+        let directiveHover: LSPResult<HoverRequest.Response> = await send(HoverRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 0, utf16index: 3)
+        ))
+        guard case .success(let directiveResponse) = directiveHover,
+              let directiveHoverResponse = directiveResponse,
+              case .markupContent(let directiveContents) = directiveHoverResponse.contents else {
+            return XCTFail("expected a directive hover, got \(directiveHover)")
+        }
+        XCTAssertTrue(directiveContents.value.contains("start symbol"))
+
+        // Hover on `A`'s defining production.
+        let symbolHover: LSPResult<HoverRequest.Response> = await send(HoverRequest(
+            textDocument: TextDocumentIdentifier(grammarURI),
+            position: Position(line: 2, utf16index: 0)
+        ))
+        guard case .success(let symbolResponse) = symbolHover,
+              let symbolHoverResponse = symbolResponse,
+              case .markupContent(let contents) = symbolHoverResponse.contents else {
+            return XCTFail("expected a symbol hover, got \(symbolHover)")
+        }
+        XCTAssertTrue(contents.value.contains("A → 'a'"), contents.value)
+        XCTAssertTrue(contents.value.contains("Nonterminal"))
+    }
+
     func testClosingSourceDocumentClearsDiagnostics() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")

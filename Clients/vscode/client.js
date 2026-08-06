@@ -178,6 +178,15 @@ function startClient(vscode, context, options) {
     });
   }
 
+  function saveDocument(document) {
+    if (!handled.has(document.uri.toString())) return;
+    send({
+      jsonrpc: "2.0",
+      method: "textDocument/didSave",
+      params: { textDocument: { uri: document.uri.toString() }, text: document.getText() },
+    });
+  }
+
   // MARK: - Lifecycle
 
   function attach() {
@@ -328,7 +337,8 @@ function startClient(vscode, context, options) {
       if (child && relevant(document)) openDocument(document);
     }),
     vscode.workspace.onDidChangeTextDocument(changeDocument),
-    vscode.workspace.onDidCloseTextDocument(closeDocument)
+    vscode.workspace.onDidCloseTextDocument(closeDocument),
+    vscode.workspace.onDidSaveTextDocument(saveDocument)
   );
 
   return { output, diagnostics };

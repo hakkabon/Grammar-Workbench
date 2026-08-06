@@ -81,6 +81,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(sync.openClose, true)
         XCTAssertEqual(sync.change, .full)
+        XCTAssertEqual(sync.willSave, false)
+        XCTAssertEqual(sync.willSaveWaitUntil, false)
+        if case .value(let save) = sync.save {
+            XCTAssertEqual(save.includeText, true)
+        } else {
+            XCTFail("expected didSave sync options with included text, got \(String(describing: sync.save))")
+        }
     }
 
     func testShutdownRepliesAndSetsExitState() async {
@@ -271,6 +278,97 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let published = await waitUntil { !self.client.publishDiagnostics(uri: sourceURI).isEmpty }
         XCTAssertTrue(published)
         XCTAssertTrue(client.publishDiagnostics(uri: sourceURI).last!.diagnostics.isEmpty)
+    }
+
+    // MARK: - M5: didSave and diagnostic hints
+
+    func testSyntaxDiagnosticsIncludeExpectedTerminals() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "expr", text: "hello")
+        let published = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return !notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(published)
+        let diagnostics = client.publishDiagnostics(uri: sourceURI).last!.diagnostics
+        XCTAssertTrue(
+            diagnostics.last!.message.hasSuffix("Expected: world."),
+            "expected a terminal hint on the last diagnostic, got '\(diagnostics.last!.message)'"
+        )
+    }
+
+    func testDidSaveWithTextAppliesAndReanalyzes() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "expr", text: "hello")
+        let published = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return !notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(published)
+
+        // Saving with the corrected content re-analyzes the document.
+        connection.send(DidSaveTextDocumentNotification(
+            textDocument: TextDocumentIdentifier(sourceURI),
+            text: "hello world"
+        ))
+        let fixed = await waitUntil {
+            guard let stored = await self.server.documentStore.text(for: sourceURI) else { return false }
+            return stored == "hello world"
+                && (self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false)
+        }
+        XCTAssertTrue(fixed, "server did not apply and re-analyze the saved content")
+    }
+
+    func testDidSaveWithoutTextRepublishesStoredText() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "expr", text: "hello")
+        let published = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return !notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(published)
+
+        connection.send(DidSaveTextDocumentNotification(textDocument: TextDocumentIdentifier(sourceURI)))
+        let republished = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return !notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(republished, "server did not republish diagnostics for the saved document")
+        XCTAssertTrue(
+            client.publishDiagnostics(uri: sourceURI).last!.diagnostics.last!.message.contains("Expected: world"),
+            "stored text was not re-analyzed after save"
+        )
+    }
+
+    func testRapidChangesSettleOnFinalText() async {
+        let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
+        openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
+        let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
+        openDocument(uri: sourceURI, language: "expr", text: "hello")
+        let published = await waitUntil { !self.client.publishDiagnostics(uri: sourceURI).isEmpty }
+        XCTAssertTrue(published)
+        let publishesAfterOpen = client.publishDiagnostics(uri: sourceURI).count
+
+        // Two changes back-to-back; the debounce must coalesce them into a
+        // single re-analysis of the final text.
+        changeDocument(uri: sourceURI, version: 2, text: "hello ")
+        changeDocument(uri: sourceURI, version: 3, text: "hello world")
+        let settled = await waitUntil {
+            guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
+            return notification.diagnostics.isEmpty
+        }
+        XCTAssertTrue(settled, "server did not re-analyze after the rapid changes")
+        XCTAssertEqual(
+            client.publishDiagnostics(uri: sourceURI).count,
+            publishesAfterOpen + 1,
+            "rapid changes should coalesce into a single re-analysis"
+        )
     }
 
     func testClosingSourceDocumentClearsDiagnostics() async {

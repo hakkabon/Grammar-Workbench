@@ -92,7 +92,9 @@ public actor DiagnosticsManager {
     /// LSP diagnostics for a source document parsed with `compilation`.
     ///
     /// Lexical errors are reported as `lexical` diagnostics; when the input
-    /// lexes cleanly, parse errors are reported as `syntax` diagnostics.
+    /// lexes cleanly, parse errors are reported as `syntax` diagnostics. The
+    /// terminals the parser expected at the point of failure are appended to
+    /// the last syntax diagnostic, mirroring the engine's own recovery state.
     public func lspDiagnostics(compilation: GrammarCompilation, sourceText: String) -> [Diagnostic] {
         guard compilation.succeeded else { return [] }
         let lexed = compilation.lex(sourceText)
@@ -101,8 +103,17 @@ public actor DiagnosticsManager {
                 lspDiagnostic(severity: .error, code: "lexical", message: diagnostic.message, range: diagnostic.range)
             }
         }
-        return compilation.parse(sourceText).diagnostics.map { diagnostic in
-            lspDiagnostic(severity: .error, code: "syntax", message: diagnostic.message, range: diagnostic.range)
+        let result = compilation.parse(sourceText)
+        let expected = result.expectedTerminals
+        return result.diagnostics.enumerated().map { index, diagnostic in
+            var message = diagnostic.message
+            if index == result.diagnostics.count - 1, !expected.isEmpty {
+                let listed = expected.count > 6
+                    ? expected.prefix(6).joined(separator: ", ") + ", …"
+                    : expected.joined(separator: ", ")
+                message += " Expected: \(listed)."
+            }
+            return lspDiagnostic(severity: .error, code: "syntax", message: message, range: diagnostic.range)
         }
     }
 

@@ -75,6 +75,7 @@ function makeVscode() {
   const openEvent = emitter();
   const changeEvent = emitter();
   const closeEvent = emitter();
+  const saveEvent = emitter();
   const diagnosticsByUri = new Map();
   const providers = {};
   const outputLines = [];
@@ -88,6 +89,7 @@ function makeVscode() {
         onDidOpenTextDocument: (fn) => openEvent.listen(fn),
         onDidChangeTextDocument: (fn) => changeEvent.listen(fn),
         onDidCloseTextDocument: (fn) => closeEvent.listen(fn),
+        onDidSaveTextDocument: (fn) => saveEvent.listen(fn),
       },
       window: {
         createOutputChannel: () => ({ appendLine: (line) => outputLines.push(line) }),
@@ -112,6 +114,7 @@ function makeVscode() {
     },
     open(document) { documents.push(document); openEvent.fire(document); },
     change(document, text) { document.text = text; document.version += 1; changeEvent.fire({ document }); },
+    save(document) { saveEvent.fire(document); },
     close(document) { closeEvent.fire(document); },
     context: { subscriptions },
     diagnosticsByUri, providers, outputLines, errors,
@@ -187,6 +190,12 @@ function waitFor(check, timeoutMs = 8000) {
     return items && items.length === 0;
   });
   console.log("PASS: didChange (full sync) reanalyzed the document");
+
+  harness.save(source);
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  const afterSave = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+  assert.ok(afterSave && afterSave.length === 0, "didSave should leave a valid document clean");
+  console.log("PASS: didSave round-trip");
 
   const hover = await harness.providers.hover.provider.provideHover(source, new Position(0, 7));
   assert.ok(hover, "expected a hover");

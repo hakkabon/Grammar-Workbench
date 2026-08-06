@@ -1,0 +1,12 @@
+%token PRINT /print\b/
+%token VAR /var\b/
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%token NUMBER /[0-9]+/
+%token ASSIGN /=/
+%token SEMICOLON /;/
+%skip /\s+/
+
+%start Program
+Program : Stmt Program | Stmt ;
+Stmt : PRINT Expr SEMICOLON | VAR ID ASSIGN Expr SEMICOLON ;
+Expr : NUMBER | ID ;

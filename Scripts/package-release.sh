@@ -31,14 +31,17 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 
 APP_BINARIES=()
 CLI_BINARIES=()
+LSP_BINARIES=()
 RESOURCE_BUNDLE=""
 for ARCH in $ARCHS; do
     SCRATCH="$WORK_DIR/build-$ARCH"
-    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product GrammarWorkbenchApp
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-app
     swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-lsp
     BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --show-bin-path)"
-    APP_BINARIES+=("$BIN_DIR/GrammarWorkbenchApp")
+    APP_BINARIES+=("$BIN_DIR/grammar-workbench-app")
     CLI_BINARIES+=("$BIN_DIR/grammar-workbench")
+    LSP_BINARIES+=("$BIN_DIR/grammar-workbench-lsp")
     if [ -z "$RESOURCE_BUNDLE" ] && [ -d "$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle" ]; then
         RESOURCE_BUNDLE="$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle"
     fi
@@ -49,11 +52,13 @@ mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
 if [ "${#APP_BINARIES[@]}" -eq 1 ]; then
     cp "${APP_BINARIES[0]}" "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp"
     cp "${CLI_BINARIES[0]}" "$OUTPUT_DIR/grammar-workbench"
+    cp "${LSP_BINARIES[0]}" "$OUTPUT_DIR/grammar-workbench-lsp"
 else
     lipo -create "${APP_BINARIES[@]}" -output "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp"
     lipo -create "${CLI_BINARIES[@]}" -output "$OUTPUT_DIR/grammar-workbench"
+    lipo -create "${LSP_BINARIES[@]}" -output "$OUTPUT_DIR/grammar-workbench-lsp"
 fi
-chmod 755 "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp" "$OUTPUT_DIR/grammar-workbench"
+chmod 755 "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
 
 sed -e "s/@VERSION@/$VERSION/g" \
     -e "s/@BUILD_NUMBER@/$BUILD_NUMBER/g" \
@@ -84,6 +89,20 @@ ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 CLI_ZIP="$OUTPUT_DIR/Grammar-Workbench-CLI-$VERSION-macOS.zip"
 rm -f "$CLI_ZIP"
 ditto -c -k "$OUTPUT_DIR/grammar-workbench" "$CLI_ZIP"
+LSP_ZIP="$OUTPUT_DIR/Grammar-Workbench-LSP-$VERSION-macOS.zip"
+rm -f "$LSP_ZIP"
+ditto -c -k "$OUTPUT_DIR/grammar-workbench-lsp" "$LSP_ZIP"
+
+VSIX_PATH="$OUTPUT_DIR/grammar-workbench-lsp-$VERSION.vsix"
+if command -v npx >/dev/null 2>&1; then
+    rm -f "$VSIX_PATH"
+    (cd "$ROOT_DIR/Clients/vscode" && npx --yes @vscode/vsce package \
+        --allow-missing-repository --out "$VSIX_PATH" >/dev/null)
+    echo "Created $VSIX_PATH"
+else
+    echo "npx not found; skipping the VS Code extension package."
+    VSIX_PATH=""
+fi
 
 if [ -n "$NOTARY_PROFILE" ]; then
     if [ -z "$SIGNING_IDENTITY" ]; then echo "NOTARY_PROFILE requires SIGNING_IDENTITY." >&2; exit 2; fi
@@ -93,9 +112,15 @@ if [ -n "$NOTARY_PROFILE" ]; then
     ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 fi
 
-"$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench"
+"$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
-(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" > SHA256SUMS)
+"$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
+if [ -n "$VSIX_PATH" ]; then
+    (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$VSIX_PATH")" > SHA256SUMS)
+else
+    (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" > SHA256SUMS)
+fi
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"
+echo "Created $LSP_ZIP"
 echo "Created $OUTPUT_DIR/SHA256SUMS"

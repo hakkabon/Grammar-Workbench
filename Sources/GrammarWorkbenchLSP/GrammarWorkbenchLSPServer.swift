@@ -43,6 +43,14 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// received.
     private var shutdownReceived: Bool = false
 
+    /// Debounced diagnostics after document changes: each keystroke produces a
+    /// `didChange`, and re-analyzing the document for every one of them is
+    /// wasteful. Changes schedule a publish that supersedes any pending one.
+    private var pendingPublishes: [DocumentURI: Task<Void, Never>] = [:]
+
+    /// How long to wait after the last change before re-analyzing a document.
+    private let publishDebounce: Duration = .milliseconds(150)
+
     public init(
         connection: any ServerConnection,
         documentStore: DocumentStore = DocumentStore(),
@@ -63,14 +71,16 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             Task { await self.didOpen(didOpen) }
         } else if let didChange = notification as? DidChangeTextDocumentNotification {
             Task { await self.didChange(didChange) }
+        } else if let didSave = notification as? DidSaveTextDocumentNotification {
+            Task { await self.didSave(didSave) }
         } else if let didClose = notification as? DidCloseTextDocumentNotification {
             Task { await self.didClose(didClose) }
         } else if notification is InitializedNotification {
-            // The client has fully initialized; nothing to do in M0.
+            // The client has fully initialized; nothing to do here.
         } else if notification is ExitNotification {
             Task { await self.handleExit() }
         }
-        // Other notifications are intentionally ignored in M0.
+        // Other notifications are intentionally ignored.
     }
 
     public nonisolated func handle<Request: RequestType>(
@@ -150,7 +160,13 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     }
 
     private func initialize(_ request: InitializeRequest) -> InitializeResult {
-        let syncOptions = TextDocumentSyncOptions(openClose: true, change: .full)
+        let syncOptions = TextDocumentSyncOptions(
+            openClose: true,
+            change: .full,
+            willSave: false,
+            willSaveWaitUntil: false,
+            save: .value(TextDocumentSyncOptions.SaveOptions(includeText: true))
+        )
         return InitializeResult(
             capabilities: ServerCapabilities(
                 textDocumentSync: .options(syncOptions),
@@ -164,6 +180,10 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
 
     private func shutdown(_ request: ShutdownRequest) -> ShutdownRequest.Response {
         shutdownReceived = true
+        for pending in pendingPublishes.values {
+            pending.cancel()
+        }
+        pendingPublishes.removeAll()
         return ShutdownRequest.Response()
     }
 
@@ -187,12 +207,26 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             version: identifier.version,
             contentChanges: notification.contentChanges
         )
+        schedulePublish(for: identifier.uri)
+    }
+
+    private func didSave(_ notification: DidSaveTextDocumentNotification) async {
+        let identifier = notification.textDocument
+        if let text = notification.text {
+            // `didSave` carries no version; the document is replaced in place.
+            await documentStore.updateSavedText(uri: identifier.uri, text: text)
+        }
+        // A save is the natural settle point for any pending change analysis.
+        pendingPublishes[identifier.uri]?.cancel()
+        pendingPublishes[identifier.uri] = nil
         await publishDiagnostics(for: identifier.uri)
     }
 
     private func didClose(_ notification: DidCloseTextDocumentNotification) async {
         let uri = notification.textDocument.uri
         let kind = uri.grammarWorkbenchKind
+        pendingPublishes[uri]?.cancel()
+        pendingPublishes[uri] = nil
         await documentStore.close(uri: uri)
         // Publish an empty set so the client clears diagnostics for the
         // document, as required by the LSP spec.
@@ -234,6 +268,24 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 uri: uri, version: document.version, diagnostics: diagnostics
             ))
         }
+    }
+
+    /// Schedules a debounced re-analysis of the document at `uri`, superseding
+    /// any pending one. Changes that arrive in quick succession (typing)
+    /// therefore only trigger one analysis once the text settles.
+    private func schedulePublish(for uri: DocumentURI) {
+        pendingPublishes[uri]?.cancel()
+        let task = Task {
+            try? await Task.sleep(for: self.publishDebounce)
+            guard !Task.isCancelled else { return }
+            await self.publishDiagnostics(for: uri)
+            self.clearPendingPublish(for: uri)
+        }
+        pendingPublishes[uri] = task
+    }
+
+    private func clearPendingPublish(for uri: DocumentURI) {
+        pendingPublishes[uri] = nil
     }
 
     private func republishSourceDiagnostics() async {

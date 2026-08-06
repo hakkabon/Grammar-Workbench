@@ -1,0 +1,5 @@
+.vscode/**
+.vscodeignore
+**/*.vsix
+**/*.map
+**/.DS_Store

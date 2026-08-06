@@ -36,3 +36,34 @@ name as the language id:
 
 The server validates both kinds of documents and publishes diagnostics for
 grammar compilation errors and lexical/syntax errors in source documents.
+
+## Other editors
+
+Any JSON-RPC-over-stdio LSP client can attach to the server; only the language
+id conventions above matter. Two minimal configurations for editors without a
+dedicated client in this repository:
+
+**Emacs (eglot)** — associate source files with the grammar base name:
+
+```elisp
+(add-to-list 'auto-mode-alist '("\\.prog\\'" . prog-mode))
+(require 'eglot)
+(add-hook 'prog-mode-hook 'eglot-ensure)
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '(prog-mode . ("grammar-workbench-lsp"))))
+```
+
+**Helix** — a `[language.server]` entry pointing at the binary:
+
+```toml
+[[language]]
+name = "proto"
+file-types = ["proto"]
+
+[language.server]
+command = "/path/to/grammar-workbench-lsp"
+```
+
+Both need `grammar-workbench-lsp` on `PATH` (or an absolute path), and the
+grammar file (e.g. `proto.grammarworkbench`) open in the same session.

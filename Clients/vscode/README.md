@@ -19,6 +19,24 @@ symbols, and folding for grammar and source documents.
    code --install-extension ./Clients/vscode
    ```
 
+A ready-made demo workspace lives in `Examples/lsp` (repository root): open the
+repository in VS Code, then open `Examples/lsp/sample.proto` — the
+diagnostics, completion, hover, symbols, and folding all work against the
+workspace's own `.build/debug/grammar-workbench-lsp` binary.
+
+## Package
+
+Build a shareable `.vsix` (requires Node.js):
+
+```sh
+cd Clients/vscode
+npx --yes @vscode/vsce package --allow-missing-repository
+code --install-extension grammar-workbench-lsp-0.1.0.vsix
+```
+
+The produced VSIX is also shipped alongside the server binary by
+`Scripts/package-release.sh` (see `dist/`).
+
 ## Configure
 
 - `grammarWorkbench.serverPath` — path to the server binary; the default is

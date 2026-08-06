@@ -10,6 +10,15 @@ Build the server first:
 swift build --product grammar-workbench-lsp   # → .build/debug/grammar-workbench-lsp
 ```
 
+## Verify
+
+With Neovim 0.10+ and the config installed, open
+`Examples/lsp/proto.grammarworkbench` in a terminal (`nvim` from the
+repository root): grammar diagnostics appear on invalid edits, folding and
+document symbols work. Then open `Examples/lsp/sample.proto`, run
+`:set filetype=proto` followed by `:GrammarWorkbench`, and check the LSP
+diagnostic (line 2 is missing its expression): `:lua vim.diagnostic.open_float()`.
+
 ## Usage
 
 - Grammar files (`.grammarworkbench`, `.grammar`, `.ebnf`) attach

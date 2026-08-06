@@ -51,6 +51,14 @@ public actor DocumentStore {
         documents[uri] = document
     }
 
+    /// Replaces the document's text as sent with `textDocument/didSave`, which
+    /// carries no version, so the document's version is left unchanged.
+    public func updateSavedText(uri: DocumentURI, text: String) {
+        guard var document = documents[uri] else { return }
+        document.text = text
+        documents[uri] = document
+    }
+
     public func close(uri: DocumentURI) {
         documents[uri] = nil
     }

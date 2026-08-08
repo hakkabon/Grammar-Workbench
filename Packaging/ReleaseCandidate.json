@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "publicAPIVersion": 1,
+  "minimumMacOSVersion": "14.0",
+  "requiredConsumerFixtures": [
+    "LibraryConsumer",
+    "PluginConsumer"
+  ],
+  "budgets": {
+    "canonicalConstructionMilliseconds": 10000,
+    "canonicalStates": 500,
+    "canonicalItems": 2000,
+    "canonicalTableEntries": 1000,
+    "artifactJSONBytes": 5000000,
+    "repeatedParseMilliseconds": 5000,
+    "repeatedParseCount": 500
+  }
+}

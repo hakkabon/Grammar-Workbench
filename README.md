@@ -112,6 +112,8 @@ For build-time generation, attach the package's `GrammarWorkbenchPlugin` to a Sw
 
 `Scripts/smoke-release.sh CLI_PATH` validates every corpus grammar through the packaged CLI, exports comparison and artifact JSON, invokes the generic Swift and BNF generators, and asks `swiftc` to parse the generated Swift source. Release packaging runs this smoke test automatically and emits `SHA256SUMS` beside the application and CLI archives. Pull requests and pushes to the primary development branches run the full suite, a release CLI build, corpus smoke tests, and metadata validation.
 
+The release-candidate gate adds two external SwiftPM consumers: one exercises only the stable public library and semantic APIs, while the other consumes generated code through `GrammarWorkbenchPlugin`. Performance, artifact-size, GUI containment, API-maturity, and fixture requirements are declared in `Packaging/ReleaseCandidate.json` and enforced by tests. Run `Scripts/validate-release-candidate.sh`; add `--package` to assemble and validate host-architecture application and CLI archives. See `Documentation/ReleaseCandidate.md`, `Documentation/API-Stability.md`, and `Documentation/Migration.md` for release policy and compatibility guidance.
+
 ## Production packaging
 
 `Scripts/package-release.sh` builds the SwiftUI application and CLI, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.

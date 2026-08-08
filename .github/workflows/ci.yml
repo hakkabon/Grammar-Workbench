@@ -13,11 +13,5 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
-      - name: Test
-        run: swift test
-      - name: Build release CLI
-        run: swift build -c release --product grammar-workbench
-      - name: Smoke test CLI and corpus
-        run: Scripts/smoke-release.sh "$(swift build -c release --show-bin-path)/grammar-workbench"
-      - name: Validate release metadata
-        run: plutil -lint Packaging/Info.plist Packaging/GrammarWorkbench.entitlements
+      - name: Release-candidate gate
+        run: Scripts/validate-release-candidate.sh

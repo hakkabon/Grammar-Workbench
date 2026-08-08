@@ -112,7 +112,11 @@ if [ -n "$NOTARY_PROFILE" ]; then
     ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 fi
 
+<<<<<<< HEAD
 "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
+=======
+BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench"
+>>>>>>> dev-branch
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
 if [ -n "$VSIX_PATH" ]; then

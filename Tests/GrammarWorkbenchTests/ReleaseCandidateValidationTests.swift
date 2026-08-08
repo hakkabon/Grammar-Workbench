@@ -19,6 +19,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let publicAPIVersion: Int
     let minimumMacOSVersion: String
     let requiredConsumerFixtures: [String]
+    let requiredProducts: [String]
     let budgets: Budgets
 }
 
@@ -42,6 +43,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.deterministicParsing == .stable)
     #expect(GrammarWorkbenchCapabilities.semanticOutput == .stable)
     #expect(GrammarWorkbenchCapabilities.generatorEcosystem == .stable)
+    #expect(GrammarWorkbenchCapabilities.languageServer == .stable)
     #expect(GrammarWorkbenchCapabilities.generalizedParsing == .experimental)
 
     for fixture in policy.requiredConsumerFixtures {
@@ -50,6 +52,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
             .appendingPathComponent(fixture)
             .appendingPathComponent("Package.swift")
         #expect(FileManager.default.fileExists(atPath: manifest.path))
+    }
+    let manifest = try String(contentsOf: packageRoot().appendingPathComponent("Package.swift"))
+    for product in policy.requiredProducts {
+        #expect(manifest.contains("name: \"\(product)\""))
     }
 }
 

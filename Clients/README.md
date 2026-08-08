@@ -4,7 +4,11 @@ Two minimal LSP clients for the `grammar-workbench-lsp` server, which speaks
 JSON-RPC over stdio:
 
 - [`vscode/`](vscode/README.md) — a dependency-free VS Code extension
+<<<<<<< HEAD
   (diagnostics, completion, hover, document symbols, folding).
+=======
+  (diagnostics, completion, definitions, quick fixes, hover, document symbols, folding).
+>>>>>>> dev-branch
 - [`neovim/`](neovim/README.md) — a ~30-line `vim.lsp.start` configuration.
 
 ## Building the server

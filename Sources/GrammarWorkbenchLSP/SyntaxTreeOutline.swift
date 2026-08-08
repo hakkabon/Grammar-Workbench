@@ -140,7 +140,11 @@ private func lspRange(_ range: SourceRange) -> Range<Position> {
 /// The engine's sample tokenizer yields whitespace-separated tokens without
 /// ranges; the scanner consumes the document sequentially, skipping whitespace
 /// and matching each lexeme (or its quoted form) at the current cursor.
+<<<<<<< HEAD
 struct TokenPositionScanner {
+=======
+private struct TokenPositionScanner {
+>>>>>>> dev-branch
     private let characters: [Character]
     private var cursor = 0
     private var utf16Cursor = 0

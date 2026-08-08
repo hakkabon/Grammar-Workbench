@@ -13,5 +13,8 @@ jobs:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Release-candidate gate
         run: Scripts/validate-release-candidate.sh

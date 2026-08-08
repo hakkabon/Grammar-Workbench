@@ -31,6 +31,7 @@ let package = Package(
             dependencies: [.target(name: "GrammarWorkbenchCLI")]
         ),
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"]),
+<<<<<<< HEAD
 
         // Vendored Language Server Protocol framework. See LocalDependencies/README.md
         // for provenance and for how to swap these for the upstream
@@ -38,6 +39,10 @@ let package = Package(
         .target(
             name: "LanguageServerProtocol",
             dependencies: ["SKLogging"],
+=======
+        .target(
+            name: "LanguageServerProtocol", dependencies: ["SKLogging"],
+>>>>>>> dev-branch
             path: "\(lspVendoredPath)/LanguageServerProtocol"
         ),
         .target(
@@ -45,6 +50,7 @@ let package = Package(
             dependencies: ["LanguageServerProtocol", "SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocolTransport"
         ),
+<<<<<<< HEAD
         // A local, minimal stand-in for the upstream `SKLogging` module (which
         // requires Swift 6.2 / macOS 15); see LocalDependencies/README.md.
         .target(
@@ -57,16 +63,29 @@ let package = Package(
                 "GrammarWorkbench",
                 "LanguageServerProtocol",
                 "LanguageServerProtocolTransport",
+=======
+        .target(name: "SKLogging", path: "\(lspVendoredPath)/SKLogging"),
+        .target(
+            name: "GrammarWorkbenchLSP",
+            dependencies: [
+                "GrammarWorkbench", "LanguageServerProtocol", "LanguageServerProtocolTransport"
+>>>>>>> dev-branch
             ]
         ),
         .executableTarget(name: "GrammarWorkbenchLSPApp", dependencies: ["GrammarWorkbenchLSP"]),
         .testTarget(
             name: "GrammarWorkbenchLSPTests",
             dependencies: [
+<<<<<<< HEAD
                 "GrammarWorkbenchLSP",
                 "LanguageServerProtocol",
                 "LanguageServerProtocolTransport",
             ]
         ),
+=======
+                "GrammarWorkbenchLSP", "LanguageServerProtocol", "LanguageServerProtocolTransport"
+            ]
+        )
+>>>>>>> dev-branch
     ]
 )

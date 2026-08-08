@@ -4,8 +4,8 @@ The release-candidate gate verifies the product from four perspectives:
 
 1. The root test suite validates algorithms, documents, GUI foundations, compatibility, packaging metadata, and performance budgets.
 2. Downstream fixtures compile only against published library and plugin products.
-3. The release CLI runs the complete corpus and interchange smoke workflow.
-4. Optional packaging assembles and validates the application and CLI archives exactly as a release build does.
+3. The release CLI and LSP server run their corpus, interchange, framed-stdio, and editor-client smoke workflows.
+4. Optional packaging assembles and validates the application, CLI, LSP, and editor-client archives exactly as a release build does.
 
 Run the normal gate:
 

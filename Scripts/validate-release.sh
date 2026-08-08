@@ -13,6 +13,7 @@ EXPECTED_BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.grammar-workbench.app}"
 
 test -x "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp"
 test -x "$CLI_PATH"
+if [ -n "$LSP_PATH" ]; then test -x "$LSP_PATH"; fi
 test -s "$APP_PATH/Contents/Resources/LICENSE.txt"
 test -s "$APP_PATH/Contents/Resources/PrivacyInfo.xcprivacy"
 plutil -lint "$PLIST"
@@ -24,6 +25,7 @@ CLI_VERSION="$($CLI_PATH --version | awk '{print $2}')"
 test "$APP_VERSION" = "$CLI_VERSION"
 /usr/bin/lipo -info "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp" >/dev/null
 /usr/bin/lipo -info "$CLI_PATH" >/dev/null
+if [ -n "$LSP_PATH" ]; then /usr/bin/lipo -info "$LSP_PATH" >/dev/null; fi
 "$CLI_PATH" --help >/dev/null
 if [ -n "$LSP_PATH" ]; then
     test -x "$LSP_PATH"

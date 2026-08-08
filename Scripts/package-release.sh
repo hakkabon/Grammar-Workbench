@@ -79,6 +79,7 @@ plutil -lint "$APP_PATH/Contents/Info.plist" "$ROOT_DIR/Packaging/GrammarWorkben
 if [ -n "$SIGNING_IDENTITY" ]; then
     codesign --force --timestamp --options runtime --entitlements "$ROOT_DIR/Packaging/GrammarWorkbench.entitlements" --sign "$SIGNING_IDENTITY" "$APP_PATH"
     codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" "$OUTPUT_DIR/grammar-workbench"
+    codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" "$OUTPUT_DIR/grammar-workbench-lsp"
 else
     echo "Packaging unsigned build; set SIGNING_IDENTITY for Developer ID distribution."
 fi
@@ -91,6 +92,7 @@ rm -f "$CLI_ZIP"
 ditto -c -k "$OUTPUT_DIR/grammar-workbench" "$CLI_ZIP"
 LSP_ZIP="$OUTPUT_DIR/Grammar-Workbench-LSP-$VERSION-macOS.zip"
 rm -f "$LSP_ZIP"
+<<<<<<< HEAD
 ditto -c -k "$OUTPUT_DIR/grammar-workbench-lsp" "$LSP_ZIP"
 
 VSIX_PATH="$OUTPUT_DIR/grammar-workbench-lsp-$VERSION.vsix"
@@ -103,6 +105,21 @@ else
     echo "npx not found; skipping the VS Code extension package."
     VSIX_PATH=""
 fi
+=======
+LSP_PACKAGE="$WORK_DIR/Grammar-Workbench-LSP-$VERSION"
+mkdir -p "$LSP_PACKAGE"
+cp "$OUTPUT_DIR/grammar-workbench-lsp" "$LSP_PACKAGE/"
+cp "$ROOT_DIR/LICENSE" "$LSP_PACKAGE/LICENSE.txt"
+cp "$ROOT_DIR/LocalDependencies/LICENSE.txt" "$LSP_PACKAGE/THIRD-PARTY-LICENSE.txt"
+cp "$ROOT_DIR/Documentation/Ecosystem.md" "$LSP_PACKAGE/README.md"
+ditto -c -k --keepParent "$LSP_PACKAGE" "$LSP_ZIP"
+CLIENTS_ZIP="$OUTPUT_DIR/Grammar-Workbench-Editor-Clients-$VERSION.zip"
+rm -f "$CLIENTS_ZIP"
+CLIENTS_PACKAGE="$WORK_DIR/Grammar-Workbench-Editor-Clients-$VERSION"
+cp -R "$ROOT_DIR/Clients" "$CLIENTS_PACKAGE"
+cp "$ROOT_DIR/LICENSE" "$CLIENTS_PACKAGE/GRAMMAR-WORKBENCH-LICENSE.txt"
+ditto -c -k --keepParent "$CLIENTS_PACKAGE" "$CLIENTS_ZIP"
+>>>>>>> dev-branch
 
 if [ -n "$NOTARY_PROFILE" ]; then
     if [ -z "$SIGNING_IDENTITY" ]; then echo "NOTARY_PROFILE requires SIGNING_IDENTITY." >&2; exit 2; fi
@@ -115,6 +132,7 @@ fi
 BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
+<<<<<<< HEAD
 if [ -n "$VSIX_PATH" ]; then
     (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$VSIX_PATH")" > SHA256SUMS)
 else
@@ -123,4 +141,11 @@ fi
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"
 echo "Created $LSP_ZIP"
+=======
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
+echo "Created $ZIP_PATH"
+echo "Created $CLI_ZIP"
+echo "Created $LSP_ZIP"
+echo "Created $CLIENTS_ZIP"
+>>>>>>> dev-branch
 echo "Created $OUTPUT_DIR/SHA256SUMS"

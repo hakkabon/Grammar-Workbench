@@ -371,6 +371,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         )
     }
 
+<<<<<<< HEAD
     // MARK: - M6: definition and grammar-document services
 
     private static let twoRuleGrammar = """
@@ -502,6 +503,8 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(contents.value.contains("Nonterminal"))
     }
 
+=======
+>>>>>>> dev-branch
     func testClosingSourceDocumentClearsDiagnostics() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -716,6 +719,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNotNil(initializeResult.capabilities.completionProvider)
         XCTAssertEqual(initializeResult.capabilities.hoverProvider, .bool(true))
+<<<<<<< HEAD
+=======
+        XCTAssertTrue(initializeResult.capabilities.definitionProvider?.isSupported ?? false)
+        XCTAssertTrue(initializeResult.capabilities.codeActionProvider?.isSupported ?? false)
+>>>>>>> dev-branch
     }
 
     func testCompletionOffersExpectedTokensFilteredByPrefix() async {
@@ -847,10 +855,17 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(edit.range, Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 3))
     }
 
+<<<<<<< HEAD
     func testGrammarDocumentCompletionOffersDirectives() async {
         await openProgGrammar()
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 1))
+=======
+    func testCompletionForGrammarDocumentUsesEditorIntelligence() async {
+        await openProgGrammar()
+        let result: LSPResult<CompletionRequest.Response> = await send(
+            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 3))
+>>>>>>> dev-branch
         )
         guard case .success(let list) = result else {
             return XCTFail("completion request failed: \(result)")
@@ -858,6 +873,41 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(list.items.map(\.label), ["%start"])
     }
 
+<<<<<<< HEAD
+=======
+    func testGrammarDefinitionNavigatesToNonterminalDeclaration() async {
+        let uri = DocumentURI(filePath: "/tmp/definition.grammarworkbench", isDirectory: false)
+        openDocument(uri: uri, language: "grammar", text: "%start Root\nRoot : Item ;\nItem : 'x' ;")
+        let published = await waitForPublish(uri: uri)
+        XCTAssertTrue(published)
+        let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
+            textDocument: TextDocumentIdentifier(uri), position: .init(line: 1, utf16index: 8)
+        ))
+        guard case .success(.locations(let locations)?) = result else {
+            return XCTFail("definition request failed: \(result)")
+        }
+        XCTAssertEqual(locations.count, 1)
+        XCTAssertEqual(locations[0].uri, uri)
+        XCTAssertEqual(locations[0].range.lowerBound.line, 2)
+    }
+
+    func testGrammarCodeActionUsesNativeQuickFix() async {
+        let uri = DocumentURI(filePath: "/tmp/fix.grammarworkbench", isDirectory: false)
+        openDocument(uri: uri, language: "grammar", text: "%start S\nS 'x' ;")
+        let published = await waitForPublish(uri: uri)
+        XCTAssertTrue(published)
+        let range = Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 7)
+        let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
+            range: range, context: .init(), textDocument: TextDocumentIdentifier(uri)
+        ))
+        guard case .success(.codeActions(let actions)?) = result else {
+            return XCTFail("code action request failed: \(result)")
+        }
+        XCTAssertEqual(actions.first?.title, "Insert missing ‘:’")
+        XCTAssertEqual(actions.first?.kind, .quickFix)
+    }
+
+>>>>>>> dev-branch
     func testHoverOnTerminalShowsTokenAndProduction() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
@@ -944,6 +994,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(response)
     }
+<<<<<<< HEAD
 
     // MARK: - M7: semantic tokens, references, rename, code actions, progress
 
@@ -1676,4 +1727,6 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         return lines.joined(separator: "\n")
     }
+=======
+>>>>>>> dev-branch
 }

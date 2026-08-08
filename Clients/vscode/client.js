@@ -112,6 +112,7 @@ function startClient(vscode, context, options) {
   function handleMessage(message) {
     if (message.id !== undefined && message.id !== null) {
       const entry = pending.get(message.id);
+<<<<<<< HEAD
       if (entry) {
         pending.delete(message.id);
         if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
@@ -129,6 +130,12 @@ function startClient(vscode, context, options) {
       output.appendLine(
         `progress ${message.params.value.kind}: ${message.params.value.message || message.params.value.title || ""}`
       );
+=======
+      if (!entry) return;
+      pending.delete(message.id);
+      if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
+      else entry.resolve(message.result);
+>>>>>>> dev-branch
       return;
     }
     if (message.method === "textDocument/publishDiagnostics") {
@@ -150,6 +157,7 @@ function startClient(vscode, context, options) {
   const positionOf = (position) => new vscode.Position(position.line, position.character);
   const rangeOf = (range) => new vscode.Range(positionOf(range.start), positionOf(range.end));
 
+<<<<<<< HEAD
   // The semantic token types advertised by the server (see
   // SemanticTokensProvider.legend); the client legend must match it exactly.
   const LEGEND_TYPES = [
@@ -168,6 +176,8 @@ function startClient(vscode, context, options) {
     return result;
   }
 
+=======
+>>>>>>> dev-branch
   // MARK: - Document sync
 
   function openDocument(document) {
@@ -308,6 +318,7 @@ function startClient(vscode, context, options) {
         });
       },
     }),
+<<<<<<< HEAD
     vscode.languages.registerDefinitionProvider(selector(), {
       provideDefinition(document, position) {
         if (!child) return null;
@@ -392,6 +403,8 @@ function startClient(vscode, context, options) {
       },
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
     ),
+=======
+>>>>>>> dev-branch
     vscode.languages.registerDocumentSymbolProvider(selector(), {
       provideDocumentSymbols(document) {
         if (!child) return null;
@@ -403,6 +416,7 @@ function startClient(vscode, context, options) {
         });
       },
     }),
+<<<<<<< HEAD
     vscode.languages.registerDocumentHighlightProvider(selector(), {
       provideDocumentHighlights(document, position) {
         if (!child) return null;
@@ -468,6 +482,8 @@ function startClient(vscode, context, options) {
         );
       },
     }),
+=======
+>>>>>>> dev-branch
     vscode.languages.registerFoldingRangeProvider(selector(), {
       provideFoldingRanges(document) {
         if (!child) return [];
@@ -483,6 +499,7 @@ function startClient(vscode, context, options) {
         );
       },
     }),
+<<<<<<< HEAD
     vscode.languages.registerDocumentSemanticTokensProvider(
       selector(),
       {
@@ -498,6 +515,51 @@ function startClient(vscode, context, options) {
       },
       new vscode.SemanticTokensLegend(LEGEND_TYPES, [])
     ),
+=======
+    vscode.languages.registerDefinitionProvider(selector(), {
+      provideDefinition(document, position) {
+        if (!child) return null;
+        return request("textDocument/definition", {
+          textDocument: { uri: document.uri.toString() },
+          position: { line: position.line, character: position.character },
+        }).then((result) => (result || []).map((location) =>
+          new vscode.Location(vscode.Uri.parse(location.uri), rangeOf(location.range))
+        ));
+      },
+    }),
+    vscode.languages.registerCodeActionsProvider(selector(), {
+      provideCodeActions(document, range, context) {
+        if (!child) return [];
+        return request("textDocument/codeAction", {
+          textDocument: { uri: document.uri.toString() },
+          range: {
+            start: { line: range.start.line, character: range.start.character },
+            end: { line: range.end.line, character: range.end.character },
+          },
+          context: { diagnostics: (context.diagnostics || []).map((diagnostic) => ({
+            range: {
+              start: { line: diagnostic.range.start.line, character: diagnostic.range.start.character },
+              end: { line: diagnostic.range.end.line, character: diagnostic.range.end.character },
+            },
+            message: diagnostic.message,
+          })) },
+        }).then((result) => (result || []).map((item) => {
+          const action = new vscode.CodeAction(item.title, vscode.CodeActionKind.QuickFix);
+          action.isPreferred = item.isPreferred;
+          if (item.edit && item.edit.changes) {
+            const edit = new vscode.WorkspaceEdit();
+            for (const [uri, edits] of Object.entries(item.edit.changes)) {
+              for (const change of edits) {
+                edit.replace(vscode.Uri.parse(uri), rangeOf(change.range), change.newText);
+              }
+            }
+            action.edit = edit;
+          }
+          return action;
+        }));
+      },
+    }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
+>>>>>>> dev-branch
   ];
 
   function symbolOf(symbol) {

@@ -4,7 +4,12 @@
   "minimumMacOSVersion": "14.0",
   "requiredConsumerFixtures": [
     "LibraryConsumer",
+    "LSPConsumer",
     "PluginConsumer"
+  ],
+  "requiredProducts": [
+    "GrammarWorkbenchLSP",
+    "grammar-workbench-lsp"
   ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,

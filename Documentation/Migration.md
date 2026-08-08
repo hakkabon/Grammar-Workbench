@@ -27,3 +27,7 @@ Existing `GrammarSemanticReducer` implementations remain supported. Applications
 ## EBNF lowering
 
 Lowering snapshots now include `productionOrigins`. Decoding older snapshots defaults this property to an empty array. Consumers that navigate from parser production IDs may use the origin map when present and retain their existing fallback when it is absent.
+
+## Language server
+
+The server is distributed as the `grammar-workbench-lsp` executable and the reusable `GrammarWorkbenchLSP` SwiftPM product. Grammar documents use language id `grammarworkbench` or `ebnf`; source documents use the associated grammar file's base name. Clients should advertise full-document synchronization and send text with `didSave`, as incremental range edits are not accepted.

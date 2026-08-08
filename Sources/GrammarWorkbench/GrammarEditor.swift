@@ -1,13 +1,18 @@
 import SwiftUI
 import AppKit
 
-struct GrammarQuickFix: Identifiable, Equatable {
-    let id: String
-    let title: String
-    let replacementRange: Range<Int>
-    let replacement: String
+public struct GrammarQuickFix: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let title: String
+    public let replacementRange: Range<Int>
+    public let replacement: String
 
-    func applying(to source: String) -> String {
+    public init(id: String, title: String, replacementRange: Range<Int>, replacement: String) {
+        self.id = id; self.title = title
+        self.replacementRange = replacementRange; self.replacement = replacement
+    }
+
+    public func applying(to source: String) -> String {
         guard replacementRange.lowerBound >= 0,
               replacementRange.upperBound <= source.count,
               let lower = source.index(source.startIndex, offsetBy: replacementRange.lowerBound, limitedBy: source.endIndex),
@@ -20,8 +25,8 @@ struct GrammarQuickFix: Identifiable, Equatable {
     }
 }
 
-enum GrammarEditorIntelligence {
-    static func completions(
+public enum GrammarEditorIntelligence {
+    public static func completions(
         for result: GrammarFrontEndResult,
         notation: GrammarSourceNotation = .workbench
     ) -> [String] {
@@ -33,7 +38,7 @@ enum GrammarEditorIntelligence {
         return Array(Set(directives + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
     }
 
-    static func quickFixes(
+    public static func quickFixes(
         for diagnostic: GrammarDiagnostic, source: String,
         notation: GrammarSourceNotation = .workbench
     ) -> [GrammarQuickFix] {

@@ -104,6 +104,12 @@ For build-time generation, attach the package's `GrammarWorkbenchPlugin` to a Sw
 )
 ```
 
+## Language-server ecosystem
+
+`GrammarWorkbenchLSP` is a reusable server library and `grammar-workbench-lsp` is its JSON-RPC-over-stdio executable. Open Workbench or EBNF grammar documents receive live diagnostics, shared editor completions, go-to-definition, and native quick fixes. Associated source documents receive lexical and syntax diagnostics, expected-token completion, production-aware hover, document symbols, and folding ranges. Full-text changes are debounced while saves are analyzed immediately.
+
+Dependency-free clients are included for VS Code and Neovim under `Clients/`, with a ready-to-open workspace under `Examples/lsp`. The VS Code protocol client is exercised end to end against the real server by `node Scripts/m4-client-test.js`; any standards-compliant editor can connect using the grammar-name/language-id convention described in [Clients/README.md](Clients/README.md). Vendored Swift LSP protocol sources and their Apache-2.0 provenance are documented in [LocalDependencies/README.md](LocalDependencies/README.md). See [Documentation/Ecosystem.md](Documentation/Ecosystem.md) for products and distribution policy.
+
 ## Production validation
 
 `Examples/Corpus` contains compatibility grammars covering recursive JSON-like data, a precedence-based statement language, nested lexer modes, and an intentional dangling-else conflict. The test suite compiles the applicable SLR, LALR, and canonical LR variants and checks strict accepted and rejected inputs. It also enforces generous construction-size and latency ceilings on a generated representative grammar; these ceilings are regression tripwires rather than microbenchmarks.
@@ -114,7 +120,7 @@ The release-candidate gate adds two external SwiftPM consumers: one exercises on
 
 ## Production packaging
 
-`Scripts/package-release.sh` builds the SwiftUI application and CLI, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
+`Scripts/package-release.sh` builds the SwiftUI application, CLI, and LSP server, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate application, CLI, LSP, and editor-client ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
 
 For a local Developer ID release, provide `SIGNING_IDENTITY="Developer ID Application: …"`. Add `NOTARY_PROFILE` for an `xcrun notarytool` keychain profile; the script submits, waits, staples, rebuilds the archive, and validates the result. A deterministic default icon is included; `APP_ICON` may point to a replacement `.icns`. Regenerate the default and its inspectable PNG iconset with `swift Scripts/generate-app-icon.swift /tmp/GrammarWorkbench.iconset Packaging/AppIcon.icns`. Signing identities and notarization credentials are intentionally not stored in the repository. Tagged GitHub builds run the full suite and publish unsigned review artifacts; signed distribution can use the same script in a credentialed release environment.
 

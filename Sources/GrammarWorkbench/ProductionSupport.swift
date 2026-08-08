@@ -31,6 +31,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let deterministicParsing: GrammarWorkbenchFeatureMaturity = .stable
     public static let semanticOutput: GrammarWorkbenchFeatureMaturity = .stable
     public static let generatorEcosystem: GrammarWorkbenchFeatureMaturity = .stable
+    public static let languageServer: GrammarWorkbenchFeatureMaturity = .stable
     public static let generalizedParsing: GrammarWorkbenchFeatureMaturity = .experimental
 }
 

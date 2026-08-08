@@ -1,0 +1,5 @@
+{
+  "grammarWorkbench.associations": {
+    "*.proto": "proto"
+  }
+}

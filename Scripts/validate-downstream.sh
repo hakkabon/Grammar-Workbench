@@ -11,11 +11,13 @@ run_consumer() {
     output="$(swift run --package-path "$package" --scratch-path "$SCRATCH_ROOT/$name")"
     case "$name:$output" in
         LibraryConsumer:*library-consumer-ok*) ;;
+        LSPConsumer:*lsp-consumer-ok*) ;;
         PluginConsumer:*plugin-consumer-ok*) ;;
         *) echo "$name produced unexpected output: $output" >&2; exit 1 ;;
     esac
 }
 
 run_consumer LibraryConsumer
+run_consumer LSPConsumer
 run_consumer PluginConsumer
 echo "Downstream compatibility validation passed."

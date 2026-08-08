@@ -1,0 +1,691 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift.org open source project
+//
+// Copyright (c) 2014 - 2018 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See https://swift.org/LICENSE.txt for license information
+// See https://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+
+public import Foundation
+public import LanguageServerProtocol
+@_spi(SourceKitLSP) import SKLogging
+
+#if canImport(Darwin)
+import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#elseif canImport(Musl)
+import Musl
+#elseif canImport(Android)
+import Android
+#elseif canImport(WinSDK)
+import WinSDK
+#endif
+
+#if canImport(CDispatch)
+import struct CDispatch.dispatch_fd_t
+#endif
+
+/// A connection between a message handler (e.g. language server) in the same process as the connection object and a
+/// remote message handler (e.g. language client) that may run in another process using JSON RPC messages sent over a
+/// pair of in/out file descriptors.
+///
+/// For example, inside a language server, the `JSONRPCConnection` takes the language service implementation as its
+/// `receiveHandler` and itself provides the client connection for sending notifications and callbacks.
+public final class JSONRPCConnection: Connection {
+  @frozen public enum TerminationReason: Sendable, Equatable {
+    /// The process on the other end of the `JSONRPCConnection` terminated with the given exit code.
+    case exited(exitCode: Int32)
+
+    /// The process on the other end of the `JSONRPCConnection` terminated with a signal. The signal that it terminated
+    /// with is not known.
+    case uncaughtSignal
+  }
+
+  /// A name of the endpoint for this connection, used for logging, e.g. `clangd`.
+  private let name: String
+
+  /// The message handler that handles requests and notifications sent through this connection.
+  ///
+  /// - Important: Must only be accessed from `queue`, or in `init`/`deinit` to avoid data races.
+  nonisolated(unsafe) private var receiveHandler: MessageHandler? = nil
+
+  /// Queue for synchronizing all messages to ensure they remain in order
+  private let queue: DispatchQueue
+
+  /// Queue for the read loop (effectively just a separate thread - we never yield from the initial task)
+  private let receiveQueue: DispatchQueue
+
+  /// Queue for sending any data through `sendFD`. This is currently needed as the read loop is blocked on messages
+  /// being parsed on `queue` (in order to not add an extra copy), so we must perform any corresponding sends off of
+  /// `queue`. If we ever change that, we can likely remove this queue.
+  private let sendQueue: DispatchQueue
+
+  /// File descriptor for reading input (eg. stdin for an LSP server)
+  private let receiveFD: FileHandle
+  /// If non-nil, all data received by `receiveFD` will be mirrored to this file handle
+  private let receiveMirrorFile: FileHandle?
+
+  /// File desciptor for sending output (eg. stdout for an LSP server)
+  private let sendFD: FileHandle
+  /// If non-nil, all output sent to `sendFD` will be mirrored to this file handle
+  private let sendMirrorFile: FileHandle?
+
+  private let messageRegistry: MessageRegistry
+
+  enum State {
+    case created, running, closed
+  }
+
+  /// Current state of the connection, used to ensure correct usage.
+  ///
+  /// Access to this must be be guaranteed to be sequential to avoid data races. Currently, all access are:
+  ///  - `init`: Reference to `JSONRPCConnection` trivially can't have escaped to other isolation domains yet.
+  ///  - `start`: Synchronized on `queue`.
+  ///  - `closeAssumingOnQueue`: Synchronized on `queue`.
+  ///  - `readyToSend`: Synchronized on `queue`.
+  ///  - `deinit`: Can also only trivially be called once.
+  private nonisolated(unsafe) var state: State = .created
+
+  /// An integer that hasn't been used for a request ID yet.
+  ///
+  /// Upstream uses `Atomic<UInt32>`, which requires macOS 15; a lock-guarded
+  /// counter is equivalent for this pre-increment use.
+  private let requestIDLock = NSLock()
+  private nonisolated(unsafe) var nextRequestIDValue: UInt32 = 0
+
+  struct OutstandingRequest: Sendable {
+    var responseType: ResponseType.Type
+    var replyHandler: @Sendable (LSPResult<Any>) -> Void
+  }
+
+  /// The set of currently outstanding outgoing requests along with information about how to decode and handle their
+  /// responses.
+  ///
+  /// All accesses to `outstandingRequests` must be on `queue` to avoid race conditions.
+  private nonisolated(unsafe) var outstandingRequests: [RequestID: OutstandingRequest] = [:]
+
+  /// A handler that will be called asynchronously when the connection is being
+  /// closed.
+  ///
+  /// There are no race conditions to `closeHandler` because it is only set from `start`, which is required to be called
+  /// in the same serial code region domain as the initializer, so it's serial and the `JSONRPCConnection` can't
+  /// have escaped to other isolation domains yet.
+  private nonisolated(unsafe) var closeHandler: (@Sendable () async -> Void)? = nil
+
+  /// - Important: `start` must be called before sending any data over the `JSONRPCConnection`.
+  @available(*, deprecated, message: "Use init(name:protocol:receiveFD:sendFD:receiveMirrorFile:sendMirrorFile instead")
+  public convenience init(
+    name: String,
+    protocol messageRegistry: MessageRegistry,
+    inFD: FileHandle,
+    outFD: FileHandle,
+    inputMirrorFile: FileHandle? = nil,
+    outputMirrorFile: FileHandle? = nil
+  ) {
+    self.init(
+      name: name,
+      protocol: messageRegistry,
+      receiveFD: inFD,
+      sendFD: outFD,
+      receiveMirrorFile: inputMirrorFile,
+      sendMirrorFile: outputMirrorFile
+    )
+  }
+
+  /// - Important: `start` must be called before sending any data over the `JSONRPCConnection`.
+  public init(
+    name: String,
+    protocol messageRegistry: MessageRegistry,
+    receiveFD: FileHandle,
+    sendFD: FileHandle,
+    receiveMirrorFile: FileHandle? = nil,
+    sendMirrorFile: FileHandle? = nil
+  ) {
+    self.name = name
+    self.queue = DispatchQueue(label: "\(name)-jsonrpc-queue", qos: .userInitiated)
+    self.receiveQueue = DispatchQueue(label: "\(name)-jsonrpc-read-queue", qos: .userInitiated)
+    self.sendQueue = DispatchQueue(label: "\(name)-jsonrpc-send-queue", qos: .userInitiated)
+    self.receiveFD = receiveFD
+    self.receiveMirrorFile = receiveMirrorFile
+    self.sendFD = sendFD
+    self.sendMirrorFile = sendMirrorFile
+    self.messageRegistry = messageRegistry
+    globallyDisableSigpipeIfNeeded()
+  }
+
+  // Note: The upstream `start(executable:...)` helper that connects to a
+  // subprocess was removed. Grammar Workbench only uses `JSONRPCConnection`
+  // in server mode, where it is wired directly to stdin/stdout.
+
+  /// Read from `fileHandle` on a dedicated background queue with a blocking loop, forwarding each chunk to
+  /// `receiveData` until end-of-file, then invoke `reachedEndOfFile`.
+  ///
+  /// A blocking read is used rather than a `readabilityHandler`. `readabilityHandler` installs a libdispatch
+  /// read source on the file descriptor; tearing that source down races epoll event delivery on Linux and
+  /// can crash the process in `_dispatch_event_loop_drain`. A blocking read never registers the descriptor
+  /// with libdispatch. See https://github.com/swiftlang/swift-corelibs-libdispatch/issues/949.
+  ///
+  /// The raw file descriptor is read instead of `FileHandle.read(upToCount:)`: on non-Darwin platforms the
+  /// latter blocks until it accumulates the full requested count or reaches EOF, which would withhold small,
+  /// intermittently emitted output until the writer closes the pipe. A raw `read` returns as soon as any
+  /// bytes are available. On Windows the file descriptor is unavailable and the crash does not occur, so a
+  /// `readabilityHandler` read source is used there.
+  ///
+  /// A read failure other than `EINTR` is logged and ends the loop.
+  @_spi(Testing)
+  public static func readInBackground(
+    fileHandle: FileHandle,
+    queueLabel: String,
+    receiveData: @Sendable @escaping (Data) -> Void,
+    reachedEndOfFile: (@Sendable () -> Void)? = nil
+  ) {
+    #if os(Windows)
+    // `FileHandle.fileDescriptor` is unavailable on Windows. The libdispatch epoll crash has not occurred
+    // on Windows, so a `readabilityHandler` read source is used there.
+    fileHandle.readabilityHandler = { handle in
+      let data = handle.availableData
+      if data.isEmpty {
+        handle.readabilityHandler = nil
+        reachedEndOfFile?()
+      } else {
+        receiveData(data)
+      }
+    }
+    #else
+    let fileDescriptor = fileHandle.fileDescriptor
+    let queue = DispatchQueue(label: queueLabel)
+    queue.async {
+      var buffer = [UInt8](repeating: 0, count: 8 * 1024)
+      while true {
+        let (bytesRead, readErrno) = buffer.withUnsafeMutableBytes { ptr -> (Int, CInt) in
+          let count = read(fileDescriptor, ptr.baseAddress, ptr.count)
+          return (count, errno)
+        }
+        if bytesRead > 0 {
+          receiveData(Data(buffer[0..<bytesRead]))
+        } else if bytesRead == 0 {
+          // End-of-file: the writer closed the pipe.
+          break
+        } else if readErrno == EINTR {
+          // Interrupted by a signal; retry the read.
+          continue
+        } else {
+          logger.error(
+            "Reading \(queueLabel, privacy: .public) failed: \(String(cString: strerror(readErrno)), privacy: .public) (errno \(readErrno))"
+          )
+          break
+        }
+      }
+      // Keep the handle alive for the duration of the loop so its file descriptor is not closed while
+      // `read` is blocked on it.
+      withExtendedLifetime(fileHandle) {}
+      reachedEndOfFile?()
+    }
+    #endif
+  }
+
+  deinit {
+    assert(state == .closed)
+  }
+
+  /// Change the handler that handles messages from the JSON-RPC connection to a new handler.
+  public func changeReceiveHandler(_ receiveHandler: MessageHandler) {
+    queue.sync {
+      self.receiveHandler = receiveHandler
+    }
+  }
+
+  /// Start processing `inFD` and send messages to `receiveHandler`.
+  ///
+  /// - parameter receiveHandler: The message handler to invoke for requests received on the `inFD`.
+  ///
+  /// - Important: `start` must be called before sending any data over the `JSONRPCConnection`.
+  // Workaround formatter issue: https://github.com/swiftlang/swift-format/issues/1081
+  // swift-format-ignore
+  public func start(
+    receiveHandler: MessageHandler,
+    closeHandler: @escaping @Sendable () async -> Void = {}
+  ) {
+    queue.sync {
+      precondition(state == .created)
+      state = .running
+      self.receiveHandler = receiveHandler
+      self.closeHandler = closeHandler
+    }
+
+    self.receiveQueue.async {
+      let parser = JSONMessageParser(decoder: self.decodeJSONRPCMessage)
+      while true {
+        let data = orLog("Reading from \(self.name)") { try self.receiveFD.read(upToCount: parser.nextReadLength) }
+        guard let data, !data.isEmpty else {
+          // We have reached the end of `receiveFD`, close the connection.
+          self.close()
+          return
+        }
+
+        orLog("Writing receive mirror file") {
+          try self.receiveMirrorFile?.write(contentsOf: data)
+        }
+
+        self.queue.sync {
+          if let message = parser.parse(chunk: data) {
+            self.handle(message)
+          }
+        }
+      }
+    }
+  }
+
+  /// Send a notification to the client that informs the user about a message encoding or decoding error and asks them
+  /// to file an issue.
+  ///
+  /// `message` describes what has gone wrong to the user.
+  ///
+  /// - Important: Must be called on `queue`
+  private func sendMessageCodingErrorNotificationToClient(message: String) {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    let showMessage = ShowMessageNotification(
+      type: .error,
+      message: """
+        \(message). Please run 'sourcekit-lsp diagnose' to file an issue.
+        """
+    )
+    self.sendAssumingOnQueue(.notification(showMessage))
+  }
+
+  /// Decode a single JSONRPC message from the given `messageBytes`.
+  ///
+  /// `messageBytes` should be valid JSON, ie. this is the message sent from the client without the `Content-Length`
+  /// header.
+  ///
+  /// If an error occurs during message parsing, this tries to recover as gracefully as possible and returns `nil`.
+  /// Callers should consider the message handled and ignore it when this function returns `nil`.
+  ///
+  /// - Important: Must be called on `queue`
+  private func decodeJSONRPCMessage(_ messageBytes: Data) -> JSONRPCMessage? {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    let decoder = JSONDecoder()
+
+    // Set message registry to use for model decoding.
+    decoder.userInfo[.messageRegistryKey] = messageRegistry
+
+    // Setup callback for response type.
+    decoder.userInfo[.responseTypeCallbackKey] = { @Sendable (id: RequestID) -> ResponseType.Type? in
+      // `outstandingRequests` should never be mutated in this closure. Reading is fine as all of our other writes are
+      // guarded by `queue`, but `JSONDecoder` could (since this is sendable) invoke this concurrently.
+      guard let outstanding = self.outstandingRequests[id] else {
+        logger.error("Unknown request for \(id, privacy: .public)")
+        return nil
+      }
+      return outstanding.responseType
+    }
+
+    do {
+      return try decoder.decode(
+        JSONRPCMessage.self,
+        from: messageBytes
+      )
+    } catch let error as MessageDecodingError {
+      logger.fault("Failed to decode message: \(error.forLogging)")
+      logger.fault("Malformed message: \(String(bytes: messageBytes, encoding: .utf8) ?? "<invalid UTF-8>")")
+
+      // We failed to decode the message. Under those circumstances try to behave as LSP-conforming as possible.
+      // Always log at the fault level so that we know something is going wrong from the logs.
+      //
+      // The pattern below is to handle the message in the best possible way and then `return nil` to acknowledge the
+      // handling. That way the compiler enforces that we handle all code paths.
+      switch error.messageKind {
+      case .request:
+        if let id = error.id {
+          // If we know it was a request and we have the request ID, simply reply to the request and tell the client
+          // that we couldn't parse it. That complies with LSP that all requests should eventually get a response.
+          logger.fault(
+            "Replying to request \(id, privacy: .public) with error response because we failed to decode the request"
+          )
+          self.sendAssumingOnQueue(.errorResponse(ResponseError(error), id: id))
+          return nil
+        }
+        // If we don't know the ID of the request, ignore it and show a notification to the user.
+        // That way the user at least knows that something is going wrong even if the client never gets a response
+        // for the request.
+        logger.fault("Ignoring request because we failed to decode the request and don't have a request ID")
+        sendMessageCodingErrorNotificationToClient(message: "sourcekit-lsp failed to decode a request")
+        return nil
+      case .response:
+        if let id = error.id {
+          if let outstanding = self.outstandingRequests.removeValue(forKey: id) {
+            // If we received a response to a request we sent to the client, assume that the client responded with an
+            // error. That complies with LSP that all requests should eventually get a response.
+            logger.fault(
+              "Assuming an error response to request \(id, privacy: .public) because response from client could not be decoded"
+            )
+            outstanding.replyHandler(.failure(ResponseError(error)))
+            return nil
+          }
+          // If there's an error in the response but we don't even know about the request, we can ignore it.
+          logger.fault(
+            "Ignoring response to request \(id, privacy: .public) because it could not be decoded and given request ID is unknown"
+          )
+          return nil
+        }
+        // And if we can't even recover the ID the response is for, we drop it. This means that whichever code in
+        // sourcekit-lsp sent the request will probably never get a reply but there's nothing we can do about that.
+        // Ideally requests sent from sourcekit-lsp to the client would have some kind of timeout anyway.
+        logger.fault("Ignoring response because its request ID could not be recovered")
+        return nil
+      case .notification:
+        if error.code == .methodNotFound {
+          // If we receive a notification we don't know about, this might be a client sending a new LSP notification
+          // that we don't know about. It can't be very critical so we ignore it without bothering the user with an
+          // error notification.
+          logger.fault("Ignoring notification because we don't know about it's method")
+          return nil
+        }
+        // Ignoring any other notification might result in corrupted behavior. For example, ignoring a
+        // `textDocument/didChange` will result in an out-of-sync state between the editor and sourcekit-lsp.
+        // Warn the user about the error.
+        logger.fault("Ignoring notification that may cause corrupted behavior")
+        sendMessageCodingErrorNotificationToClient(message: "sourcekit-lsp failed to decode a notification")
+        return nil
+      case .unknown:
+        // We don't know what has gone wrong. This could be any level of badness. Inform the user about it.
+        logger.fault("Ignoring unknown message")
+        sendMessageCodingErrorNotificationToClient(message: "sourcekit-lsp failed to decode a message")
+        return nil
+      }
+    } catch {
+      // We don't know what has gone wrong. This could be any level of badness. Inform the user about it and ignore the
+      // message.
+      logger.fault("Ignoring unknown message")
+      sendMessageCodingErrorNotificationToClient(message: "sourcekit-lsp failed to decode an unknown message")
+      return nil
+    }
+  }
+
+  /// Whether we can send messages in the current state.
+  ///
+  /// - parameter shouldLog: Whether to log an info message if not ready.
+  ///
+  /// - Important: Must be called on `queue`. Note that the state might change as soon as execution leaves
+  ///  `queue`.
+  func readyToSend(shouldLog: Bool = true) -> Bool {
+    dispatchPrecondition(condition: .onQueue(queue))
+    precondition(state != .created, "tried to send message before calling start(messageHandler:)")
+
+    let ready = state == .running
+    if shouldLog && !ready {
+      logger.error("Ignoring message; state = \(String(reflecting: self.state), privacy: .public)")
+    }
+    return ready
+  }
+
+  /// Handle a single message by dispatching it to `receiveHandler` or an appropriate reply handler.
+  ///
+  /// - Important: Must be called on `queue`
+  func handle(_ message: JSONRPCMessage) {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    guard let receiveHandler, state == .running else {
+      logger.error("Ignoring message as the JSON-RPC connection is closed: \(message.prettyPrintedRedactedJSON)")
+      return
+    }
+
+    switch message {
+    case .notification(let notification):
+      notification._handle(receiveHandler)
+    case .request(let request, _, let id):
+      request._handle(receiveHandler, id: id) { (response, id) in
+        self.sendReply(response, id: id)
+      }
+    case .response(let response, let id):
+      guard let outstanding = outstandingRequests.removeValue(forKey: id) else {
+        logger.error("No outstanding requests for response ID \(id, privacy: .public)")
+        return
+      }
+      outstanding.replyHandler(.success(response))
+    case .errorResponse(let error, let id):
+      guard let id = id else {
+        logger.error("Received error response for unknown request: \(error.forLogging)")
+        return
+      }
+      guard let outstanding = outstandingRequests.removeValue(forKey: id) else {
+        logger.error("No outstanding requests for error response ID \(id, privacy: .public)")
+        return
+      }
+      outstanding.replyHandler(.failure(error))
+    }
+  }
+
+  /// Send the raw data to the receiving end of this connection.
+  ///
+  /// If an unrecoverable error occurred on the channel's file descriptor, the connection gets closed.
+  ///
+  /// - Important: Must be called on `queue`
+  private func sendAssumingOnQueue(data: Data) {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    guard readyToSend() else { return }
+
+    sendQueue.async {
+      orLog("Writing send mirror file") {
+        try self.sendMirrorFile?.write(contentsOf: data)
+      }
+
+      do {
+        try self.sendFD.write(contentsOf: data)
+      } catch {
+        logger.fault("IO error sending message to \(self.name): \(error.forLogging)")
+        // This probably means the peer process exited unexpectedly.
+        // Nothing to do here. 'process.terminationHandler' should cleanup things.
+      }
+    }
+  }
+
+  /// Wrapper of `sendAssumingOnQueue(data:)` that automatically switches to `queue`.
+  ///
+  /// This should only be used to test that the client decodes messages correctly if data is delivered to it
+  /// byte-by-byte instead of in larger chunks that contain entire messages.
+  @_spi(Testing)
+  public func send(data: Data) {
+    queue.sync {
+      self.sendAssumingOnQueue(data: data)
+    }
+  }
+
+  /// Send the given message to the receiving end of the connection.
+  ///
+  /// If an unrecoverable error occurred on the channel's file descriptor, the connection gets closed.
+  ///
+  /// - Important: Must be called on `queue`
+  private func sendAssumingOnQueue(_ message: JSONRPCMessage) {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    let content: Data
+    do {
+      content = try JSONEncoder().encode(message)
+    } catch {
+      logger.fault("Failed to encode message: \(error.forLogging)")
+      logger.fault("Malformed message: \(String(describing: message))")
+      switch message {
+      case .notification(_):
+        // We want to send a notification to the editor but failed to encode it. Since dropping the notification might
+        // result in getting out-of-sync state-wise with the editor (eg. for work progress notifications), inform the
+        // user about it.
+        sendMessageCodingErrorNotificationToClient(
+          message: "sourcekit-lsp failed to encode a notification to the editor"
+        )
+        return
+      case .request(_, _, _):
+        // We want to send a notification to the editor but failed to encode it. We don't know the `reply` handle for
+        // the request at this point so we can't synthesize an errorResponse for the request. This means that the
+        // request will never receive a reply. Inform the user about it.
+        sendMessageCodingErrorNotificationToClient(
+          message: "sourcekit-lsp failed to encode a request to the editor"
+        )
+        return
+      case .response(_, _):
+        // The editor sent a request to sourcekit-lsp, which failed but we can't serialize the result back to the
+        // client. This means that the request will never receive a reply. Inform the user about it and accept that
+        // we'll never send a reply.
+        sendMessageCodingErrorNotificationToClient(
+          message: "sourcekit-lsp failed to encode a response to the editor"
+        )
+        return
+      case .errorResponse(_, _):
+        // Same as `.response`. Has an optional `id`, so can't share the case.
+        sendMessageCodingErrorNotificationToClient(
+          message: "sourcekit-lsp failed to encode an error response to the editor"
+        )
+        return
+      }
+    }
+
+    let header = "Content-Length: \(content.count)\r\n\r\n"
+    sendAssumingOnQueue(data: Data(header.utf8))
+    sendAssumingOnQueue(data: content)
+  }
+
+  /// Close the connection.
+  ///
+  /// The user-provided close handler will be called *asynchronously* when all outstanding I/O
+  /// operations have completed. No new I/O will be handled after `close` returns.
+  public func close() {
+    queue.sync {
+      closeAssumingOnQueue()
+    }
+  }
+
+  /// Close the connection, assuming that the code is already executing on `queue`.
+  ///
+  /// - Important: Must be called on `queue`.
+  private func closeAssumingOnQueue() {
+    dispatchPrecondition(condition: .onQueue(queue))
+
+    guard state == .running else { return }
+    state = .closed
+
+    logger.log("Closing JSONRPCConnection to \(self.name)")
+
+    // Allow any data in queue to be sent before closing
+    sendQueue.sync {
+      // IMPORTANT: `sendFD` *must* be closed first so that the corresponding process sends an EOF to `receiveFD`,
+      // otherwise Windows will wait in `receiveFD.close` for the `receiveFD.read` on the read loop thread to return.
+      // macOS/Linux both return from the read with a `EPIPE` regardless, so the order doesn't matter there.
+      orLog("Closing sendFD to \(name)") {
+        try sendFD.close()
+      }
+      orLog("Closing receiveFD to \(name)") {
+        try receiveFD.close()
+      }
+      orLog("Closing sendMirrorFile to \(name)") {
+        try sendMirrorFile?.close()
+      }
+      orLog("Closing receiveMirrorFile to \(name)") {
+        try receiveMirrorFile?.close()
+      }
+    }
+
+    self.receiveHandler = nil
+    for outstandingRequest in self.outstandingRequests.values {
+      outstandingRequest.replyHandler(LSPResult.failure(ResponseError.internalError("JSON-RPC connection closed")))
+    }
+    self.outstandingRequests = [:]
+
+    Task {
+      await self.closeHandler?()
+    }
+  }
+
+  /// Request id for the next outgoing request.
+  public func nextRequestID() -> RequestID {
+    requestIDLock.lock()
+    defer { requestIDLock.unlock() }
+    let id = nextRequestIDValue
+    nextRequestIDValue &+= 1
+    return .string("sk-\(id)")
+  }
+
+  // MARK: Connection interface
+
+  /// Send the notification to the remote side of the notification.
+  public func send(_ notification: some NotificationType) {
+    queue.async {
+      logger.info(
+        """
+        Sending notification to \(self.name, privacy: .public)
+        \(notification.forLogging)
+        """
+      )
+      self.sendAssumingOnQueue(.notification(notification))
+    }
+  }
+
+  /// Send the given request to the remote side of the connection.
+  ///
+  /// When the receiving end replies to the request, execute `reply` with the response.
+  public func send<Request: RequestType>(
+    _ request: Request,
+    method: String,
+    id: RequestID,
+    reply: @escaping @Sendable (LSPResult<Request.Response>) -> Void
+  ) {
+    self.queue.async {
+      guard self.readyToSend() else {
+        reply(.failure(.serverCancelled))
+        return
+      }
+
+      self.outstandingRequests[id] = OutstandingRequest(
+        responseType: Request.Response.self,
+        replyHandler: { anyResult in
+          let result = anyResult.map { $0 as! Request.Response }
+          switch result {
+          case .success(let response):
+            logger.info(
+              """
+              Received reply for request \(id, privacy: .public) from \(self.name, privacy: .public)
+              \(method, privacy: .public)
+              \(response.forLogging)
+              """
+            )
+          case .failure(let error):
+            logger.error(
+              """
+              Received error for request \(id, privacy: .public) from \(self.name, privacy: .public)
+              \(method, privacy: .public)
+              \(error.forLogging)
+              """
+            )
+          }
+          reply(result)
+        }
+      )
+      logger.info(
+        """
+        Sending request to \(self.name, privacy: .public) (id: \(id, privacy: .public)):
+        \(request.forLogging)
+        """
+      )
+      self.sendAssumingOnQueue(.request(request, method: method, id: id))
+    }
+  }
+
+  /// After the remote side of the connection sent a request to us, return a reply to the remote side.
+  public func sendReply(_ response: LSPResult<ResponseType>, id: RequestID) {
+    queue.async {
+      switch response {
+      case .success(let result):
+        self.sendAssumingOnQueue(.response(result, id: id))
+      case .failure(let error):
+        self.sendAssumingOnQueue(.errorResponse(error, id: id))
+      }
+    }
+  }
+}

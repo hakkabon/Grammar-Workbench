@@ -1,0 +1,5 @@
+// Sample program for the proto grammar. Fix the missing expression on line 2
+// (print 42;) to see the diagnostic clear.
+print;
+var total = 42;
+print total;

@@ -5,7 +5,7 @@ import PackagePlugin
 struct GrammarWorkbenchPlugin: BuildToolPlugin {
     func createBuildCommands(context: PluginContext, target: Target) async throws -> [Command] {
         guard let sourceTarget = target as? SourceModuleTarget else { return [] }
-        let tool = try context.tool(named: "grammar-workbench")
+        let tool = try context.tool(named: "GrammarWorkbenchCLI")
         return sourceTarget.sourceFiles.compactMap { file in
             let source = file.url
             guard ["grammar", "ebnf"].contains(source.pathExtension.lowercased()) else { return nil }

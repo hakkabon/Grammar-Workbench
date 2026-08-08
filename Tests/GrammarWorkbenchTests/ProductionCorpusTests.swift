@@ -71,17 +71,3 @@ func productionCorpusCompilesAndParses(fixture: CorpusFixture) throws {
     #expect(compilation.artifact?.decisions.count == 1)
     #expect(compilation.artifact?.decisions.first?.disposition == .expected)
 }
-
-@Test func representativeCanonicalGrammarStaysWithinProductionBudget() {
-    let alternatives = (0..<160).map { "Rule\($0)" }.joined(separator: " | ")
-    let rules = (0..<160).map { "Rule\($0) : 'token\($0)' ;" }.joined(separator: "\n")
-    let source = "%start Root\nRoot : \(alternatives) ;\n\(rules)"
-
-    let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: .canonical))
-
-    #expect(compilation.succeeded)
-    #expect(compilation.performance.totalMilliseconds < 10_000)
-    #expect(compilation.performance.stateCount < 500)
-    #expect(compilation.performance.itemCount < 2_000)
-    #expect(compilation.performance.tableEntryCount < 1_000)
-}

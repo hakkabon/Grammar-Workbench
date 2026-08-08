@@ -21,6 +21,19 @@ public enum GrammarWorkbenchRelease {
     }
 }
 
+public enum GrammarWorkbenchFeatureMaturity: String, Codable, Sendable {
+    case stable
+    case experimental
+}
+
+/// Machine-readable maturity declarations for downstream compatibility gates.
+public enum GrammarWorkbenchCapabilities {
+    public static let deterministicParsing: GrammarWorkbenchFeatureMaturity = .stable
+    public static let semanticOutput: GrammarWorkbenchFeatureMaturity = .stable
+    public static let generatorEcosystem: GrammarWorkbenchFeatureMaturity = .stable
+    public static let generalizedParsing: GrammarWorkbenchFeatureMaturity = .experimental
+}
+
 public struct GrammarWorkbenchSettingsView: View {
     @AppStorage("openLastDocument") private var openLastDocument = true
     @AppStorage("confirmArtifactExport") private var confirmArtifactExport = false

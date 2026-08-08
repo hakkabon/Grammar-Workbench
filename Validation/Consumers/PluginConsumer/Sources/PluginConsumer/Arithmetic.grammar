@@ -1,0 +1,4 @@
+%token NUMBER /[0-9]+/
+%skip /\s+/
+%start Sum
+Sum : Sum '+' NUMBER | NUMBER ;

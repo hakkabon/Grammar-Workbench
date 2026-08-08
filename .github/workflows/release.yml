@@ -18,8 +18,8 @@ jobs:
         run: |
           SOURCE_VERSION=$(sed -n 's/.*public static let version = "\([0-9.]*\)".*/\1/p' Sources/GrammarWorkbench/ProductionSupport.swift)
           test "v$SOURCE_VERSION" = "${{ github.ref_name }}"
-      - name: Test
-        run: swift test
+      - name: Release-candidate gate
+        run: Scripts/validate-release-candidate.sh
       - name: Package unsigned release artifacts
         env:
           ARCHS: arm64 x86_64

@@ -19,3 +19,7 @@ Generalized parsing is experimental and is not part of the stable persistence co
 ## Generated parsers
 
 Generated parsers are dependency-free. Regenerate them when upgrading Grammar Workbench so table behavior, recovery, and semantic evaluation remain aligned with the selected release.
+
+## Semantic actions
+
+Existing `GrammarSemanticReducer` implementations remain supported. Applications may adopt `GrammarSemanticActions` incrementally; its production IDs are the same identities already supplied to `reduce(production:children:node:)`. Validate an action set against `GrammarSemanticModel` after grammar changes. The `semantic-swift` generator creates an editable starter and never modifies application sources in place.

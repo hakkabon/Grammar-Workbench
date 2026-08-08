@@ -43,4 +43,15 @@ let model = try GrammarSemanticModel(compilation: compilation)
 guard model.startSymbol == "Expr", !model.productions.isEmpty else {
     fatalError("Unexpected semantic model")
 }
+let declarative = try GrammarSemanticActions<String>(
+    terminal: { token, _ in token.lexeme },
+    missing: { symbol, _ in "<missing \(symbol)>" },
+    productions: model.productions.map { production in
+        .init(production.id) { $0.children.joined() }
+    }
+)
+try model.validate(declarative)
+guard try compilation.parse("1 + 2", using: declarative).value == "1+2" else {
+    fatalError("Unexpected declarative semantic output")
+}
 print("library-consumer-ok")

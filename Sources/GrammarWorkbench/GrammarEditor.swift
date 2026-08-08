@@ -26,13 +26,44 @@ enum GrammarEditorIntelligence {
         notation: GrammarSourceNotation = .workbench
     ) -> [String] {
         if notation == .ebnf {
-            return Array(Set(["lexical"] + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
+            let nonterminals = (result.grammar?.nonterminals ?? []).filter { !$0.hasPrefix("__ebnf_") }
+            return Array(Set(["lexical", "ε"] + nonterminals + (result.grammar?.terminals ?? []))).sorted()
         }
         let directives = ["%start", "%token", "%skip", "%mode", "%begin", "%push", "%pop", "%left", "%right", "%nonassoc", "%expect"]
         return Array(Set(directives + (result.grammar?.nonterminals ?? []) + (result.grammar?.terminals ?? []))).sorted()
     }
 
-    static func quickFixes(for diagnostic: GrammarDiagnostic, source: String) -> [GrammarQuickFix] {
+    static func quickFixes(
+        for diagnostic: GrammarDiagnostic, source: String,
+        notation: GrammarSourceNotation = .workbench
+    ) -> [GrammarQuickFix] {
+        if notation == .ebnf {
+            if diagnostic.code == "undefined-ebnf-symbol",
+               let symbol = quotedSymbol(in: diagnostic.message) {
+                let separator = source.isEmpty || source.hasSuffix("\n") ? "" : "\n"
+                return [.init(
+                    id: "define-ebnf-\(symbol)", title: "Add production for ‘\(symbol)’",
+                    replacementRange: source.count..<source.count,
+                    replacement: "\(separator)\(symbol) = ;\n"
+                )]
+            }
+            let closers: [(String, String)] = [
+                ("closing ']'", "]"), ("closing '}'", "}"), ("closing ')'", ")"),
+                ("closing ‘]’", "]"), ("closing ‘}’", "}"), ("closing ‘)’", ")")
+            ]
+            if let closer = closers.first(where: { diagnostic.message.contains($0.0) })?.1 {
+                var offset = min(diagnostic.range.start.offset, source.count)
+                let prefix = String(source.prefix(offset))
+                if let terminator = prefix.lastIndex(where: { !$0.isWhitespace }), prefix[terminator] == ";" {
+                    offset = prefix.distance(from: prefix.startIndex, to: terminator)
+                }
+                return [.init(
+                    id: "close-ebnf-\(closer)-\(offset)", title: "Insert missing ‘\(closer)’",
+                    replacementRange: offset..<offset, replacement: closer
+                )]
+            }
+            return []
+        }
         if diagnostic.code == "undefined-symbol",
            diagnostic.range.start.offset < diagnostic.range.end.offset,
            diagnostic.range.end.offset <= source.count,
@@ -61,6 +92,12 @@ enum GrammarEditorIntelligence {
             }
         }
         return []
+    }
+
+    private static func quotedSymbol(in message: String) -> String? {
+        guard let opening = message.firstIndex(of: "‘"),
+              let closing = message[message.index(after: opening)...].firstIndex(of: "’") else { return nil }
+        return String(message[message.index(after: opening)..<closing])
     }
 }
 

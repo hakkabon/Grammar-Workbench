@@ -10,7 +10,7 @@ Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artif
 6. Enter malformed sample input to inspect expected tokens, recovery decisions, the recovered tree, and replay trace.
 7. Open Compare to inspect state merging, table differences, conflicts, and the recommended LR algorithm.
 
-Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions.
+Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
 
 For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to inspect lowering, `diff` to review artifact changes, and the `GrammarWorkbenchPlugin` SwiftPM build plugin to turn target-local `.grammar` or `.ebnf` files into standalone Swift parsers.
 

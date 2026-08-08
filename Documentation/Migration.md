@@ -23,3 +23,7 @@ Generated parsers are dependency-free. Regenerate them when upgrading Grammar Wo
 ## Semantic actions
 
 Existing `GrammarSemanticReducer` implementations remain supported. Applications may adopt `GrammarSemanticActions` incrementally; its production IDs are the same identities already supplied to `reduce(production:children:node:)`. Validate an action set against `GrammarSemanticModel` after grammar changes. The `semantic-swift` generator creates an editable starter and never modifies application sources in place.
+
+## EBNF lowering
+
+Lowering snapshots now include `productionOrigins`. Decoding older snapshots defaults this property to an empty array. Consumers that navigate from parser production IDs may use the origin map when present and retain their existing fallback when it is absent.

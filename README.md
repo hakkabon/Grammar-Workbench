@@ -46,6 +46,8 @@ let compilation = GrammarWorkbenchAPI.compile(.init(
 print(lowered.loweredSource)
 ```
 
+Lowering also publishes `productionOrigins`, mapping every generated BNF reduction identity back to its native EBNF declaration. The editor uses the same map for diagnostic underlines and navigation from states, table cells, decisions, and productions. EBNF completion hides synthetic lowering symbols, while native diagnostics and quick fixes cover undefined references and unclosed option, repetition, and grouping constructs. See `Documentation/EBNFEditorIntelligence.md`.
+
 ## Extensible generation and external interchange
 
 `GrammarGenerator` is the public extension boundary for code generators, documentation emitters, and build-system adapters. A generator receives only `GrammarCompilation` and public immutable snapshots. Register generators in an independent `GrammarGeneratorRegistry`; equal identifiers are rejected unless replacement is explicit, and generation runs away from the registry actor. Results support one or more named text or binary files plus non-fatal diagnostics.

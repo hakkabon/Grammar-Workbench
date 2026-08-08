@@ -8,7 +8,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Immutable public snapshots and schema-versioned project, artifact, and semantic-model interchange.
 - `GrammarSyntaxNode`, `GrammarSemanticReducer`, declarative `GrammarSemanticActions`, semantic coverage validation, and semantic evaluation.
 - `GrammarGenerator`, its registry, built-in generators, standalone Swift generation, and the SwiftPM plugin.
-- SLR(1), LALR(1), canonical LR(1), lexer modes, EBNF input, algorithm comparison, and artifact diffs.
+- SLR(1), LALR(1), canonical LR(1), lexer modes, EBNF input and production-origin mapping, algorithm comparison, and artifact diffs.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

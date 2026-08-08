@@ -65,6 +65,50 @@ import Testing
     #expect(!GrammarFrontEnd.process(fixed).hasErrors)
 }
 
+@Test func EBNFCompletionsHideLoweringDetailsAndIncludeNativeVocabulary() {
+    let source = "root = item { item } ;\nitem = \"x\" ;"
+    let result = GrammarFrontEnd.process(source, notation: .ebnf)
+    let completions = GrammarEditorIntelligence.completions(for: result, notation: .ebnf)
+
+    #expect(completions.contains("root"))
+    #expect(completions.contains("item"))
+    #expect(completions.contains("lexical"))
+    #expect(completions.contains("ε"))
+    #expect(!completions.contains { $0.hasPrefix("__ebnf_") })
+    #expect(!completions.contains("%token"))
+}
+
+@Test func EBNFQuickFixesCloseConstructsAndCreateMissingProductions() throws {
+    let malformed = "expression = [ \"term\" ;"
+    let malformedResult = GrammarFrontEnd.process(malformed, notation: .ebnf)
+    let closingDiagnostic = try #require(malformedResult.diagnostics.first)
+    let closingFix = try #require(GrammarEditorIntelligence.quickFixes(
+        for: closingDiagnostic, source: malformed, notation: .ebnf
+    ).first)
+    let closed = closingFix.applying(to: malformed)
+    #expect(closed == "expression = [ \"term\" ];")
+    #expect(!GrammarFrontEnd.process(closed, notation: .ebnf).hasErrors)
+
+    let undefined = "expression = missing ;"
+    let undefinedResult = GrammarFrontEnd.process(undefined, notation: .ebnf)
+    let undefinedDiagnostic = try #require(undefinedResult.diagnostics.first { $0.code == "undefined-ebnf-symbol" })
+    let definitionFix = try #require(GrammarEditorIntelligence.quickFixes(
+        for: undefinedDiagnostic, source: undefined, notation: .ebnf
+    ).first)
+    #expect(!GrammarFrontEnd.process(definitionFix.applying(to: undefined), notation: .ebnf).hasErrors)
+}
+
+@MainActor @Test func EBNFArtifactNavigationSelectsTheOriginalDeclaration() throws {
+    let source = "root = item { item } ;\nitem = \"x\" ;"
+    let store = ExplorerStore(source: source, notation: .ebnf)
+    let repeated = try #require(store.artifact.productions.first { $0.lhs.hasPrefix("__ebnf_") })
+
+    store.select(.production(repeated.id))
+
+    #expect(store.sourceSelection?.start.line == 1)
+    #expect(store.sourceSelection?.start.column == 1)
+}
+
 @MainActor
 @Test func editorDocumentViewStartsWithVisibleDimensions() {
     let textView = GrammarSourceEditor.makeTextView(contentSize: NSSize(width: 320, height: 240))

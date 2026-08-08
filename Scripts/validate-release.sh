@@ -27,6 +27,9 @@ test "$APP_VERSION" = "$CLI_VERSION"
 /usr/bin/lipo -info "$CLI_PATH" >/dev/null
 if [ -n "$LSP_PATH" ]; then /usr/bin/lipo -info "$LSP_PATH" >/dev/null; fi
 "$CLI_PATH" --help >/dev/null
+if [ -n "$LSP_PATH" ]; then
+    test -x "$LSP_PATH"
+fi
 
 if codesign -dv "$APP_PATH" >/dev/null 2>&1; then
     codesign --verify --deep --strict --verbose=2 "$APP_PATH"

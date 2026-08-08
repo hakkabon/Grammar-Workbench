@@ -23,7 +23,14 @@ enum GrammarWorkbenchLSPMain {
                 CompletionRequest.self,
                 HoverRequest.self,
                 DefinitionRequest.self,
+                DocumentSemanticTokensRequest.self,
+                ReferencesRequest.self,
+                RenameRequest.self,
                 CodeActionRequest.self,
+                DocumentHighlightRequest.self,
+                DocumentFormattingRequest.self,
+                DocumentRangeFormattingRequest.self,
+                DocumentLinkRequest.self,
             ],
             notifications: [
                 DidOpenTextDocumentNotification.self,
@@ -32,6 +39,7 @@ enum GrammarWorkbenchLSPMain {
                 DidCloseTextDocumentNotification.self,
                 InitializedNotification.self,
                 ExitNotification.self,
+                CancelRequestNotification.self,
             ]
         )
 

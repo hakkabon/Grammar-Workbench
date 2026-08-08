@@ -34,5 +34,5 @@ diagnostic (line 2 is missing its expression): `:lua vim.diagnostic.open_float()
   `pattern = { ["*.prog"] = "prog" }`.
 - Override the binary with `let g:grammar_workbench_binary = "/path/to/grammar-workbench-lsp"`.
 
-Completion (`<C-Space>`), hover (`K`), go-to-definition (`gd`), quick fixes,
-diagnostics, document symbols, and folding come from the server's LSP capabilities.
+Completion (`<C-Space>`), hover (`K`), diagnostics, document symbols, and
+folding come from the server's LSP capabilities.

@@ -4,8 +4,9 @@ import LanguageServerProtocol
 /// A recording `MessageHandler` that plays the role of the LSP client in tests.
 ///
 /// It records notifications sent by the server under test and replies to any
-/// request it receives with a `methodNotFound` error (tests do not ask the
-/// client to implement requests).
+/// request it receives with a `methodNotFound` error, except for
+/// `window/workDoneProgress/create`, which it honors so the server's progress
+/// reporting can be verified.
 public final class TestClient: MessageHandler, @unchecked Sendable {
     public private(set) var notifications: [any NotificationType] = []
 
@@ -22,11 +23,21 @@ public final class TestClient: MessageHandler, @unchecked Sendable {
             .filter { $0.uri == uri }
     }
 
+    /// `WorkDoneProgress` notifications (`$/progress`) received, in arrival
+    /// order.
+    public var progressNotifications: [WorkDoneProgress] {
+        notifications.compactMap { $0 as? WorkDoneProgress }
+    }
+
     public func handle<Request: RequestType>(
         _ request: Request,
         id: RequestID,
         reply: @escaping @Sendable (LSPResult<Request.Response>) -> Void
     ) {
+        if Request.self == CreateWorkDoneProgressRequest.self {
+            reply(.success(VoidResponse() as! Request.Response))
+            return
+        }
         reply(.failure(.methodNotFound(Request.method)))
     }
 }

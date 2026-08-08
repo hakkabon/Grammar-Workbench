@@ -286,6 +286,11 @@ public struct GrammarCompilation: Sendable {
 
     public var succeeded: Bool { compiledArtifact != nil }
 
+    /// The parsed grammar with source ranges for productions, token
+    /// declarations, and lexer rules, used by language services that work
+    /// inside grammar documents.
+    public var parsedGrammar: ParsedGrammar? { compiledGrammar }
+
     public func lex(_ input: String) -> GrammarLexingResult {
         guard let compiledGrammar else {
             return .init(tokens: [], diagnostics: [.init(id: 0, message: firstError, mode: nil, range: nil)], finalModeStack: ["DEFAULT"])

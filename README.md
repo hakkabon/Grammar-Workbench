@@ -2,10 +2,14 @@
 
 A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 
+[![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
+[![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 ## Run
 
 ```sh
-swift run GrammarWorkbenchApp
+swift run grammar-workbench-app
 ```
 
 The automation-friendly executable is available with `swift run grammar-workbench --help`. It validates grammar files, runs persisted project test suites with CI-friendly exit codes, and exports versioned artifact JSON.
@@ -176,3 +180,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `TestingAndInterchange.swift`: persistent test cases, batch execution, and versioned project/artifact JSON interchange.
 
 The UI consumes immutable `GrammarArtifact` values rather than construction internals, keeping artifact identities and inspection views independent from the algorithms that produce them.
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.

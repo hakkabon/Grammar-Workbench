@@ -48,18 +48,102 @@ public struct GrammarSemanticResult<Value: Sendable>: Sendable {
     public let value: Value
 }
 
+/// The input supplied to a declarative production action.
+public struct GrammarSemanticReduction<Value: Sendable>: Sendable {
+    public let production: GrammarProductionSnapshot
+    public let children: [Value]
+    public let node: GrammarSyntaxNode
+}
+
+/// A production handler identified by the same ID exposed by
+/// ``GrammarSemanticModel`` and syntax-tree nodes.
+public struct GrammarSemanticProductionAction<Value: Sendable>: Sendable {
+    public typealias Handler = @Sendable (GrammarSemanticReduction<Value>) throws -> Value
+
+    public let productionID: Int
+    let handler: Handler
+
+    public init(_ productionID: Int, _ handler: @escaping Handler) {
+        self.productionID = productionID
+        self.handler = handler
+    }
+}
+
+/// A declarative reducer that makes production coverage explicit and testable.
+/// Use ``GrammarSemanticModel/validate(_:)`` before parsing to catch missing or
+/// stale handlers without needing representative input for every production.
+public struct GrammarSemanticActions<Value: Sendable>: GrammarSemanticReducer {
+    public typealias TerminalHandler = @Sendable (GrammarInputTokenSnapshot, GrammarSyntaxNode) throws -> Value
+    public typealias MissingHandler = @Sendable (String, GrammarSyntaxNode) throws -> Value
+
+    public let productionIDs: Set<Int>
+    private let terminalHandler: TerminalHandler
+    private let missingHandler: MissingHandler
+    private let handlers: [Int: GrammarSemanticProductionAction<Value>.Handler]
+
+    public init(
+        terminal: @escaping TerminalHandler,
+        missing: @escaping MissingHandler,
+        productions: [GrammarSemanticProductionAction<Value>]
+    ) throws {
+        var handlers: [Int: GrammarSemanticProductionAction<Value>.Handler] = [:]
+        for action in productions {
+            guard handlers[action.productionID] == nil else {
+                throw GrammarSemanticError.duplicateProductionAction(action.productionID)
+            }
+            handlers[action.productionID] = action.handler
+        }
+        self.terminalHandler = terminal
+        self.missingHandler = missing
+        self.handlers = handlers
+        productionIDs = Set(handlers.keys)
+    }
+
+    public func terminal(_ token: GrammarInputTokenSnapshot, node: GrammarSyntaxNode) throws -> Value {
+        try terminalHandler(token, node)
+    }
+
+    public func missing(symbol: String, node: GrammarSyntaxNode) throws -> Value {
+        try missingHandler(symbol, node)
+    }
+
+    public func reduce(
+        production: GrammarProductionSnapshot, children: [Value], node: GrammarSyntaxNode
+    ) throws -> Value {
+        guard let handler = handlers[production.id] else {
+            throw GrammarSemanticError.unhandledProduction(production)
+        }
+        return try handler(.init(production: production, children: children, node: node))
+    }
+}
+
 public enum GrammarSemanticError: Error, LocalizedError, Sendable {
     case parseDidNotComplete(GrammarParseStatus)
     case missingSyntaxTree
     case unknownProduction(Int)
+    case duplicateProductionAction(Int)
+    case unhandledProduction(GrammarProductionSnapshot)
+    case incompleteProductionCoverage(missing: [GrammarProductionSnapshot], unknown: [Int])
 
     public var errorDescription: String? {
-        switch self {
+        return switch self {
         case .parseDidNotComplete(let status):
             "Semantic evaluation requires an accepted parse, not ‘\(status.rawValue)’."
         case .missingSyntaxTree: "The accepted parse did not produce a syntax tree."
         case .unknownProduction(let id): "The syntax tree refers to unknown production \(id)."
+        case .duplicateProductionAction(let id): "Semantic production \(id) has more than one action."
+        case .unhandledProduction(let production): "No semantic action handles production \(production.id) (‘\(production.text)’)."
+        case .incompleteProductionCoverage(let missing, let unknown):
+            coverageDescription(missing: missing, unknown: unknown)
         }
+    }
+
+    private func coverageDescription(
+        missing: [GrammarProductionSnapshot], unknown: [Int]
+    ) -> String {
+        let missingIDs = missing.map { String($0.id) }.joined(separator: ", ")
+        let unknownIDs = unknown.map(String.init).joined(separator: ", ")
+        return "Semantic action coverage is incomplete (missing: [\(missingIDs)]; unknown: [\(unknownIDs)])."
     }
 }
 
@@ -86,6 +170,25 @@ public struct GrammarSemanticModel: Hashable, Codable, Sendable {
         // Artifact production IDs are the identities emitted by parser reductions.
         // Production zero is the construction engine's augmented start rule.
         productions = compilation.artifact?.productions.filter { $0.id != 0 } ?? []
+    }
+
+    public func production(id: Int) -> GrammarProductionSnapshot? {
+        productions.first { $0.id == id }
+    }
+
+    public func productions(lhs: String, rhs: [String]? = nil) -> [GrammarProductionSnapshot] {
+        productions.filter { $0.lhs == lhs && (rhs == nil || $0.rhs == rhs) }
+    }
+
+    /// Ensures a declarative reducer covers every current grammar production and
+    /// does not retain handlers for production IDs removed by a grammar edit.
+    public func validate<Value>(_ actions: GrammarSemanticActions<Value>) throws {
+        let known = Set(productions.map(\.id))
+        let missing = productions.filter { !actions.productionIDs.contains($0.id) }
+        let unknown = actions.productionIDs.subtracting(known).sorted()
+        guard missing.isEmpty, unknown.isEmpty else {
+            throw GrammarSemanticError.incompleteProductionCoverage(missing: missing, unknown: unknown)
+        }
     }
 }
 

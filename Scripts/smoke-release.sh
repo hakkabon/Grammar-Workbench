@@ -24,6 +24,7 @@ done
 "$CLI_PATH" lower-ebnf "$ROOT_DIR/Examples/Expression.ebnf" "$WORK_DIR/Expression.bnf"
 "$CLI_PATH" diff "$ROOT_DIR/Examples/Expression.grammar" "$ROOT_DIR/Examples/Corpus/JSONSubset.grammar" "$WORK_DIR/diff.json"
 "$CLI_PATH" generate semantic-model-json "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/Expression.semantic.json"
+"$CLI_PATH" generate semantic-swift "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/ExpressionSemantics.swift" typeName=ExpressionSemantics
 "$CLI_PATH" parse "$ROOT_DIR/Examples/Expression.grammar" "left + right" "$WORK_DIR/parse.json"
 "$CLI_PATH" research-parse "$ROOT_DIR/Examples/Expression.grammar" "left + middle + right" "$WORK_DIR/research.json" --include-resolved
 
@@ -32,8 +33,10 @@ test -s "$WORK_DIR/artifact.json"
 test -s "$WORK_DIR/GeneratedParser.swift"
 test -s "$WORK_DIR/JSONSubset.bnf"
 test -s "$WORK_DIR/Expression.semantic.json"
+test -s "$WORK_DIR/ExpressionSemantics.swift"
 test -s "$WORK_DIR/parse.json"
 test -s "$WORK_DIR/research.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
+swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 
 echo "Release smoke tests passed."

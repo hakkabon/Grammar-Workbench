@@ -31,6 +31,28 @@ term = NUMBER | "(" expression ")" ;
     #expect(lowering.syntheticNonterminals == ["__ebnf_1"])
     #expect(lowering.loweredSource.contains("__ebnf_1"))
     #expect(lowering.loweredSource.contains("%token NUMBER /[0-9]+/"))
+    #expect(lowering.productionOrigins.count == first.grammar?.productions.count)
+    #expect(lowering.productionOrigins.allSatisfy { $0.sourceRange.start.line <= 5 })
+    let repetition = try #require(lowering.productionOrigins.first { $0.isSynthetic })
+    #expect(repetition.sourceNonterminal == "expression")
+    #expect(repetition.sourceRange.start.line == 4)
+}
+
+@Test func EBNFReportsUndefinedReferencesAtNativeSourceLocations() throws {
+    let source = "expression = missing ;"
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: source, notation: .ebnf))
+    let diagnostic = try #require(compilation.diagnostics.first { $0.code == "undefined-ebnf-symbol" })
+
+    #expect(!compilation.succeeded)
+    #expect(diagnostic.range.start.offset == 13)
+    #expect(diagnostic.range.end.offset == 20)
+    #expect(diagnostic.range.start.line == 1)
+}
+
+@Test func legacyLoweringJSONDefaultsToNoOriginMap() throws {
+    let data = Data(#"{"notation":"EBNF","loweredSource":"%start S\nS : ;","syntheticNonterminals":[]}"#.utf8)
+    let lowering = try JSONDecoder().decode(GrammarLoweringSnapshot.self, from: data)
+    #expect(lowering.productionOrigins.isEmpty)
 }
 
 @Test func malformedEBNFProducesLocatedDiagnostics() {

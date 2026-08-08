@@ -54,4 +54,9 @@ try model.validate(declarative)
 guard try compilation.parse("1 + 2", using: declarative).value == "1+2" else {
     fatalError("Unexpected declarative semantic output")
 }
+let ebnf = try GrammarWorkbenchAPI.lowerEBNF("root = \"ok\" ;")
+guard ebnf.productionOrigins.first?.sourceNonterminal == "root",
+      ebnf.productionOrigins.first?.sourceRange.start.line == 1 else {
+    fatalError("Unexpected EBNF production origins")
+}
 print("library-consumer-ok")

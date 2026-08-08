@@ -123,7 +123,7 @@ public struct ArtifactExplorerView: View {
             GrammarSourceEditor(
                 text: sourceBinding,
                 diagnostics: store.frontEnd.diagnostics,
-                selectedRange: store.notation == .workbench ? store.sourceSelection : nil,
+                selectedRange: store.sourceSelection,
                 completions: GrammarEditorIntelligence.completions(for: store.frontEnd, notation: store.notation),
                 isEditable: document != nil
             )
@@ -150,7 +150,10 @@ public struct ArtifactExplorerView: View {
                                         .font(.caption).foregroundStyle(.secondary)
                                 }.frame(maxWidth: .infinity, alignment: .leading)
                             }.buttonStyle(.plain)
-                            let fixes = GrammarEditorIntelligence.quickFixes(for: diagnostic, source: sourceBinding.wrappedValue)
+                            let fixes = GrammarEditorIntelligence.quickFixes(
+                                for: diagnostic, source: sourceBinding.wrappedValue,
+                                notation: store.notation
+                            )
                             if !fixes.isEmpty, document != nil {
                                 ForEach(fixes) { fix in
                                     Button(fix.title, systemImage: "wand.and.stars") { applyQuickFix(fix) }

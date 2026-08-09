@@ -19,6 +19,7 @@ final class ExplorerStore {
     private(set) var constructionPerformance: GrammarConstructionPerformance?
     private(set) var latestArtifactDiff: GrammarArtifactDiff?
     private(set) var generalizedResult: GrammarGeneralizedParseResult?
+    private(set) var isExploringGeneralizedParse = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -26,6 +27,7 @@ final class ExplorerStore {
 
     @ObservationIgnored private var regenerationTask: Task<Void, Never>?
     @ObservationIgnored private var comparisonTask: Task<Void, Never>?
+    @ObservationIgnored private var generalizedTask: Task<Void, Never>?
     @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
     @ObservationIgnored private var constructionRevision = 0
 
@@ -150,6 +152,9 @@ final class ExplorerStore {
     }
 
     func parseSample() {
+        generalizedTask?.cancel()
+        generalizedTask = nil
+        isExploringGeneralizedParse = false
         generalizedResult = nil
         if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
             let result = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
@@ -174,15 +179,31 @@ final class ExplorerStore {
     }
 
     func exploreAmbiguity(includingResolvedConflicts: Bool) {
+        generalizedTask?.cancel()
         let compilation = GrammarWorkbenchAPI.compile(.init(
             source: sourceText,
             algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr,
             notation: notation
         ))
-        generalizedResult = compilation.parseGeneralized(
-            sampleInput,
-            options: .init(exploresResolvedConflicts: includingResolvedConflicts)
+        let input = sampleInput
+        let options = GrammarGeneralizedParseOptions(
+            exploresResolvedConflicts: includingResolvedConflicts
         )
+        isExploringGeneralizedParse = true
+        generalizedTask = Task { [weak self] in
+            let worker = Task.detached {
+                await compilation.parseGeneralizedCancellable(input, options: options)
+            }
+            let result = await withTaskCancellationHandler {
+                await worker.value
+            } onCancel: {
+                worker.cancel()
+            }
+            guard !Task.isCancelled, let self else { return }
+            self.generalizedResult = result
+            self.isExploringGeneralizedParse = false
+            self.generalizedTask = nil
+        }
     }
 
     private static func runtimeResult(for lexer: LexerResult, artifact: GrammarArtifact) -> ParserRuntimeResult {

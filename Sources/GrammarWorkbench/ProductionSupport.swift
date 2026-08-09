@@ -32,7 +32,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let semanticOutput: GrammarWorkbenchFeatureMaturity = .stable
     public static let generatorEcosystem: GrammarWorkbenchFeatureMaturity = .stable
     public static let languageServer: GrammarWorkbenchFeatureMaturity = .stable
-    public static let generalizedParsing: GrammarWorkbenchFeatureMaturity = .experimental
+    public static let generalizedParsing: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 public struct GrammarWorkbenchSettingsView: View {

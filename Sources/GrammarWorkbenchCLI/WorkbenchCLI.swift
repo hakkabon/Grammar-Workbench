@@ -196,27 +196,40 @@ struct GrammarWorkbenchCLI {
             guard result.status == .accepted || result.status == .acceptedWithRecovery else {
                 throw CLIError.parseFailed(result.status.rawValue)
             }
-        case "research-parse":
-            guard (3...5).contains(arguments.count) else {
-                throw CLIError.usage("research-parse requires GRAMMAR INPUT [OUTPUT] [--include-resolved]")
+        case "generalized-parse", "research-parse":
+            guard arguments.count >= 3 else {
+                throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
             }
             let trailing = Array(arguments.dropFirst(3))
-            let unknownFlags = trailing.filter { $0.hasPrefix("--") && $0 != "--include-resolved" }
-            guard unknownFlags.isEmpty,
-                  trailing.filter({ !$0.hasPrefix("--") }).count <= 1 else {
-                throw CLIError.usage("research-parse accepts one output and --include-resolved")
+            let outputs = trailing.filter { !$0.hasPrefix("--") }
+            guard outputs.count <= 1 else {
+                throw CLIError.usage("\(command) accepts at most one output path")
+            }
+            var options = GrammarGeneralizedParseOptions()
+            for flag in trailing where flag.hasPrefix("--") {
+                switch flag {
+                case "--include-resolved": options.exploresResolvedConflicts = true
+                case "--breadth-first": options.searchStrategy = .breadthFirst
+                default:
+                    if let value = positiveOption(flag, name: "maximum-configurations") {
+                        options.maximumConfigurations = value
+                    } else if let value = positiveOption(flag, name: "maximum-steps") {
+                        options.maximumSteps = value
+                    } else if let value = positiveOption(flag, name: "maximum-trees") {
+                        options.maximumTrees = value
+                    } else {
+                        throw CLIError.usage("unknown generalized parse option ‘\(flag)’")
+                    }
+                }
             }
             let compilation = GrammarWorkbenchAPI.compile(.init(
                 source: try read(arguments[1]), notation: notation(for: arguments[1])
             ))
-            let result = compilation.parseGeneralized(
-                arguments[2],
-                options: .init(exploresResolvedConflicts: trailing.contains("--include-resolved"))
-            )
+            let result = await compilation.parseGeneralizedCancellable(arguments[2], options: options)
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             let data = try encoder.encode(result)
-            if let output = trailing.first(where: { !$0.hasPrefix("--") }) {
+            if let output = outputs.first {
                 try data.write(to: URL(fileURLWithPath: output), options: .atomic)
                 print("Wrote \(output): \(result.status.rawValue), \(result.alternatives.count) alternative(s)")
             } else {
@@ -233,6 +246,13 @@ struct GrammarWorkbenchCLI {
 
     private static func notation(for path: String) -> GrammarSourceNotation {
         URL(fileURLWithPath: path).pathExtension.lowercased() == "ebnf" ? .ebnf : .workbench
+    }
+
+    private static func positiveOption(_ argument: String, name: String) -> Int? {
+        let prefix = "--\(name)="
+        guard argument.hasPrefix(prefix),
+              let value = Int(argument.dropFirst(prefix.count)), value > 0 else { return nil }
+        return value
     }
 
     private static func signed(_ value: Int) -> String {
@@ -268,10 +288,13 @@ struct GrammarWorkbenchCLI {
       grammar-workbench lower-ebnf EBNF OUTPUT
       grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench parse GRAMMAR INPUT [OUTPUT]
-      grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [--include-resolved]
+      grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
+      grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).
+    Generalized OPTIONS: --include-resolved, --breadth-first,
+      --maximum-configurations=N, --maximum-steps=N, --maximum-trees=N.
     """
 }
 

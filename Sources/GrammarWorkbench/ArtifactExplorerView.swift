@@ -737,6 +737,8 @@ public struct ArtifactExplorerView: View {
                     Button("Explore sample", systemImage: "point.3.connected.trianglepath.dotted") {
                         store.exploreAmbiguity(includingResolvedConflicts: exploresResolvedConflicts)
                     }
+                    .disabled(store.isExploringGeneralizedParse)
+                    if store.isExploringGeneralizedParse { ProgressView().controlSize(.small) }
                     Text(store.sampleInput).font(.system(.caption, design: .monospaced))
                         .lineLimit(1).foregroundStyle(.secondary)
                 }
@@ -754,11 +756,22 @@ public struct ArtifactExplorerView: View {
                         GridRow { Text("Branch points"); Text("\(result.metrics.branchPoints)") }
                         GridRow { Text("Duplicate configurations"); Text("\(result.metrics.duplicateConfigurations)") }
                         GridRow { Text("Discarded configurations"); Text("\(result.metrics.discardedConfigurations)") }
+                        GridRow { Text("Shift / reduce actions"); Text("\(result.metrics.shiftActions) / \(result.metrics.reductionActions)") }
+                        GridRow { Text("Furthest token"); Text("\(result.metrics.furthestTokenIndex)") }
                     }
                     .font(.caption.monospacedDigit())
-                    ForEach(Array(result.alternatives.enumerated()), id: \.offset) { index, tree in
+                    if !result.reachedLimits.isEmpty {
+                        LabeledContent(
+                            "Reached limits",
+                            value: result.reachedLimits.map(\.rawValue).sorted().joined(separator: ", ")
+                        ).font(.caption)
+                    }
+                    if let diagnostic = result.syntaxDiagnostics.first {
+                        Text(diagnostic.message).foregroundStyle(.red)
+                    }
+                    ForEach(Array(result.forest.alternatives.enumerated()), id: \.element.id) { index, alternative in
                         DisclosureGroup("Alternative \(index + 1)") {
-                            Text(tree.rendered())
+                            Text(alternative.tree.rendered())
                                 .font(.system(.caption, design: .monospaced))
                                 .textSelection(.enabled)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -785,6 +798,7 @@ public struct ArtifactExplorerView: View {
         case .rejected: "No accepted alternatives"
         case .invalidGrammar: "Grammar is invalid"
         case .lexicalError: "Input has lexical errors"
+        case .cancelled: "Exploration was cancelled"
         }
     }
 

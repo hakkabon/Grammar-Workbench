@@ -89,11 +89,11 @@ Diagnostic parsing is enabled by default through `GrammarCompilation.parse`. It 
 
 `GrammarCompilation.diff(from:)` explains the structural effect of an edit with state, table, conflict, production, and terminal deltas plus added and removed rules. The Analysis inspector shows this impact after each successful rebuild, and `grammar-workbench diff OLD NEW [OUTPUT]` emits the same information as JSON for reviews and CI.
 
-## Advanced parsing research
+## Generalized parser engineering
 
-`GrammarCompilation.parseGeneralized` provides a bounded generalized LR research path alongside the deterministic production parser. It forks ACTION candidates at conflicts, deduplicates parser configurations, and returns distinct accepted `GrammarSyntaxNode` alternatives with exploration metrics. Limits on configurations, steps, and trees make truncation explicit and keep pathological or infinitely ambiguous grammars contained. By default it respects precedence-resolved decisions; set `exploresResolvedConflicts` to reveal ambiguity hidden by precedence or associativity declarations.
+`GrammarCompilation.parseGeneralized` provides bounded generalized LR parsing alongside the deterministic production parser. It forks ACTION candidates at conflicts, deduplicates parser configurations, and returns a structured forest of distinct `GrammarSyntaxNode` alternatives with stable identities. Exact configuration, step, and tree limits, rejection diagnostics, action metrics, depth- or breadth-first search, and `parseGeneralizedCancellable` make ambiguity analysis safe for applications and tooling. By default it respects precedence-resolved decisions; set `exploresResolvedConflicts` to reveal ambiguity hidden by precedence or associativity declarations.
 
-The app's **Research** workspace runs this exploration against the current sample and shows accepted trees, branch points, peak pending work, duplicates, and discarded configurations. Automation can use `grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [--include-resolved]`. This API is intentionally experimental: it reuses generated LR artifacts but does not replace the deterministic parser, recovery engine, or generated-parser contract.
+The app's **Research** workspace runs this engine against the current sample and shows accepted trees, reached limits, rejection details, action counts, branch points, peak pending work, duplicates, and discarded configurations. Automation can use `grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]`; `research-parse` remains a compatibility alias. Generalized parsing reuses generated LR artifacts but remains deliberately separate from deterministic recovery and generated-parser contracts. See [Documentation/GeneralizedParsing.md](Documentation/GeneralizedParsing.md).
 
 The **Compare** workspace constructs SLR(1), LALR(1), and canonical LR(1) lazily from the same grammar. It compares state, transition, table, conflict, and resolved-decision counts; maps states by stable LR(0) cores; identifies canonical states merged by LALR; and lists semantically different table cells with navigation into the currently selected artifact. Recommendations prioritize eliminating unresolved conflicts and then minimizing state complexity. Comparison reports are Codable through `compareAlgorithms()`, may be included in standalone HTML, and are available from `grammar-workbench compare GRAMMAR [OUTPUT]`.
 
@@ -167,7 +167,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `EBNFGrammarAdapter.swift`: integration with the Grammar package's EBNF lowering and stable native-source conversion.
 - `ArtifactDiff.swift`: public structural edit-impact summaries.
 - `SemanticOutput.swift`: source-aware syntax trees, semantic reducers, and ecosystem metadata.
-- `AdvancedParsing.swift`: bounded generalized LR exploration and ambiguity-preserving parse forests.
+- `AdvancedParsing.swift`: bounded, cancellable generalized LR parsing, stable forest identities, rejection diagnostics, and engineering metrics.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.
 - `ParserRuntime.swift`: legacy token input, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.

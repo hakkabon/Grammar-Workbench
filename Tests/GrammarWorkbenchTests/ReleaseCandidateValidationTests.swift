@@ -13,6 +13,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let artifactJSONBytes: Int
         let repeatedParseMilliseconds: Double
         let repeatedParseCount: Int
+        let generalizedMaximumConfigurations: Int
+        let generalizedMaximumSteps: Int
+        let generalizedMaximumTrees: Int
     }
 
     let schemaVersion: Int
@@ -44,7 +47,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.semanticOutput == .stable)
     #expect(GrammarWorkbenchCapabilities.generatorEcosystem == .stable)
     #expect(GrammarWorkbenchCapabilities.languageServer == .stable)
-    #expect(GrammarWorkbenchCapabilities.generalizedParsing == .experimental)
+    #expect(GrammarWorkbenchCapabilities.generalizedParsing == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -57,6 +60,24 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     for product in policy.requiredProducts {
         #expect(manifest.contains("name: \"\(product)\""))
     }
+}
+
+@Test func generalizedParsingStaysWithinDeclaredReleaseBudgets() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let grammar = "%start E\nE : E '+' E | 'id' ;"
+    let result = GrammarWorkbenchAPI.compile(.init(source: grammar)).parseGeneralized(
+        "id + id + id + id",
+        options: .init(
+            maximumConfigurations: budget.generalizedMaximumConfigurations,
+            maximumSteps: budget.generalizedMaximumSteps,
+            maximumTrees: budget.generalizedMaximumTrees
+        )
+    )
+
+    #expect(result.status == .ambiguous)
+    #expect(!result.wasTruncated)
+    #expect(result.alternatives.count == 5)
+    #expect(result.metrics.exploredConfigurations <= budget.generalizedMaximumSteps)
 }
 
 @Test func representativeGrammarStaysWithinDeclaredReleaseBudgets() throws {

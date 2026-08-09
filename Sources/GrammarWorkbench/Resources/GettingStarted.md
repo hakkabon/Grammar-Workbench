@@ -16,7 +16,7 @@ For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to
 
 Accepted parses expose a source-aware structured syntax tree. Library clients can implement `GrammarSemanticReducer` to build typed ASTs or evaluate a tree, while generated Swift parsers provide the equivalent bottom-up `Node.evaluate` hook. Export Semantic Model JSON for external language tooling, or use the CLI `parse` command for a machine-readable tree.
 
-The Research workspace explores unresolved parser branches and retains multiple accepted trees. Enable resolved-decision exploration to study ambiguity normally hidden by precedence. Results are bounded and report when configuration, step, or tree limits truncate the search; the equivalent CLI command is `research-parse`.
+The Research workspace runs the bounded generalized parser and retains multiple accepted trees with stable identities. Enable resolved-decision exploration to study ambiguity normally hidden by precedence. Results report exact configuration, step, or tree limits, rejection expectations, and action metrics; the equivalent CLI command is `generalized-parse` (`research-parse` remains an alias).
 
 The repository's `Examples/Corpus` directory contains larger examples for recursive data, statement grammars, nested lexer modes, and intentional conflicts. They are also exercised by release smoke tests.
 

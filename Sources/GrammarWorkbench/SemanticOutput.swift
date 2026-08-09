@@ -48,6 +48,17 @@ public struct GrammarSemanticResult<Value: Sendable>: Sendable {
     public let value: Value
 }
 
+public struct GrammarGeneralizedSemanticAlternative<Value: Sendable>: Sendable {
+    public let id: String
+    public let tree: GrammarSyntaxNode
+    public let value: Value
+}
+
+public struct GrammarGeneralizedSemanticResult<Value: Sendable>: Sendable {
+    public let parse: GrammarGeneralizedParseResult
+    public let alternatives: [GrammarGeneralizedSemanticAlternative<Value>]
+}
+
 /// The input supplied to a declarative production action.
 public struct GrammarSemanticReduction<Value: Sendable>: Sendable {
     public let production: GrammarProductionSnapshot
@@ -124,6 +135,7 @@ public enum GrammarSemanticError: Error, LocalizedError, Sendable {
     case duplicateProductionAction(Int)
     case unhandledProduction(GrammarProductionSnapshot)
     case incompleteProductionCoverage(missing: [GrammarProductionSnapshot], unknown: [Int])
+    case generalizedParseDidNotComplete(GrammarGeneralizedParseStatus)
 
     public var errorDescription: String? {
         return switch self {
@@ -135,6 +147,8 @@ public enum GrammarSemanticError: Error, LocalizedError, Sendable {
         case .unhandledProduction(let production): "No semantic action handles production \(production.id) (‘\(production.text)’)."
         case .incompleteProductionCoverage(let missing, let unknown):
             coverageDescription(missing: missing, unknown: unknown)
+        case .generalizedParseDidNotComplete(let status):
+            "Generalized semantic evaluation requires an accepted forest, not ‘\(status.rawValue)’."
         }
     }
 
@@ -235,21 +249,55 @@ public extension GrammarCompilation {
             throw GrammarSemanticError.parseDidNotComplete(parsed.status)
         }
         guard let root = parsed.syntaxTree else { throw GrammarSemanticError.missingSyntaxTree }
-        let productions = Dictionary(uniqueKeysWithValues: (artifact?.productions ?? []).map { ($0.id, $0) })
+        return .init(parse: parsed, value: try evaluate(root, using: reducer))
+    }
 
-        func evaluate(_ node: GrammarSyntaxNode) throws -> R.Value {
-            if node.isMissing { return try reducer.missing(symbol: node.symbol, node: node) }
-            if let token = node.token { return try reducer.terminal(token, node: node) }
-            guard let id = node.production, let production = productions[id] else {
-                throw GrammarSemanticError.unknownProduction(node.production ?? -1)
-            }
-            return try reducer.reduce(
-                production: production,
-                children: try node.children.map(evaluate),
-                node: node
+    /// Evaluates every accepted generalized alternative with the same semantic
+    /// reducer used by deterministic parsing. Stable forest IDs remain attached
+    /// to the resulting values so callers can present or select an ambiguity.
+    func parseGeneralized<R: GrammarSemanticReducer>(
+        _ input: String,
+        using reducer: R,
+        options: GrammarGeneralizedParseOptions = .init()
+    ) throws -> GrammarGeneralizedSemanticResult<R.Value> {
+        let parsed = parseGeneralized(input, options: options)
+        guard parsed.isAccepted else {
+            throw GrammarSemanticError.generalizedParseDidNotComplete(parsed.status)
+        }
+        let alternatives = try parsed.forest.alternatives.map { alternative in
+            GrammarGeneralizedSemanticAlternative(
+                id: alternative.id,
+                tree: alternative.tree,
+                value: try evaluate(alternative.tree, using: reducer)
             )
         }
+        return .init(parse: parsed, alternatives: alternatives)
+    }
 
-        return .init(parse: parsed, value: try evaluate(root))
+    private func evaluate<R: GrammarSemanticReducer>(
+        _ node: GrammarSyntaxNode,
+        using reducer: R
+    ) throws -> R.Value {
+        let productions = Dictionary(uniqueKeysWithValues: (artifact?.productions ?? []).map { ($0.id, $0) })
+        return try evaluate(node, using: reducer, productions: productions)
+    }
+
+    private func evaluate<R: GrammarSemanticReducer>(
+        _ node: GrammarSyntaxNode,
+        using reducer: R,
+        productions: [Int: GrammarProductionSnapshot]
+    ) throws -> R.Value {
+        if node.isMissing { return try reducer.missing(symbol: node.symbol, node: node) }
+        if let token = node.token { return try reducer.terminal(token, node: node) }
+        guard let id = node.production, let production = productions[id] else {
+            throw GrammarSemanticError.unknownProduction(node.production ?? -1)
+        }
+        return try reducer.reduce(
+            production: production,
+            children: try node.children.map {
+                try evaluate($0, using: reducer, productions: productions)
+            },
+            node: node
+        )
     }
 }

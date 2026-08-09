@@ -26,7 +26,7 @@ done
 "$CLI_PATH" generate semantic-model-json "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/Expression.semantic.json"
 "$CLI_PATH" generate semantic-swift "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/ExpressionSemantics.swift" typeName=ExpressionSemantics
 "$CLI_PATH" parse "$ROOT_DIR/Examples/Expression.grammar" "left + right" "$WORK_DIR/parse.json"
-"$CLI_PATH" research-parse "$ROOT_DIR/Examples/Expression.grammar" "left + middle + right" "$WORK_DIR/research.json" --include-resolved
+"$CLI_PATH" generalized-parse "$ROOT_DIR/Examples/Expression.grammar" "left + middle + right" "$WORK_DIR/generalized.json" --include-resolved --breadth-first --maximum-trees=8
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -35,7 +35,7 @@ test -s "$WORK_DIR/JSONSubset.bnf"
 test -s "$WORK_DIR/Expression.semantic.json"
 test -s "$WORK_DIR/ExpressionSemantics.swift"
 test -s "$WORK_DIR/parse.json"
-test -s "$WORK_DIR/research.json"
+test -s "$WORK_DIR/generalized.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

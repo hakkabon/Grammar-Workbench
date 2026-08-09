@@ -18,6 +18,9 @@
     "canonicalTableEntries": 1000,
     "artifactJSONBytes": 5000000,
     "repeatedParseMilliseconds": 5000,
-    "repeatedParseCount": 500
+    "repeatedParseCount": 500,
+    "generalizedMaximumConfigurations": 4096,
+    "generalizedMaximumSteps": 100000,
+    "generalizedMaximumTrees": 32
   }
 }

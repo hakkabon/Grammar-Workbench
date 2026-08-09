@@ -12,9 +12,9 @@ Schema-1 artifact envelopes remain readable and normalize to schema 2. Consumers
 
 Older parse-result JSON without `syntaxTree` remains decodable. Consumers should continue accepting the rendered `tree` field while adopting structured syntax nodes.
 
-## Generalized parsing
+## Generalized parser engineering
 
-Generalized parsing is experimental and is not part of the stable persistence contract. Do not store its result as durable project state.
+`grammar-workbench generalized-parse` is the supported spelling of the generalized parser command. `research-parse` remains as a compatibility alias. Existing `parseGeneralized` calls remain source-compatible; results now also expose a structured `forest`, stable alternative IDs, exact `reachedLimits`, rejection `syntaxDiagnostics`, and expanded action metrics. Use `parseGeneralizedCancellable` in task-based integrations that need cooperative cancellation.
 
 ## Generated parsers
 

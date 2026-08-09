@@ -20,6 +20,7 @@ final class ExplorerStore {
     private(set) var latestArtifactDiff: GrammarArtifactDiff?
     private(set) var generalizedResult: GrammarGeneralizedParseResult?
     private(set) var isExploringGeneralizedParse = false
+    private(set) var incrementalSampleAnalysis: GrammarIncrementalAnalysisSnapshot?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -28,7 +29,10 @@ final class ExplorerStore {
     @ObservationIgnored private var regenerationTask: Task<Void, Never>?
     @ObservationIgnored private var comparisonTask: Task<Void, Never>?
     @ObservationIgnored private var generalizedTask: Task<Void, Never>?
+    @ObservationIgnored private var incrementalAnalysisTask: Task<Void, Never>?
     @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
+    @ObservationIgnored private var incrementalCoordinator: GrammarIncrementalAnalysisCoordinator?
+    @ObservationIgnored private var currentCompilation: GrammarCompilation
     @ObservationIgnored private var constructionRevision = 0
 
     init(
@@ -54,6 +58,9 @@ final class ExplorerStore {
         self.constructionPerformance = compilation.performance
         self.latestArtifactDiff = nil
         self.generalizedResult = nil
+        self.incrementalSampleAnalysis = nil
+        self.currentCompilation = compilation
+        self.incrementalCoordinator = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation)
         if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
             let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             self.lexerResult = lexed
@@ -65,6 +72,7 @@ final class ExplorerStore {
         }
         self.testReport = nil
         self.algorithmComparison = nil
+        scheduleIncrementalSampleAnalysis()
     }
 
     func select(_ identity: ArtifactIdentity) {
@@ -105,6 +113,7 @@ final class ExplorerStore {
         ))
         sourceText = source
         frontEnd = compilation.frontEndResult
+        currentCompilation = compilation
         self.documentName = documentName
         if let compiledArtifact = compilation.compiledArtifact { artifact = compiledArtifact }
         constructionPerformance = compilation.performance
@@ -114,6 +123,7 @@ final class ExplorerStore {
         resetSelection()
         testReport = nil
         invalidateComparison()
+        replaceIncrementalCompilation(compilation)
     }
 
     func runTests(_ tests: [WorkbenchTestCase]) {
@@ -156,6 +166,7 @@ final class ExplorerStore {
         generalizedTask = nil
         isExploringGeneralizedParse = false
         generalizedResult = nil
+        scheduleIncrementalSampleAnalysis()
         if let grammar = frontEnd.grammar, !grammar.lexerRules.isEmpty {
             let result = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
             lexerResult = result
@@ -247,6 +258,7 @@ final class ExplorerStore {
             self.frontEnd = compilation.frontEndResult
             self.constructionPerformance = compilation.performance
             if let compiledArtifact = compilation.compiledArtifact {
+                self.currentCompilation = compilation
                 if let current = compilation.artifact {
                     self.latestArtifactDiff = GrammarArtifactDiff(
                         previous: GrammarArtifactSnapshot(self.artifact), current: current
@@ -254,11 +266,57 @@ final class ExplorerStore {
                 }
                 self.artifact = compiledArtifact
                 self.parseSample()
+                self.replaceIncrementalCompilation(compilation)
                 self.resetSelection()
             }
             self.isRegenerating = false
             self.testReport = nil
             self.regenerationTask = nil
+        }
+    }
+
+    private func replaceIncrementalCompilation(_ compilation: GrammarCompilation) {
+        guard compilation.succeeded else { return }
+        incrementalAnalysisTask?.cancel()
+        let input = sampleInput
+        incrementalAnalysisTask = Task { [weak self] in
+            guard let self else { return }
+            let coordinator: GrammarIncrementalAnalysisCoordinator
+            if let existing = self.incrementalCoordinator {
+                coordinator = existing
+                _ = try? await coordinator.updateCompilation(compilation)
+            } else {
+                guard let created = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation) else { return }
+                self.incrementalCoordinator = created
+                coordinator = created
+            }
+            guard !Task.isCancelled,
+                  let snapshot = try? await coordinator.synchronizeDocument(id: "sample", text: input),
+                  !Task.isCancelled,
+                  self.sampleInput == input else { return }
+            self.incrementalSampleAnalysis = snapshot
+        }
+    }
+
+    private func scheduleIncrementalSampleAnalysis() {
+        guard currentCompilation.succeeded else { return }
+        incrementalAnalysisTask?.cancel()
+        let input = sampleInput
+        let compilation = currentCompilation
+        incrementalAnalysisTask = Task { [weak self] in
+            guard let self else { return }
+            let coordinator: GrammarIncrementalAnalysisCoordinator
+            if let existing = self.incrementalCoordinator {
+                coordinator = existing
+            } else {
+                guard let created = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation) else { return }
+                self.incrementalCoordinator = created
+                coordinator = created
+            }
+            guard let snapshot = try? await coordinator.synchronizeDocument(id: "sample", text: input),
+                  !Task.isCancelled,
+                  self.sampleInput == input else { return }
+            self.incrementalSampleAnalysis = snapshot
         }
     }
 

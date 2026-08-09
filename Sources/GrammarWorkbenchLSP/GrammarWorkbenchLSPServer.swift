@@ -567,6 +567,9 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         pendingPublishes[uri]?.cancel()
         pendingPublishes[uri] = nil
         await documentStore.close(uri: uri)
+        if kind == .source {
+            await diagnosticsManager.removeSourceDocument(uri: uri)
+        }
         // Publish an empty set so the client clears diagnostics for the
         // document, as required by the LSP spec.
         connection.send(PublishDiagnosticsNotification(uri: uri, diagnostics: []))
@@ -595,14 +598,17 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             ))
             await republishSourceDiagnostics()
         case .source:
-            guard let compilation = await diagnosticsManager.grammarCompilation(for: document.language.rawValue) else {
+            guard let snapshot = await diagnosticsManager.sourceAnalysis(
+                uri: uri,
+                languageId: document.language.rawValue,
+                text: document.text,
+                version: document.version
+            ) else {
                 // No grammar is open; clear any stale diagnostics.
                 connection.send(PublishDiagnosticsNotification(uri: uri, version: document.version, diagnostics: []))
                 return
             }
-            let diagnostics = await diagnosticsManager.lspDiagnostics(
-                compilation: compilation, sourceText: document.text
-            )
+            let diagnostics = await diagnosticsManager.lspDiagnostics(snapshot: snapshot)
             connection.send(PublishDiagnosticsNotification(
                 uri: uri, version: document.version, diagnostics: diagnostics
             ))

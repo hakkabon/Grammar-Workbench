@@ -79,4 +79,13 @@ let edited = try GrammarTextSnapshot(revision: 1, text: "one two").applying([
 guard edited.snapshot.text == "one three", edited.change.utf16Delta == 2 else {
     fatalError("Unexpected incremental text edit")
 }
+let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+let coordinated = try await coordinator.synchronizeDocument(
+    id: "consumer", text: "1 + 2", externalRevision: 1
+)
+guard coordinated.parse.status == .accepted,
+      await coordinator.openDocumentIDs == ["consumer"] else {
+    fatalError("Unexpected coordinated incremental analysis")
+}
+await coordinator.closeDocument(id: "consumer")
 print("library-consumer-ok")

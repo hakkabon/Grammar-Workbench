@@ -12,6 +12,15 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
     Issue.record("Artifact regeneration did not finish within two seconds.")
 }
 
+@MainActor
+private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async throws {
+    for _ in 0..<200 {
+        if store.incrementalSampleAnalysis?.text.text == text { return }
+        try await Task.sleep(nanoseconds: 10_000_000)
+    }
+    Issue.record("Incremental sample analysis did not settle within two seconds.")
+}
+
 @Test func documentRoundTripPreservesWorkbenchState() throws {
     let selectedID = UUID()
     let document = GrammarWorkbenchDocument(
@@ -88,4 +97,20 @@ private func awaitRegeneration(_ store: ExplorerStore) async throws {
     try await awaitRegeneration(store)
     #expect(store.frontEnd.hasErrors)
     #expect(store.artifact.grammarSource == validSource)
+}
+
+@MainActor
+@Test func nativeWorkbenchUsesSharedIncrementalSampleAnalysis() async throws {
+    let grammar = "%token ID /[a-z]+/\n%skip /\\s+/\n%start S\nS : ID ;"
+    let store = ExplorerStore(source: grammar, sampleInput: "first")
+    try await awaitIncrementalSample(store, text: "first")
+    let firstID = store.incrementalSampleAnalysis?.tokens.first?.id
+
+    store.sampleInput = "second"
+    store.parseSample()
+    try await awaitIncrementalSample(store, text: "second")
+
+    #expect(store.incrementalSampleAnalysis?.parse.status == .accepted)
+    #expect(store.incrementalSampleAnalysis?.reuse.createdTokens == 1)
+    #expect(store.incrementalSampleAnalysis?.tokens.first?.id != firstID)
 }

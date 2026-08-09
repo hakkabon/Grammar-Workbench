@@ -361,3 +361,62 @@ public actor GrammarIncrementalLanguageSession {
         return "\(node.symbol)\u{1F}\(node.production.map(String.init) ?? "")\u{1F}\(token)\u{1F}\(children)"
     }
 }
+
+/// Owns one incremental language session and reconciles external document
+/// versions with its strictly increasing internal revisions. This is the
+/// preferred integration boundary for editors, language servers, and build
+/// daemons that may receive unversioned saves or repeated snapshots.
+public actor GrammarIncrementalAnalysisCoordinator {
+    private var session: GrammarIncrementalLanguageSession
+
+    public init(compilation: GrammarCompilation) throws {
+        session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    }
+
+    /// Returns the current analysis for `text`, reusing the existing snapshot
+    /// when it is unchanged. A changed snapshot is installed atomically with a
+    /// full replacement edit; ranged edits can still be sent directly to the
+    /// underlying language session when an integration already owns them.
+    @discardableResult
+    public func synchronizeDocument(
+        id: String,
+        text: String,
+        externalRevision: Int? = nil
+    ) async throws -> GrammarIncrementalAnalysisSnapshot {
+        try Task.checkCancellation()
+        if let current = await session.snapshot(documentID: id) {
+            guard current.text.text != text else { return current }
+            let proposed = max(current.text.revision + 1, externalRevision ?? 0)
+            return try await session.apply(
+                documentID: id,
+                edits: [.init(range: nil, replacement: text)],
+                revision: proposed
+            )
+        }
+        return try await session.openDocument(
+            id: id,
+            text: text,
+            revision: max(0, externalRevision ?? 0)
+        )
+    }
+
+    @discardableResult
+    public func updateCompilation(
+        _ compilation: GrammarCompilation
+    ) async throws -> [GrammarIncrementalAnalysisSnapshot] {
+        try Task.checkCancellation()
+        return try await session.updateCompilation(compilation)
+    }
+
+    public func snapshot(documentID: String) async -> GrammarIncrementalAnalysisSnapshot? {
+        await session.snapshot(documentID: documentID)
+    }
+
+    public var openDocumentIDs: [String] {
+        get async { await session.openDocumentIDs }
+    }
+
+    public func closeDocument(id: String) async {
+        await session.closeDocument(id: id)
+    }
+}

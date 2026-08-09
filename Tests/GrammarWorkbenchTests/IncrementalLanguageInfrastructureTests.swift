@@ -113,3 +113,79 @@ List : List ',' ID | ID ;
     #expect(refreshed[0].reuse.reusedTokens == opened.tokens.count)
     #expect(refreshed[0].parse.status == .accepted)
 }
+
+@Test func coordinatorIncrementalSnapshotsEqualCleanFullAnalysis() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    let inputs = [
+        "one",
+        "one, two",
+        "one, two, three",
+        "zero, one, two, three",
+        "zero, one, three",
+    ]
+
+    for (revision, input) in inputs.enumerated() {
+        let snapshot = try await coordinator.synchronizeDocument(
+            id: "main", text: input, externalRevision: revision
+        )
+        #expect(snapshot.lexing == compilation.lex(input))
+        #expect(snapshot.parse == compilation.parse(input))
+    }
+}
+
+@Test func coordinatorCancellationDoesNotOpenDocument() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    let task = Task {
+        withUnsafeCurrentTask { $0?.cancel() }
+        return try await coordinator.synchronizeDocument(id: "cancelled", text: "one")
+    }
+
+    await #expect(throws: CancellationError.self) { try await task.value }
+    #expect(await coordinator.openDocumentIDs.isEmpty)
+}
+
+@Test func coordinatorRapidUpdatesSettleOnLatestEquivalentSnapshot() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    for revision in 1...100 {
+        _ = try await coordinator.synchronizeDocument(
+            id: "rapid", text: "item\(revision)", externalRevision: revision
+        )
+    }
+
+    let settled = try #require(await coordinator.snapshot(documentID: "rapid"))
+    #expect(settled.text.text == "item100")
+    #expect(settled.text.revision == 100)
+    #expect(settled.parse == compilation.parse("item100"))
+}
+
+@Test func coordinatorDocumentLifecycleReleasesAllSessionState() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    for index in 0..<256 {
+        _ = try await coordinator.synchronizeDocument(id: "doc-\(index)", text: "item")
+    }
+    #expect(await coordinator.openDocumentIDs.count == 256)
+
+    for index in 0..<256 {
+        await coordinator.closeDocument(id: "doc-\(index)")
+    }
+    #expect(await coordinator.openDocumentIDs.isEmpty)
+    #expect(await coordinator.snapshot(documentID: "doc-0") == nil)
+}
+
+@Test func coordinatorPreservesIdentitiesAcrossGrammarReplacement() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    let before = try await coordinator.synchronizeDocument(id: "main", text: "one, two")
+    let replacement = GrammarWorkbenchAPI.compile(.init(
+        source: incrementalLanguageGrammar + "\nUnused : 'unused' ;"
+    ))
+
+    let refreshed = try await coordinator.updateCompilation(replacement)
+    #expect(refreshed.count == 1)
+    #expect(refreshed[0].tokens.map(\.id) == before.tokens.map(\.id))
+    #expect(refreshed[0].parse == replacement.parse("one, two"))
+}

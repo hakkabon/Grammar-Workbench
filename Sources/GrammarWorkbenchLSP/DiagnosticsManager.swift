@@ -37,6 +37,7 @@ public actor DiagnosticsManager {
     private struct GrammarDocument {
         let uri: DocumentURI
         let compilation: GrammarCompilation
+        let coordinator: GrammarIncrementalAnalysisCoordinator?
     }
 
     private let compiler = GrammarWorkbenchIncrementalCompiler()
@@ -55,7 +56,20 @@ public actor DiagnosticsManager {
         notation: GrammarSourceNotation
     ) async -> GrammarCompilation {
         let compilation = await compiler.compile(GrammarCompilationRequest(source: source, notation: notation))
-        grammarDocuments[uri] = GrammarDocument(uri: uri, compilation: compilation)
+        let coordinator: GrammarIncrementalAnalysisCoordinator?
+        if compilation.succeeded {
+            if let existing = grammarDocuments[uri]?.coordinator {
+                _ = try? await existing.updateCompilation(compilation)
+                coordinator = existing
+            } else {
+                coordinator = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+            }
+        } else {
+            coordinator = nil
+        }
+        grammarDocuments[uri] = GrammarDocument(
+            uri: uri, compilation: compilation, coordinator: coordinator
+        )
         mostRecentGrammarURI = uri
         return compilation
     }
@@ -65,6 +79,33 @@ public actor DiagnosticsManager {
         if mostRecentGrammarURI == uri {
             mostRecentGrammarURI = grammarDocuments.keys.sorted { $0.stringValue < $1.stringValue }.last
         }
+    }
+
+    /// Removes a source document from every grammar-owned analysis session.
+    public func removeSourceDocument(uri: DocumentURI) async {
+        for document in grammarDocuments.values {
+            await document.coordinator?.closeDocument(id: uri.stringValue)
+        }
+    }
+
+    /// Analyzes a source document through the shared incremental coordinator.
+    /// The selected grammar follows the same exact-match/fallback policy as
+    /// `grammarCompilation(for:)`.
+    public func sourceAnalysis(
+        uri: DocumentURI,
+        languageId: String,
+        text: String,
+        version: Int
+    ) async -> GrammarIncrementalAnalysisSnapshot? {
+        let selected = grammarDocuments.values.first {
+            $0.uri.grammarFileBaseName == languageId
+        } ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
+        guard let coordinator = selected?.coordinator else { return nil }
+        return try? await coordinator.synchronizeDocument(
+            id: uri.stringValue,
+            text: text,
+            externalRevision: version
+        )
     }
 
     /// The compilation used for source documents with the given language id.
@@ -124,6 +165,28 @@ public actor DiagnosticsManager {
                 message += " Expected: \(listed)."
             }
             return lspDiagnostic(severity: .error, code: "syntax", message: message, range: diagnostic.range)
+        }
+    }
+
+    /// Converts a shared incremental analysis snapshot into LSP diagnostics.
+    public func lspDiagnostics(snapshot: GrammarIncrementalAnalysisSnapshot) -> [Diagnostic] {
+        if !snapshot.lexing.diagnostics.isEmpty {
+            return snapshot.lexing.diagnostics.map { diagnostic in
+                lspDiagnostic(severity: .error, code: "lexical", message: diagnostic.message, range: diagnostic.range)
+            }
+        }
+        let expected = snapshot.parse.expectedTerminals
+        return snapshot.parse.diagnostics.enumerated().map { index, diagnostic in
+            var message = diagnostic.message
+            if index == snapshot.parse.diagnostics.count - 1, !expected.isEmpty {
+                let listed = expected.count > 6
+                    ? expected.prefix(6).joined(separator: ", ") + ", …"
+                    : expected.joined(separator: ", ")
+                message += " Expected: \(listed)."
+            }
+            return lspDiagnostic(
+                severity: .error, code: "syntax", message: message, range: diagnostic.range
+            )
         }
     }
 

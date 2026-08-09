@@ -16,6 +16,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let generalizedMaximumConfigurations: Int
         let generalizedMaximumSteps: Int
         let generalizedMaximumTrees: Int
+        let platformMaximumConcurrentRequests: Int
+        let platformBatchRequestCount: Int
         let incrementalMinimumTokenReusePercent: Double
         let incrementalMaximumRelexPercent: Double
         let incrementalMaximumReparsePercent: Double
@@ -55,6 +57,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.generalizedParsing == .stable)
     #expect(GrammarWorkbenchCapabilities.incrementalLanguageInfrastructure == .stable)
     #expect(GrammarWorkbenchCapabilities.projectInfrastructure == .stable)
+    #expect(GrammarWorkbenchCapabilities.advancedParsingPlatform == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -138,6 +141,32 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
     #expect(!result.wasTruncated)
     #expect(result.alternatives.count == 5)
     #expect(result.metrics.exploredConfigurations <= budget.generalizedMaximumSteps)
+}
+
+@Test func advancedParsingPlatformStaysWithinDeclaredReleaseBudgets() async throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let compilation = GrammarWorkbenchAPI.compile(.init(
+        source: "%start E\nE : E '+' E | 'id' ;"
+    ))
+    let platform = try GrammarParsingPlatform(compilation: compilation)
+    let requests = (0..<budget.platformBatchRequestCount).map {
+        GrammarPlatformParseRequest(
+            id: "platform-\($0)",
+            input: "id + id + id",
+            options: .init(ambiguitySelection: .firstStable)
+        )
+    }
+    let result = await platform.parseBatch(
+        requests,
+        options: .init(maximumConcurrentRequests: budget.platformMaximumConcurrentRequests)
+    )
+
+    #expect(result.results.map(\.id) == requests.map(\.id))
+    #expect(result.accepted == requests.count)
+    #expect(result.metrics.maximumConcurrentRequests == budget.platformMaximumConcurrentRequests)
+    #expect(result.results.allSatisfy {
+        $0.metrics.generalizedConfigurations <= budget.generalizedMaximumSteps
+    })
 }
 
 @Test func representativeGrammarStaysWithinDeclaredReleaseBudgets() throws {

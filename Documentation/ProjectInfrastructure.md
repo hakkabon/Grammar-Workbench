@@ -16,6 +16,8 @@ Grammar replacement atomically installs a new successful compilation and refresh
 
 `replaceSources` reconciles project membership while retaining incremental state for matching document identities and releasing removed documents. Tests and generator plans can be replaced independently after the same manifest validation, allowing long-lived editor and daemon workspaces to evolve without reconstruction.
 
+`parse(documentID:options:)` and `parseAll(options:batchOptions:)` expose the advanced parsing platform over manifest sources. Project-wide batches preserve manifest order and enforce their declared concurrency bound independently of incremental deterministic analysis.
+
 The project index preserves document identity and manifest path around each `GrammarIncrementalIndexEntry`. It supports project-wide symbol lookup and per-document filtering without conflating session-local syntax identities across documents.
 
 ## Generators and automation

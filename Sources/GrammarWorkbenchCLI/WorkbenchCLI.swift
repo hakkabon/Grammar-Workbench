@@ -242,6 +242,55 @@ struct GrammarWorkbenchCLI {
             guard result.status == .accepted || result.status == .acceptedWithRecovery else {
                 throw CLIError.parseFailed(result.status.rawValue)
             }
+        case "platform-parse":
+            guard arguments.count >= 3 else {
+                throw CLIError.usage("platform-parse requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
+            }
+            let trailing = Array(arguments.dropFirst(3))
+            let outputs = trailing.filter { !$0.hasPrefix("--") }
+            guard outputs.count <= 1 else {
+                throw CLIError.usage("platform-parse accepts at most one output path")
+            }
+            var options = GrammarPlatformParseOptions()
+            for flag in trailing where flag.hasPrefix("--") {
+                if flag == "--strict" {
+                    options.deterministic.enablesRecovery = false
+                } else if flag == "--include-resolved" {
+                    options.generalized.exploresResolvedConflicts = true
+                } else if flag == "--breadth-first" {
+                    options.generalized.searchStrategy = .breadthFirst
+                } else if let value = stringOption(flag, name: "mode"),
+                          let mode = GrammarParsingMode(rawValue: value) {
+                    options.mode = mode
+                } else if let value = stringOption(flag, name: "ambiguity"),
+                          let selection = GrammarAmbiguitySelection(rawValue: value) {
+                    options.ambiguitySelection = selection
+                } else if let value = positiveOption(flag, name: "maximum-configurations") {
+                    options.generalized.maximumConfigurations = value
+                } else if let value = positiveOption(flag, name: "maximum-steps") {
+                    options.generalized.maximumSteps = value
+                } else if let value = positiveOption(flag, name: "maximum-trees") {
+                    options.generalized.maximumTrees = value
+                } else {
+                    throw CLIError.usage("unknown platform parse option ‘\(flag)’")
+                }
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            let result = try GrammarParsingPlatform(compilation: compilation).parse(.init(
+                input: arguments[2], options: options
+            ))
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(result)
+            if let output = outputs.first {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output): \(result.status.rawValue) via \(result.engine.rawValue)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard result.isAccepted else { throw CLIError.platformParseFailed(result.status.rawValue) }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -301,6 +350,12 @@ struct GrammarWorkbenchCLI {
         return value
     }
 
+    private static func stringOption(_ argument: String, name: String) -> String? {
+        let prefix = "--\(name)="
+        guard argument.hasPrefix(prefix) else { return nil }
+        return String(argument.dropFirst(prefix.count))
+    }
+
     private static func signed(_ value: Int) -> String {
         value > 0 ? "+\(value)" : "\(value)"
     }
@@ -336,6 +391,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench lower-ebnf EBNF OUTPUT
       grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench parse GRAMMAR INPUT [OUTPUT]
+      grammar-workbench platform-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version
@@ -343,6 +399,9 @@ struct GrammarWorkbenchCLI {
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).
     Generalized OPTIONS: --include-resolved, --breadth-first,
       --maximum-configurations=N, --maximum-steps=N, --maximum-trees=N.
+    Platform OPTIONS: --mode=adaptive|deterministic|generalized,
+      --ambiguity=requireUnique|firstStable|shallowest|deepest, --strict,
+      plus all generalized options.
     """
 }
 
@@ -352,6 +411,7 @@ private enum CLIError: LocalizedError {
     case testsFailed
     case parseFailed(String)
     case projectFailed
+    case platformParseFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -360,6 +420,7 @@ private enum CLIError: LocalizedError {
         case .testsFailed: "one or more grammar tests failed"
         case .parseFailed(let status): "input was not accepted (\(status))"
         case .projectFailed: "project validation failed"
+        case .platformParseFailed(let status): "platform parse did not select an accepted tree (\(status))"
         }
     }
 }

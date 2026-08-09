@@ -274,7 +274,7 @@ public extension GrammarCompilation {
         return .init(parse: parsed, alternatives: alternatives)
     }
 
-    private func evaluate<R: GrammarSemanticReducer>(
+    func evaluate<R: GrammarSemanticReducer>(
         _ node: GrammarSyntaxNode,
         using reducer: R
     ) throws -> R.Value {

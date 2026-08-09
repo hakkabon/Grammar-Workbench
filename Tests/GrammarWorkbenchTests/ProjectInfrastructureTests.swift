@@ -114,6 +114,9 @@ private func projectManifest() -> GrammarProjectManifest {
     #expect(generated.count == 1)
     #expect(generated[0].target.outputDirectory == "Generated")
     #expect(generated[0].result.files.first?.suggestedFilename == "Example.bnf")
+    let parsed = try await workspace.parseAll()
+    #expect(parsed.results.map(\.id) == ["main", "library"])
+    #expect(parsed.accepted == 2)
 }
 
 @Test func projectWorkspaceReportsRejectedDocumentsWithoutDiscardingTheirIndexes() async throws {

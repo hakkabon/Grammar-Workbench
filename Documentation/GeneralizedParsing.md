@@ -22,6 +22,8 @@ Depth-first search preserves the original low-overhead discovery order. Breadth-
 
 Generalized parsing is deliberately separate from deterministic recovery and generated parsers. Every run is bounded by configuration, step, and tree limits. A `truncated` result may still contain useful accepted alternatives; callers must inspect `reachedLimits` before treating its forest as exhaustive.
 
+The engines remain separate internally, while `GrammarParsingPlatform` provides optional adaptive orchestration for consumers that want deterministic speed and generalized escalation at unresolved conflicts. It does not apply deterministic recovery to generalized branches or change the standalone generated-parser contract.
+
 The release-candidate policy exercises a representative ambiguous grammar within declared bounds. The native Research workspace exposes the same status, limits, diagnostics, metrics, and stable forest alternatives.
 
 ## CLI

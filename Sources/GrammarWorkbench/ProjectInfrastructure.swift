@@ -347,6 +347,31 @@ public actor GrammarProjectWorkspace {
         return values
     }
 
+    public func parse(
+        documentID: String,
+        options: GrammarPlatformParseOptions = .init()
+    ) throws -> GrammarPlatformParseResult {
+        guard let source = manifest.sources.first(where: { $0.id == documentID }) else {
+            throw GrammarProjectError.unknownSource(documentID)
+        }
+        return try GrammarParsingPlatform(compilation: compilation).parse(.init(
+            id: documentID, input: source.text, options: options
+        ))
+    }
+
+    public func parseAll(
+        options: GrammarPlatformParseOptions = .init(),
+        batchOptions: GrammarPlatformBatchOptions = .init()
+    ) async throws -> GrammarPlatformBatchResult {
+        let platform = try GrammarParsingPlatform(compilation: compilation)
+        return await platform.parseBatch(
+            manifest.sources.map {
+                .init(id: $0.id, input: $0.text, options: options)
+            },
+            options: batchOptions
+        )
+    }
+
     public func projectManifest() -> GrammarProjectManifest { manifest }
 
     private func currentAnalysis() -> GrammarProjectAnalysis {

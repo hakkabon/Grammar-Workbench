@@ -25,6 +25,8 @@ Grammar documents provide compilation diagnostics, Workbench/EBNF-aware completi
 
 Portable project manifests group a grammar, multiple source snapshots, regression tests, and generator targets behind the same public library contracts. `GrammarProjectWorkspace` supplies aggregate analysis and indexing to IDEs and build services, while the CLI provides `project-check` and `project-generate` for CI. Manifests embed their inputs and restrict output declarations to safe relative paths, making validation deterministic and preventing generator configuration from escaping its chosen output root.
 
+The advanced parsing platform is available from the library, project workspaces, and `platform-parse` CLI command. These surfaces share the same engine-selection, ambiguity, cancellation, and resource-limit semantics, so CI results can be reproduced in an editor or embedded service.
+
 ## Validation and distribution
 
 The release-candidate gate runs the complete Swift suite, a framed stdio smoke session, and—when Node is available—the real VS Code client against the server. Release packaging produces independent LSP and editor-client archives, includes them in `SHA256SUMS`, and does not download npm dependencies. Consumers may package the included VS Code source as a VSIX explicitly with `@vscode/vsce`.

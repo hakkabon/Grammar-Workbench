@@ -67,13 +67,28 @@ guard ebnf.productionOrigins.first?.sourceNonterminal == "root",
       ebnf.productionOrigins.first?.sourceRange.start.line == 1 else {
     fatalError("Unexpected EBNF production origins")
 }
-let ambiguous = GrammarWorkbenchAPI.compile(.init(source: "%start E\nE : E '+' E | 'id' ;"))
-    .parseGeneralized("id + id + id", options: .init(searchStrategy: .breadthFirst))
-guard ambiguous.status == .ambiguous,
-      ambiguous.forest.alternatives.count == 2,
-      ambiguous.reachedLimits.isEmpty,
-      ambiguous.alternative(id: ambiguous.forest.alternatives[0].id) != nil else {
+let ambiguousCompilation = GrammarWorkbenchAPI.compile(.init(source: "%start E\nE : E '+' E | 'id' ;"))
+let ambiguousResult = ambiguousCompilation.parseGeneralized(
+    "id + id + id",
+    options: .init(searchStrategy: .breadthFirst)
+)
+guard ambiguousResult.status == .ambiguous,
+      ambiguousResult.forest.alternatives.count == 2,
+      ambiguousResult.reachedLimits.isEmpty,
+      ambiguousResult.alternative(id: ambiguousResult.forest.alternatives[0].id) != nil else {
     fatalError("Unexpected generalized parse forest")
+}
+let platform = try GrammarParsingPlatform(compilation: ambiguousCompilation)
+let platformResult = platform.parse(.init(
+    id: "consumer-platform",
+    input: "id + id + id",
+    options: .init(ambiguitySelection: .firstStable)
+))
+guard platformResult.engine == .generalized,
+      platformResult.status == .ambiguous,
+      platformResult.selectedAlternativeID != nil,
+      platformResult.deterministic?.status == .conflict else {
+    fatalError("Unexpected adaptive parsing platform result")
 }
 let edited = try GrammarTextSnapshot(revision: 1, text: "one two").applying([
     .init(

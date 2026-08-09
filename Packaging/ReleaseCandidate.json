@@ -25,6 +25,8 @@
     "generalizedMaximumConfigurations": 4096,
     "generalizedMaximumSteps": 100000,
     "generalizedMaximumTrees": 32,
+    "platformMaximumConcurrentRequests": 4,
+    "platformBatchRequestCount": 64,
     "incrementalMinimumTokenReusePercent": 80,
     "incrementalMaximumRelexPercent": 40,
     "incrementalMaximumReparsePercent": 25,

@@ -18,6 +18,8 @@ Accepted parses expose a source-aware structured syntax tree. Library clients ca
 
 The Research workspace runs the bounded generalized parser and retains multiple accepted trees with stable identities. Enable resolved-decision exploration to study ambiguity normally hidden by precedence. Results report exact configuration, step, or tree limits, rejection expectations, and action metrics; the equivalent CLI command is `generalized-parse` (`research-parse` remains an alias).
 
+Library, project, and CLI consumers can use the advanced parsing platform to choose deterministic, generalized, or adaptive execution with reproducible ambiguity selection. The equivalent CLI command is `platform-parse`.
+
 The repository's `Examples/Corpus` directory contains larger examples for recursive data, statement grammars, nested lexer modes, and intentional conflicts. They are also exercised by release smoke tests.
 
 Documents autosave through the macOS document architecture. Release builds are sandboxed and only access files explicitly selected by the user.

@@ -1589,58 +1589,6 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertNil(ebnfEdits)
     }
 
-    func testEbnfDocumentUsesNativeEditorCompletion() async {
-        let uri = DocumentURI(filePath: "/tmp/editor.ebnf", isDirectory: false)
-        openDocument(uri: uri, language: "ebnf", text: "root = item { item } ;\nitem = \"x\" ;")
-        let published = await waitForPublish(uri: uri)
-        XCTAssertTrue(published)
-
-        let result: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
-            textDocument: TextDocumentIdentifier(uri),
-            position: Position(line: 0, utf16index: 9)
-        ))
-        guard case .success(let completion) = result else {
-            return XCTFail("completion request failed: \(result)")
-        }
-        XCTAssertTrue(completion.items.map(\.label).contains("item"))
-        XCTAssertFalse(completion.items.map(\.label).contains { $0.hasPrefix("__ebnf_") })
-    }
-
-    func testEbnfDocumentDefinitionUsesOriginalDeclaration() async {
-        let uri = DocumentURI(filePath: "/tmp/definition.ebnf", isDirectory: false)
-        openDocument(uri: uri, language: "ebnf", text: "root = item ;\nitem = \"x\" ;")
-        let published = await waitForPublish(uri: uri)
-        XCTAssertTrue(published)
-
-        let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
-            textDocument: TextDocumentIdentifier(uri),
-            position: Position(line: 0, utf16index: 9)
-        ))
-        guard case .success(.locations(let locations)?) = result else {
-            return XCTFail("definition request failed: \(result)")
-        }
-        XCTAssertEqual(locations.count, 1)
-        XCTAssertEqual(locations[0].uri, uri)
-        XCTAssertEqual(locations[0].range.lowerBound.line, 1)
-    }
-
-    func testEbnfDocumentCodeActionUsesNativeQuickFix() async {
-        let uri = DocumentURI(filePath: "/tmp/fix.ebnf", isDirectory: false)
-        openDocument(uri: uri, language: "ebnf", text: "expression = [ \"term\" ;")
-        let published = await waitForPublish(uri: uri)
-        XCTAssertTrue(published)
-
-        let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
-            range: Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 23),
-            context: .init(),
-            textDocument: TextDocumentIdentifier(uri)
-        ))
-        guard case .success(.codeActions(let actions)?) = result else {
-            return XCTFail("code action request failed: \(result)")
-        }
-        XCTAssertTrue(actions.contains { $0.kind == .quickFix && $0.title.contains("]") })
-    }
-
     func testDocumentLinksForSourceDocumentPointToGrammarRules() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.numGrammar)

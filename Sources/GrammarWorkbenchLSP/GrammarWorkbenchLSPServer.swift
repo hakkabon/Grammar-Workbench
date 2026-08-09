@@ -218,14 +218,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench else {
-                return GrammarDocumentService.completions(
-                    text: document.text,
-                    position: request.position,
-                    notation: notation
-                )
-            }
-            guard
+            guard notation == .workbench,
                   let compilation = await diagnosticsManager.compilation(for: document.uri),
                   let grammar = compilation.parsedGrammar
             else {
@@ -273,15 +266,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench else {
-                return GrammarDocumentService.definition(
-                    uri: document.uri,
-                    text: document.text,
-                    position: request.position,
-                    notation: notation
-                )
-            }
-            guard
+            guard notation == .workbench,
                   let compilation = await diagnosticsManager.compilation(for: document.uri),
                   let grammar = compilation.parsedGrammar
             else {
@@ -371,15 +356,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench else {
-                return GrammarDocumentService.codeActions(
-                    uri: document.uri,
-                    text: document.text,
-                    notation: notation,
-                    requestedRange: request.range
-                )
-            }
-            guard
+            guard notation == .workbench,
                   let compilation = await diagnosticsManager.compilation(for: document.uri)
             else {
                 return nil
@@ -656,7 +633,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         progressCounter += 1
         let token = ProgressToken.string("grammar-workbench-\(progressCounter)")
         let created = await withCheckedContinuation { continuation in
-            _ = connection.send(CreateWorkDoneProgressRequest(token: token)) { result in
+            connection.send(CreateWorkDoneProgressRequest(token: token)) { result in
                 switch result {
                 case .success:
                     continuation.resume(returning: true)

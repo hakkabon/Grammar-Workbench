@@ -361,3 +361,142 @@ S : A B | C ;
     #expect(decoded.incrementalLexing.strategy == .full)
     #expect(decoded.incrementalLexing.fallbackReason != nil)
 }
+
+@Test func incrementalParserResumesAtChangedTokenAndMatchesCleanParse() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(
+        id: "parser", text: "one, two, three, four", revision: 1
+    )
+    let updated = try await session.apply(
+        documentID: "parser",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 17),
+                end: .init(line: 0, utf16Column: 21)
+            ),
+            replacement: "five"
+        )],
+        revision: 2
+    )
+    let expected = "one, two, three, five"
+
+    #expect(updated.parse == compilation.parse(expected))
+    #expect(updated.incrementalParsing.strategy == .incremental)
+    #expect(updated.incrementalParsing.resumedTokenIndex == 6)
+    #expect(updated.incrementalParsing.reparsedTokenCount == 1)
+    #expect(updated.incrementalParsing.availableCheckpoints == updated.lexing.tokens.count + 1)
+}
+
+@Test func incrementalParserReusesAllTokensForTriviaOnlyEdit() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "trivia", text: "one,two", revision: 1)
+    let updated = try await session.apply(
+        documentID: "trivia",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 4),
+                end: .init(line: 0, utf16Column: 4)
+            ),
+            replacement: " "
+        )],
+        revision: 2
+    )
+
+    #expect(updated.parse == compilation.parse("one, two"))
+    #expect(updated.incrementalParsing.strategy == .incremental)
+    #expect(updated.incrementalParsing.reusedPrefixTokens == updated.lexing.tokens.count)
+    #expect(updated.incrementalParsing.reparsedTokenCount == 0)
+}
+
+@Test func incrementalParserRecoveryMatchesFullAndForcesNextEditFallback() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "recovery", text: "one, two", revision: 1)
+    let recovered = try await session.apply(
+        documentID: "recovery",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 3),
+                end: .init(line: 0, utf16Column: 4)
+            ),
+            replacement: ""
+        )],
+        revision: 2
+    )
+
+    #expect(recovered.parse == compilation.parse("one two"))
+    #expect(recovered.parse.status == .acceptedWithRecovery)
+    #expect(recovered.incrementalParsing.strategy == .incremental)
+
+    let repaired = try await session.apply(
+        documentID: "recovery",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 3),
+                end: .init(line: 0, utf16Column: 3)
+            ),
+            replacement: ","
+        )],
+        revision: 3
+    )
+    #expect(repaired.parse == compilation.parse("one, two"))
+    #expect(repaired.incrementalParsing.strategy == .fallback)
+}
+
+@Test func incrementalParserHandlesNullableReductionsAtResumeBoundary() async throws {
+    let grammar = #"""
+%token ID /[a-z]+/
+%skip /\s+/
+%start S
+S : Optional ID ID ;
+Optional : ;
+"""#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "nullable", text: "one two", revision: 1)
+    let updated = try await session.apply(
+        documentID: "nullable",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 4),
+                end: .init(line: 0, utf16Column: 7)
+            ),
+            replacement: "four"
+        )],
+        revision: 2
+    )
+
+    #expect(updated.parse == compilation.parse("one four"))
+    #expect(updated.incrementalParsing.strategy == .incremental)
+    #expect(updated.incrementalParsing.resumedTokenIndex == 1)
+}
+
+@Test func coordinatorRapidFullSnapshotsReuseParserPrefix() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
+    _ = try await coordinator.synchronizeDocument(id: "rapid-parser", text: "one, two")
+    for index in 1...40 {
+        let text = "one, two, item" + String(repeating: "x", count: index)
+        let snapshot = try await coordinator.synchronizeDocument(id: "rapid-parser", text: text)
+        #expect(snapshot.parse == compilation.parse(text))
+        #expect(snapshot.incrementalParsing.strategy == .incremental)
+        #expect(snapshot.incrementalParsing.resumedTokenIndex == (index == 1 ? 3 : 4))
+    }
+}
+
+@Test func incrementalSnapshotDecodesPreParserMetricsPayload() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let snapshot = try await session.openDocument(id: "legacy-parser", text: "one", revision: 1)
+    let encoded = try JSONEncoder().encode(snapshot)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object["incrementalParsing"] = nil
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    let decoded = try JSONDecoder().decode(GrammarIncrementalAnalysisSnapshot.self, from: legacy)
+
+    #expect(decoded.parse == snapshot.parse)
+    #expect(decoded.incrementalParsing.strategy == .full)
+    #expect(decoded.incrementalParsing.fallbackReason != nil)
+}

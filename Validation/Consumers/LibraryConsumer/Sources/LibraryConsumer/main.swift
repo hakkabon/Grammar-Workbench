@@ -100,6 +100,8 @@ let incrementallyLexed = try await coordinator.apply(
 )
 guard incrementallyLexed.parse.status == .accepted,
       incrementallyLexed.incrementalLexing.strategy == .incremental,
+      incrementallyLexed.incrementalParsing.strategy == .incremental,
+      incrementallyLexed.incrementalParsing.reparsedTokenCount == 1,
       incrementallyLexed.lexing.tokens.last?.lexeme == "3" else {
     fatalError("Unexpected incremental lexer result")
 }

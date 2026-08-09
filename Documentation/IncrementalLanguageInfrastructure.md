@@ -19,6 +19,7 @@ Create `GrammarIncrementalLanguageSession` with a successful `GrammarCompilation
 - counts of reused, created, and removed tokens and nodes;
 - the grammar revision and applied text-change summary.
 - the lexer strategy, relexed UTF-16 range, prefix/suffix reuse, and fallback reason.
+- the parser strategy, resume token, reparsed token count, checkpoint count, and fallback reason.
 
 Structurally unchanged tokens and subtrees keep their identities even when an earlier edit shifts their source ranges. `updateCompilation` reanalyzes all open documents after a grammar change while retaining identities wherever structure remains equal.
 
@@ -30,7 +31,15 @@ For a single ranged edit, lexing restarts at the last checkpoint preceding the d
 
 Full replacement, multiple sequential edits, a previously invalid lex, the legacy whitespace-token input mode, or regular expressions whose result can depend on text outside their matched range use an explicit full-lex fallback. `GrammarIncrementalLexingMetrics` makes the strategy and reason observable. Unicode positions, multiline tokens, skipped mode transitions, and push/pop/begin mode stacks use the same checkpoint rules.
 
-Incremental lex results are continuously checked against clean lexing. Deterministic parsing is still recomputed completely and remains the next incremental-computation phase.
+Incremental lex results are continuously checked against clean lexing.
+
+## Incremental deterministic parsing
+
+The deterministic LR runtime records a resumable checkpoint immediately after each shifted token. A checkpoint contains the consumed-token index, parser state and symbol stacks, partial parse-tree stack, completed step count, and replay frames. Capturing after a shift is significant: reductions at the same cursor depend on the next lookahead and are therefore replayed whenever that token changes.
+
+After lexing, the session compares token kind, lexeme, and lexer mode to find the unchanged prefix. Parsing resumes from the corresponding checkpoint and reparses the affected suffix. Retained replay frames are rebased onto the new token stream so traces, syntax trees, diagnostics, recovery decisions, ranges, and step-limit behavior remain equal to a clean parse.
+
+A previously recovered, rejected, conflicted, looping, or lexically invalid result is not used as a resume source. Grammar replacement and missing checkpoints also perform an explicit full-parse fallback. `GrammarIncrementalParsingMetrics` reports the selected strategy, resume boundary, work performed, available checkpoints, and fallback reason. Clean incremental results and recovery reached after a safe checkpoint are checked against full deterministic parsing in the test suite.
 
 ## LSP synchronization
 

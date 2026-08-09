@@ -120,7 +120,9 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let snapshot = try XCTUnwrap(analyzed)
 
         XCTAssertEqual(snapshot.incrementalLexing.strategy, .incremental)
+        XCTAssertEqual(snapshot.incrementalParsing.strategy, .incremental)
         XCTAssertEqual(snapshot.lexing, compilation.lex("zero two three"))
+        XCTAssertEqual(snapshot.parse, compilation.parse("zero two three"))
         XCTAssertGreaterThan(snapshot.incrementalLexing.reusedSuffixTokens, 0)
     }
 

@@ -79,7 +79,7 @@ print(compilation.performance)
 print(await compiler.statistics())
 ```
 
-`GrammarIncrementalLanguageSession` complements construction caching with versioned UTF-16 document edits, checkpoint-based incremental relexing, multi-document lex/parse snapshots, grammar replacement, stable session-local token and subtree identities, and explicit reuse and fallback metrics. It is suitable for editors, language servers, indexes, and build daemons; the bundled LSP advertises incremental synchronization and forwards ranged edits through the same analysis coordinator. Deterministic parsing currently remains a correctness-first full recomputation. See [Documentation/IncrementalLanguageInfrastructure.md](Documentation/IncrementalLanguageInfrastructure.md).
+`GrammarIncrementalLanguageSession` complements construction caching with versioned UTF-16 document edits, checkpoint-based incremental relexing and deterministic reparsing, multi-document analysis snapshots, grammar replacement, stable session-local token and subtree identities, and explicit reuse and fallback metrics. It is suitable for editors, language servers, indexes, and build daemons; the bundled LSP advertises incremental synchronization and forwards ranged edits through the same analysis coordinator. See [Documentation/IncrementalLanguageInfrastructure.md](Documentation/IncrementalLanguageInfrastructure.md).
 
 ```swift
 let session = try GrammarIncrementalLanguageSession(compilation: compilation)

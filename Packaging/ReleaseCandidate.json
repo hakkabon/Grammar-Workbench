@@ -23,6 +23,7 @@
     "generalizedMaximumSteps": 100000,
     "generalizedMaximumTrees": 32,
     "incrementalMinimumTokenReusePercent": 80,
-    "incrementalMaximumRelexPercent": 40
+    "incrementalMaximumRelexPercent": 40,
+    "incrementalMaximumReparsePercent": 25
   }
 }

@@ -175,6 +175,21 @@ public struct GrammarIncrementalLexingMetrics: Hashable, Codable, Sendable {
     }
 }
 
+public enum GrammarIncrementalParsingStrategy: String, Hashable, Codable, Sendable {
+    case full
+    case incremental
+    case fallback
+}
+
+public struct GrammarIncrementalParsingMetrics: Hashable, Codable, Sendable {
+    public let strategy: GrammarIncrementalParsingStrategy
+    public let resumedTokenIndex: Int
+    public let reparsedTokenCount: Int
+    public let reusedPrefixTokens: Int
+    public let availableCheckpoints: Int
+    public let fallbackReason: String?
+}
+
 public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
     public let documentID: String
     public let text: GrammarTextSnapshot
@@ -186,6 +201,7 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
     public let syntaxTree: GrammarIncrementalSyntaxNode?
     public let reuse: GrammarIncrementalReuseMetrics
     public let incrementalLexing: GrammarIncrementalLexingMetrics
+    public let incrementalParsing: GrammarIncrementalParsingMetrics
 
     init(
         documentID: String,
@@ -197,18 +213,20 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
         tokens: [GrammarIncrementalToken],
         syntaxTree: GrammarIncrementalSyntaxNode?,
         reuse: GrammarIncrementalReuseMetrics,
-        incrementalLexing: GrammarIncrementalLexingMetrics
+        incrementalLexing: GrammarIncrementalLexingMetrics,
+        incrementalParsing: GrammarIncrementalParsingMetrics
     ) {
         self.documentID = documentID; self.text = text
         self.grammarRevision = grammarRevision; self.change = change
         self.lexing = lexing; self.parse = parse; self.tokens = tokens
         self.syntaxTree = syntaxTree; self.reuse = reuse
         self.incrementalLexing = incrementalLexing
+        self.incrementalParsing = incrementalParsing
     }
 
     private enum CodingKeys: String, CodingKey {
         case documentID, text, grammarRevision, change, lexing, parse, tokens
-        case syntaxTree, reuse, incrementalLexing
+        case syntaxTree, reuse, incrementalLexing, incrementalParsing
     }
 
     public init(from decoder: Decoder) throws {
@@ -232,6 +250,16 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
             reusedSuffixTokens: 0,
             fallbackReason: "Decoded from a snapshot created before incremental lexing metrics."
         )
+        incrementalParsing = try values.decodeIfPresent(
+            GrammarIncrementalParsingMetrics.self, forKey: .incrementalParsing
+        ) ?? .init(
+            strategy: .full,
+            resumedTokenIndex: 0,
+            reparsedTokenCount: lexing.tokens.count,
+            reusedPrefixTokens: 0,
+            availableCheckpoints: 0,
+            fallbackReason: "Decoded from a snapshot created before incremental parsing metrics."
+        )
     }
 }
 
@@ -242,6 +270,8 @@ public actor GrammarIncrementalLanguageSession {
     private struct DocumentState {
         var snapshot: GrammarIncrementalAnalysisSnapshot
         var lexerCheckpoints: [LexerCheckpoint]
+        var parserCheckpoints: [ParserCheckpoint]
+        var parserFrames: [ReplayFrame]
     }
 
     private var compilation: GrammarCompilation
@@ -273,7 +303,12 @@ public actor GrammarIncrementalLanguageSession {
             change: nil,
             edits: nil
         )
-        documents[id] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+        documents[id] = .init(
+            snapshot: analyzed.snapshot,
+            lexerCheckpoints: analyzed.lexerCheckpoints,
+            parserCheckpoints: analyzed.parserCheckpoints,
+            parserFrames: analyzed.parserFrames
+        )
         return analyzed.snapshot
     }
 
@@ -292,10 +327,17 @@ public actor GrammarIncrementalLanguageSession {
             text: updated.snapshot,
             previous: previous,
             previousCheckpoints: documents[documentID]?.lexerCheckpoints ?? [],
+            previousParserCheckpoints: documents[documentID]?.parserCheckpoints ?? [],
+            previousParserFrames: documents[documentID]?.parserFrames ?? [],
             change: updated.change,
             edits: edits
         )
-        documents[documentID] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+        documents[documentID] = .init(
+            snapshot: analyzed.snapshot,
+            lexerCheckpoints: analyzed.lexerCheckpoints,
+            parserCheckpoints: analyzed.parserCheckpoints,
+            parserFrames: analyzed.parserFrames
+        )
         return analyzed.snapshot
     }
 
@@ -328,10 +370,19 @@ public actor GrammarIncrementalLanguageSession {
                 text: previous.text,
                 previous: previous,
                 previousCheckpoints: documents[id]?.lexerCheckpoints ?? [],
+                // LR states belong to the compiled artifact and cannot cross
+                // a grammar replacement, even when token text is unchanged.
+                previousParserCheckpoints: [],
+                previousParserFrames: [],
                 change: nil,
                 edits: nil
             )
-            documents[id] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+            documents[id] = .init(
+                snapshot: analyzed.snapshot,
+                lexerCheckpoints: analyzed.lexerCheckpoints,
+                parserCheckpoints: analyzed.parserCheckpoints,
+                parserFrames: analyzed.parserFrames
+            )
             results.append(analyzed.snapshot)
         }
         return results
@@ -342,25 +393,38 @@ public actor GrammarIncrementalLanguageSession {
         text: GrammarTextSnapshot,
         previous: GrammarIncrementalAnalysisSnapshot?,
         previousCheckpoints: [LexerCheckpoint],
+        previousParserCheckpoints: [ParserCheckpoint] = [],
+        previousParserFrames: [ReplayFrame] = [],
         change: GrammarTextChangeSummary?,
         edits: [GrammarTextEdit]?
-    ) -> (snapshot: GrammarIncrementalAnalysisSnapshot, checkpoints: [LexerCheckpoint]) {
+    ) -> (
+        snapshot: GrammarIncrementalAnalysisSnapshot,
+        lexerCheckpoints: [LexerCheckpoint],
+        parserCheckpoints: [ParserCheckpoint],
+        parserFrames: [ReplayFrame]
+    ) {
         let lexed = incrementalLex(
             text: text.text,
             previous: previous,
             previousCheckpoints: previousCheckpoints,
             edits: edits
         )
-        let parse = compilation.parse(text.text)
+        let parsed = incrementalParse(
+            text: text.text,
+            lexing: lexed.result,
+            previous: previous,
+            previousCheckpoints: previousParserCheckpoints,
+            previousFrames: previousParserFrames
+        )
         let tokenResult = reconcileTokens(lexed.result.tokens, previous: previous?.tokens ?? [])
-        let nodeResult = reconcileTree(parse.syntaxTree, previous: previous?.syntaxTree)
+        let nodeResult = reconcileTree(parsed.result.syntaxTree, previous: previous?.syntaxTree)
         return (.init(
             documentID: documentID,
             text: text,
             grammarRevision: grammarRevision,
             change: change,
             lexing: lexed.result,
-            parse: parse,
+            parse: parsed.result,
             tokens: tokenResult.values,
             syntaxTree: nodeResult.value,
             reuse: .init(
@@ -371,8 +435,9 @@ public actor GrammarIncrementalLanguageSession {
                 createdNodes: nodeResult.created,
                 removedNodes: nodeResult.removed
             ),
-            incrementalLexing: lexed.metrics
-        ), lexed.checkpoints)
+            incrementalLexing: lexed.metrics,
+            incrementalParsing: parsed.metrics
+        ), lexed.checkpoints, parsed.checkpoints, parsed.frames)
     }
 
     private func incrementalLex(
@@ -486,6 +551,184 @@ public actor GrammarIncrementalLanguageSession {
             reusedSuffixTokens: suffix.count,
             fallbackReason: nil
         ))
+    }
+
+    private func incrementalParse(
+        text: String,
+        lexing: GrammarLexingResult,
+        previous: GrammarIncrementalAnalysisSnapshot?,
+        previousCheckpoints: [ParserCheckpoint],
+        previousFrames: [ReplayFrame]
+    ) -> (
+        result: GrammarParseResult,
+        checkpoints: [ParserCheckpoint],
+        frames: [ReplayFrame],
+        metrics: GrammarIncrementalParsingMetrics
+    ) {
+        guard !lexing.hasErrors, let artifact = compilation.compiledArtifact else {
+            return (compilation.parse(text), [], [], .init(
+                strategy: previous == nil ? .full : .fallback,
+                resumedTokenIndex: 0,
+                reparsedTokenCount: lexing.tokens.count,
+                reusedPrefixTokens: 0,
+                availableCheckpoints: 0,
+                fallbackReason: previous == nil ? nil : "Incremental parsing requires a clean lex and compiled artifact."
+            ))
+        }
+
+        let kinds = lexing.tokens.map(\.kind)
+        guard let previous else {
+            let runtime = LRParserRuntime.parse(kinds, artifact: artifact, recovery: .diagnostic)
+            return (Self.snapshot(runtime, lexing: lexing), runtime.checkpoints, runtime.frames, .init(
+                strategy: .full,
+                resumedTokenIndex: 0,
+                reparsedTokenCount: kinds.count,
+                reusedPrefixTokens: 0,
+                availableCheckpoints: runtime.checkpoints.count,
+                fallbackReason: nil
+            ))
+        }
+
+        guard previous.parse.status == .accepted,
+              previous.lexing.diagnostics.isEmpty,
+              !previousCheckpoints.isEmpty else {
+            let runtime = LRParserRuntime.parse(kinds, artifact: artifact, recovery: .diagnostic)
+            return (Self.snapshot(runtime, lexing: lexing), runtime.checkpoints, runtime.frames, .init(
+                strategy: .fallback,
+                resumedTokenIndex: 0,
+                reparsedTokenCount: kinds.count,
+                reusedPrefixTokens: 0,
+                availableCheckpoints: runtime.checkpoints.count,
+                fallbackReason: "The previous parse was recovered, rejected, conflicted, or has no checkpoints."
+            ))
+        }
+
+        var commonPrefix = 0
+        while commonPrefix < previous.lexing.tokens.count,
+              commonPrefix < lexing.tokens.count,
+              Self.sameParserToken(
+                previous.lexing.tokens[commonPrefix], lexing.tokens[commonPrefix]
+              ) {
+            commonPrefix += 1
+        }
+        guard let checkpoint = previousCheckpoints.first(where: { $0.tokenIndex == commonPrefix }) else {
+            let runtime = LRParserRuntime.parse(kinds, artifact: artifact, recovery: .diagnostic)
+            return (Self.snapshot(runtime, lexing: lexing), runtime.checkpoints, runtime.frames, .init(
+                strategy: .fallback,
+                resumedTokenIndex: 0,
+                reparsedTokenCount: kinds.count,
+                reusedPrefixTokens: 0,
+                availableCheckpoints: runtime.checkpoints.count,
+                fallbackReason: "No parser checkpoint matches the unchanged token prefix."
+            ))
+        }
+
+        let newInput = kinds + ["$"]
+        let oldInputCount = previous.lexing.tokens.count + 1
+        let rebasedFrames = previousFrames.prefix(checkpoint.frameCount).map { frame in
+            let consumed = max(0, oldInputCount - frame.remainingInput.count)
+            return ReplayFrame(
+                index: frame.index,
+                stack: frame.stack,
+                remainingInput: consumed <= newInput.count
+                    ? Array(newInput.dropFirst(consumed)) : [],
+                action: frame.action,
+                state: frame.state,
+                cell: frame.cell,
+                production: frame.production
+            )
+        }
+        let rebasedCheckpoint = ParserCheckpoint(
+            tokenIndex: checkpoint.tokenIndex,
+            steps: checkpoint.steps,
+            states: checkpoint.states,
+            symbols: checkpoint.symbols,
+            nodes: checkpoint.nodes,
+            frameCount: rebasedFrames.count
+        )
+        let runtime = LRParserRuntime.parse(
+            kinds, artifact: artifact, recovery: .diagnostic,
+            resuming: rebasedCheckpoint, prefixFrames: rebasedFrames
+        )
+        let prefixCheckpoints = previousCheckpoints.filter { $0.tokenIndex < commonPrefix }
+        let checkpoints = prefixCheckpoints + runtime.checkpoints
+        return (Self.snapshot(runtime, lexing: lexing), checkpoints, runtime.frames, .init(
+            strategy: .incremental,
+            resumedTokenIndex: commonPrefix,
+            reparsedTokenCount: max(0, kinds.count - commonPrefix),
+            reusedPrefixTokens: commonPrefix,
+            availableCheckpoints: checkpoints.count,
+            fallbackReason: nil
+        ))
+    }
+
+    private static func sameParserToken(
+        _ lhs: GrammarInputTokenSnapshot,
+        _ rhs: GrammarInputTokenSnapshot
+    ) -> Bool {
+        lhs.kind == rhs.kind && lhs.lexeme == rhs.lexeme && lhs.mode == rhs.mode
+    }
+
+    private static func snapshot(
+        _ runtime: ParserRuntimeResult,
+        lexing: GrammarLexingResult
+    ) -> GrammarParseResult {
+        let syntaxDiagnostics = runtime.diagnostics.map { diagnostic in
+            GrammarSyntaxDiagnostic(
+                id: diagnostic.index,
+                message: diagnostic.message,
+                tokenIndex: diagnostic.tokenIndex,
+                range: lexing.tokens.indices.contains(diagnostic.tokenIndex)
+                    ? lexing.tokens[diagnostic.tokenIndex].range : nil,
+                state: diagnostic.state.rawValue,
+                unexpected: diagnostic.unexpected,
+                expected: diagnostic.expected,
+                recovery: diagnostic.recovery.flatMap { GrammarRecoveryKind(rawValue: $0.rawValue) },
+                recoverySymbol: diagnostic.recoverySymbol,
+                recoveryDetail: diagnostic.recoveryDetail
+            )
+        }
+        let status: GrammarParseStatus
+        let expected: [String]
+        let conflictState: Int?
+        let conflictSymbol: String?
+        switch runtime.outcome {
+        case .accepted:
+            status = syntaxDiagnostics.isEmpty ? .accepted : .acceptedWithRecovery
+            expected = syntaxDiagnostics.last?.expected ?? []
+            conflictState = nil; conflictSymbol = nil
+        case .rejected(_, let values):
+            status = .rejected; expected = values
+            conflictState = nil; conflictSymbol = nil
+        case .conflict(let cell):
+            status = .conflict; expected = []
+            conflictState = cell.state.rawValue; conflictSymbol = cell.symbol
+        case .looping:
+            status = .looping; expected = []
+            conflictState = nil; conflictSymbol = nil
+        }
+        return .init(
+            status: status,
+            message: runtime.outcome.label,
+            tokens: lexing.tokens,
+            expectedTerminals: expected,
+            tree: runtime.tree?.rendered(),
+            syntaxTree: runtime.tree.map { GrammarSyntaxNode.make(from: $0, tokens: lexing.tokens) },
+            trace: runtime.frames.map { frame in
+                GrammarTraceFrameSnapshot(
+                    index: frame.index,
+                    stack: frame.stack,
+                    remainingInput: frame.remainingInput,
+                    action: frame.action,
+                    state: frame.state?.rawValue,
+                    cellSymbol: frame.cell?.symbol,
+                    production: frame.production?.rawValue
+                )
+            },
+            conflictState: conflictState,
+            conflictSymbol: conflictSymbol,
+            diagnostics: syntaxDiagnostics
+        )
     }
 
     private static func snapshot(_ result: LexerResult) -> GrammarLexingResult {

@@ -95,17 +95,28 @@ struct ParserRuntimeResult: Sendable {
     let frames: [ReplayFrame]
     let outcome: ParseOutcome
     let diagnostics: [ParserDiagnostic]
+    let checkpoints: [ParserCheckpoint]
 
     init(
         tokens: [String], tree: ParseTreeNode?, frames: [ReplayFrame], outcome: ParseOutcome,
-        diagnostics: [ParserDiagnostic] = []
+        diagnostics: [ParserDiagnostic] = [], checkpoints: [ParserCheckpoint] = []
     ) {
         self.tokens = tokens
         self.tree = tree
         self.frames = frames
         self.outcome = outcome
         self.diagnostics = diagnostics
+        self.checkpoints = checkpoints
     }
+}
+
+struct ParserCheckpoint: Sendable {
+    let tokenIndex: Int
+    let steps: Int
+    let states: [StateID]
+    let symbols: [String]
+    let nodes: [ParseTreeNode]
+    let frameCount: Int
 }
 
 enum SampleInputTokenizer {
@@ -158,7 +169,9 @@ enum LRParserRuntime {
         artifact: GrammarArtifact,
         forcing forcedChoice: (cell: CellID, action: TableAction)? = nil,
         stepLimit: Int = 1_000,
-        recovery: ParserRecoveryConfiguration = .disabled
+        recovery: ParserRecoveryConfiguration = .disabled,
+        resuming checkpoint: ParserCheckpoint? = nil,
+        prefixFrames: [ReplayFrame] = []
     ) -> ParserRuntimeResult {
         let terminalSet = Set(artifact.terminals.filter { $0 != "$" })
         if recovery.maximumDiagnostics == 0,
@@ -175,17 +188,26 @@ enum LRParserRuntime {
         }
 
         var input = tokens + ["$"]
-        var cursor = 0
-        var states = [StateID(rawValue: 0)]
-        var symbols: [String] = []
-        var nodes: [ParseTreeNode] = []
-        var frames: [ReplayFrame] = []
+        var cursor = checkpoint?.tokenIndex ?? 0
+        var states = checkpoint?.states ?? [StateID(rawValue: 0)]
+        var symbols = checkpoint?.symbols ?? []
+        var nodes = checkpoint?.nodes ?? []
+        var frames = checkpoint == nil ? [] : prefixFrames
+        var checkpoints: [Int: ParserCheckpoint] = [:]
+        if let checkpoint {
+            checkpoints[checkpoint.tokenIndex] = checkpoint
+        } else {
+            checkpoints[0] = .init(
+                tokenIndex: 0, steps: 0, states: states, symbols: symbols,
+                nodes: nodes, frameCount: 0
+            )
+        }
         var diagnostics: [ParserDiagnostic] = []
         var insertedTokenIndices: Set<Int> = []
         var attemptedRecoveries: Set<String> = []
         var forcedChoiceUsed = false
 
-        for _ in 0..<stepLimit {
+        for step in (checkpoint?.steps ?? 0)..<stepLimit {
             guard let state = states.last else {
                 return result(.rejected(message: "Parser stack became empty.", expected: []))
             }
@@ -331,6 +353,11 @@ enum LRParserRuntime {
                     isMissing: insertedTokenIndices.contains(cursor)
                 ))
                 cursor += 1
+                checkpoints[cursor] = .init(
+                    tokenIndex: cursor, steps: step + 1,
+                    states: states, symbols: symbols,
+                    nodes: nodes, frameCount: frames.count
+                )
             case .reduce(let productionID):
                 guard let production = artifact.productions.first(where: { $0.id == productionID }),
                       production.rhs.count <= symbols.count,
@@ -421,7 +448,8 @@ enum LRParserRuntime {
                 tree: outcome == .accepted ? nodes.last : nil,
                 frames: frames,
                 outcome: outcome,
-                diagnostics: diagnostics
+                diagnostics: diagnostics,
+                checkpoints: checkpoints.values.sorted { $0.tokenIndex < $1.tokenIndex }
             )
         }
     }

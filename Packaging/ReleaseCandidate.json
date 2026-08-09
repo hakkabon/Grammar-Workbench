@@ -24,6 +24,7 @@
     "generalizedMaximumTrees": 32,
     "incrementalMinimumTokenReusePercent": 80,
     "incrementalMaximumRelexPercent": 40,
-    "incrementalMaximumReparsePercent": 25
+    "incrementalMaximumReparsePercent": 25,
+    "incrementalMinimumSemanticReusePercent": 50
   }
 }

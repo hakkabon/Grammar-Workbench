@@ -1,5 +1,13 @@
 import GrammarWorkbench
 
+struct CountingSemantics: GrammarSemanticReducer {
+    func terminal(_ token: GrammarInputTokenSnapshot, node: GrammarSyntaxNode) -> Int { 1 }
+    func missing(symbol: String, node: GrammarSyntaxNode) -> Int { 0 }
+    func reduce(
+        production: GrammarProductionSnapshot, children: [Int], node: GrammarSyntaxNode
+    ) -> Int { children.reduce(0, +) }
+}
+
 enum Expression: Sendable, Equatable {
     case number(Int)
     indirect case addition(Expression, Expression)
@@ -83,6 +91,10 @@ let coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compila
 let coordinated = try await coordinator.synchronizeDocument(
     id: "consumer", text: "1 + 2", externalRevision: 1
 )
+let incrementalSemantics = try GrammarIncrementalSemanticEvaluator(
+    compilation: compilation, reducer: CountingSemantics()
+)
+_ = try await incrementalSemantics.evaluate(coordinated)
 guard coordinated.parse.status == .accepted,
       await coordinator.openDocumentIDs == ["consumer"] else {
     fatalError("Unexpected coordinated incremental analysis")
@@ -102,8 +114,14 @@ guard incrementallyLexed.parse.status == .accepted,
       incrementallyLexed.incrementalLexing.strategy == .incremental,
       incrementallyLexed.incrementalParsing.strategy == .incremental,
       incrementallyLexed.incrementalParsing.reparsedTokenCount == 1,
+      incrementallyLexed.semanticIndex.entries.first(where: { $0.lexeme == "3" }) != nil,
       incrementallyLexed.lexing.tokens.last?.lexeme == "3" else {
     fatalError("Unexpected incremental lexer result")
+}
+let incrementalSemanticResult = try await incrementalSemantics.evaluate(incrementallyLexed)
+guard incrementalSemanticResult.metrics.reusedValues > 0,
+      incrementalSemanticResult.metrics.evaluatedValues > 0 else {
+    fatalError("Unexpected incremental semantic reuse")
 }
 await coordinator.closeDocument(id: "consumer")
 print("library-consumer-ok")

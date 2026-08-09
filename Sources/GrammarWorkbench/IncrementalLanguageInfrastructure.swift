@@ -202,6 +202,8 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
     public let reuse: GrammarIncrementalReuseMetrics
     public let incrementalLexing: GrammarIncrementalLexingMetrics
     public let incrementalParsing: GrammarIncrementalParsingMetrics
+    public let semanticIndex: GrammarIncrementalSemanticIndex
+    public let incrementalIndexing: GrammarIncrementalIndexingMetrics
 
     init(
         documentID: String,
@@ -214,7 +216,9 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
         syntaxTree: GrammarIncrementalSyntaxNode?,
         reuse: GrammarIncrementalReuseMetrics,
         incrementalLexing: GrammarIncrementalLexingMetrics,
-        incrementalParsing: GrammarIncrementalParsingMetrics
+        incrementalParsing: GrammarIncrementalParsingMetrics,
+        semanticIndex: GrammarIncrementalSemanticIndex,
+        incrementalIndexing: GrammarIncrementalIndexingMetrics
     ) {
         self.documentID = documentID; self.text = text
         self.grammarRevision = grammarRevision; self.change = change
@@ -222,11 +226,13 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
         self.syntaxTree = syntaxTree; self.reuse = reuse
         self.incrementalLexing = incrementalLexing
         self.incrementalParsing = incrementalParsing
+        self.semanticIndex = semanticIndex
+        self.incrementalIndexing = incrementalIndexing
     }
 
     private enum CodingKeys: String, CodingKey {
         case documentID, text, grammarRevision, change, lexing, parse, tokens
-        case syntaxTree, reuse, incrementalLexing, incrementalParsing
+        case syntaxTree, reuse, incrementalLexing, incrementalParsing, semanticIndex, incrementalIndexing
     }
 
     public init(from decoder: Decoder) throws {
@@ -259,6 +265,17 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
             reusedPrefixTokens: 0,
             availableCheckpoints: 0,
             fallbackReason: "Decoded from a snapshot created before incremental parsing metrics."
+        )
+        semanticIndex = try values.decodeIfPresent(
+            GrammarIncrementalSemanticIndex.self, forKey: .semanticIndex
+        ) ?? .make(from: syntaxTree)
+        incrementalIndexing = try values.decodeIfPresent(
+            GrammarIncrementalIndexingMetrics.self, forKey: .incrementalIndexing
+        ) ?? .init(
+            reusedEntries: 0,
+            updatedEntries: 0,
+            createdEntries: semanticIndex.entries.count,
+            removedEntries: 0
         )
     }
 }
@@ -418,6 +435,8 @@ public actor GrammarIncrementalLanguageSession {
         )
         let tokenResult = reconcileTokens(lexed.result.tokens, previous: previous?.tokens ?? [])
         let nodeResult = reconcileTree(parsed.result.syntaxTree, previous: previous?.syntaxTree)
+        let index = GrammarIncrementalSemanticIndex.make(from: nodeResult.value)
+        let indexMetrics = reconcileIndex(index, previous: previous?.semanticIndex)
         return (.init(
             documentID: documentID,
             text: text,
@@ -436,7 +455,9 @@ public actor GrammarIncrementalLanguageSession {
                 removedNodes: nodeResult.removed
             ),
             incrementalLexing: lexed.metrics,
-            incrementalParsing: parsed.metrics
+            incrementalParsing: parsed.metrics,
+            semanticIndex: index,
+            incrementalIndexing: indexMetrics
         ), lexed.checkpoints, parsed.checkpoints, parsed.frames)
     }
 
@@ -820,6 +841,27 @@ public actor GrammarIncrementalLanguageSession {
     private func allocateIdentity() -> GrammarIncrementalIdentity {
         defer { nextIdentity += 1 }
         return .init(rawValue: nextIdentity)
+    }
+
+    private func reconcileIndex(
+        _ index: GrammarIncrementalSemanticIndex,
+        previous: GrammarIncrementalSemanticIndex?
+    ) -> GrammarIncrementalIndexingMetrics {
+        let old = Dictionary(uniqueKeysWithValues: (previous?.entries ?? []).map { ($0.id, $0) })
+        var reused = 0
+        var updated = 0
+        var created = 0
+        for entry in index.entries {
+            guard let prior = old[entry.id] else { created += 1; continue }
+            if prior == entry { reused += 1 } else { updated += 1 }
+        }
+        let retained = reused + updated
+        return .init(
+            reusedEntries: reused,
+            updatedEntries: updated,
+            createdEntries: created,
+            removedEntries: max(0, old.count - retained)
+        )
     }
 
     private func tokenKey(_ token: GrammarInputTokenSnapshot) -> String {

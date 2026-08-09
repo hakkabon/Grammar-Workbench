@@ -20,6 +20,7 @@ Create `GrammarIncrementalLanguageSession` with a successful `GrammarCompilation
 - the grammar revision and applied text-change summary.
 - the lexer strategy, relexed UTF-16 range, prefix/suffix reuse, and fallback reason.
 - the parser strategy, resume token, reparsed token count, checkpoint count, and fallback reason.
+- a flat source-aware semantic index plus entry reuse, update, creation, and removal counts.
 
 Structurally unchanged tokens and subtrees keep their identities even when an earlier edit shifts their source ranges. `updateCompilation` reanalyzes all open documents after a grammar change while retaining identities wherever structure remains equal.
 
@@ -40,6 +41,14 @@ The deterministic LR runtime records a resumable checkpoint immediately after ea
 After lexing, the session compares token kind, lexeme, and lexer mode to find the unchanged prefix. Parsing resumes from the corresponding checkpoint and reparses the affected suffix. Retained replay frames are rebased onto the new token stream so traces, syntax trees, diagnostics, recovery decisions, ranges, and step-limit behavior remain equal to a clean parse.
 
 A previously recovered, rejected, conflicted, looping, or lexically invalid result is not used as a resume source. Grammar replacement and missing checkpoints also perform an explicit full-parse fallback. `GrammarIncrementalParsingMetrics` reports the selected strategy, resume boundary, work performed, available checkpoints, and fallback reason. Clean incremental results and recovery reached after a safe checkpoint are checked against full deterministic parsing in the test suite.
+
+## Incremental semantics and indexing
+
+Every snapshot publishes `semanticIndex`, a flat source-ordered view of its stable syntax nodes. Entries retain parent identity, symbol, production, terminal metadata, depth, recovery state, and source range. Callers can query by symbol, production, identity, or UTF-16 source offset without walking the concrete tree. `incrementalIndexing` distinguishes entries reused exactly from stable entries whose source metadata changed, as well as additions and removals.
+
+`GrammarIncrementalSemanticEvaluator` layers application semantics over these identities while preserving the reducer's concrete `Value` type. It caches terminal, missing-token, and production results and reevaluates only nodes whose complete source-aware representation changed. This conservative equality rule keeps reducers that inspect locations correct: an edit after a subtree can reuse it, while an edit that shifts its range reevaluates it. Cached descendants remain available even when an entire parent subtree is reused.
+
+Semantic evaluation is transactional: a thrown reducer error leaves the preceding cache intact. Rejected parses do not evaluate. Grammar revision changes invalidate cached values, and `updateCompilation` installs replacement production metadata before evaluating refreshed snapshots. Metrics report reused, evaluated, removed, and grammar-invalidated values.
 
 ## LSP synchronization
 

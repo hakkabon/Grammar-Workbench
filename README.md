@@ -79,7 +79,7 @@ print(compilation.performance)
 print(await compiler.statistics())
 ```
 
-`GrammarIncrementalLanguageSession` complements construction caching with versioned UTF-16 document edits, checkpoint-based incremental relexing and deterministic reparsing, multi-document analysis snapshots, grammar replacement, stable session-local token and subtree identities, and explicit reuse and fallback metrics. It is suitable for editors, language servers, indexes, and build daemons; the bundled LSP advertises incremental synchronization and forwards ranged edits through the same analysis coordinator. See [Documentation/IncrementalLanguageInfrastructure.md](Documentation/IncrementalLanguageInfrastructure.md).
+`GrammarIncrementalLanguageSession` complements construction caching with versioned UTF-16 document edits, checkpoint-based incremental relexing and deterministic reparsing, multi-document analysis snapshots, grammar replacement, stable session-local token and subtree identities, a searchable source index, and explicit reuse and fallback metrics. `GrammarIncrementalSemanticEvaluator` incrementally applies any typed semantic reducer and invalidates its cache across grammar revisions. The infrastructure is suitable for editors, language servers, indexes, and build daemons; the bundled LSP advertises incremental synchronization and forwards ranged edits through the same analysis coordinator. See [Documentation/IncrementalLanguageInfrastructure.md](Documentation/IncrementalLanguageInfrastructure.md).
 
 ```swift
 let session = try GrammarIncrementalLanguageSession(compilation: compilation)
@@ -90,6 +90,7 @@ let next = try await session.apply(
     revision: 2
 )
 print(next.reuse)
+print(next.semanticIndex.entries(named: "Declaration"))
 ```
 
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Artifact state and production identifiers are stable within one compiled artifact; incremental token and node identities are stable only within their owning language session. Neither identity kind should be persisted globally. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
@@ -174,6 +175,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
 - `IncrementalConstruction.swift`: actor-isolated request coalescing, bounded LRU reuse, and construction metrics.
 - `IncrementalLanguageInfrastructure.swift`: versioned UTF-16 edits, multi-document analysis, stable session identities, and reuse metrics.
+- `IncrementalSemanticInfrastructure.swift`: typed semantic caching, grammar invalidation, searchable source indexes, and indexing metrics.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
 - `GeneratorInfrastructure.swift`: public generator protocol, registry, multi-file results, and built-in generators.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.

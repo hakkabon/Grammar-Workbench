@@ -19,6 +19,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let incrementalMinimumTokenReusePercent: Double
         let incrementalMaximumRelexPercent: Double
         let incrementalMaximumReparsePercent: Double
+        let incrementalMinimumSemanticReusePercent: Double
     }
 
     let schemaVersion: Int
@@ -74,6 +75,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let opened = try await session.openDocument(
         id: "budget", text: "one, two, three, four, five", revision: 1
     )
+    let evaluator = try GrammarIncrementalSemanticEvaluator(
+        compilation: compilation, reducer: IncrementalListSemanticsForReleaseGate()
+    )
+    _ = try await evaluator.evaluate(opened)
     let changed = try await session.apply(
         documentID: "budget",
         edits: [.init(
@@ -90,6 +95,9 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         / Double(changed.text.text.utf16.count) * 100
     let reparsePercent = Double(changed.incrementalParsing.reparsedTokenCount)
         / Double(changed.lexing.tokens.count) * 100
+    let semantic = try await evaluator.evaluate(changed)
+    let semanticReusePercent = Double(semantic.metrics.reusedValues)
+        / Double(changed.semanticIndex.entries.count) * 100
 
     #expect(changed.parse.status == .accepted)
     #expect(reusePercent >= budget.incrementalMinimumTokenReusePercent)
@@ -97,6 +105,15 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(relexPercent <= budget.incrementalMaximumRelexPercent)
     #expect(changed.incrementalParsing.strategy == .incremental)
     #expect(reparsePercent <= budget.incrementalMaximumReparsePercent)
+    #expect(semanticReusePercent >= budget.incrementalMinimumSemanticReusePercent)
+}
+
+private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
+    func terminal(_ token: GrammarInputTokenSnapshot, node: GrammarSyntaxNode) -> Int { 1 }
+    func missing(symbol: String, node: GrammarSyntaxNode) -> Int { 0 }
+    func reduce(
+        production: GrammarProductionSnapshot, children: [Int], node: GrammarSyntaxNode
+    ) -> Int { children.reduce(0, +) }
 }
 
 @Test func generalizedParsingStaysWithinDeclaredReleaseBudgets() throws {

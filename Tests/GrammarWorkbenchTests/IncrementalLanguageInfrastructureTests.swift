@@ -9,6 +9,22 @@ private let incrementalLanguageGrammar = #"""
 List : List ',' ID | ID ;
 """#
 
+private struct IncrementalListSemantics: GrammarSemanticReducer {
+    func terminal(_ token: GrammarInputTokenSnapshot, node: GrammarSyntaxNode) -> [String] {
+        token.kind == "ID" ? [token.lexeme] : []
+    }
+
+    func missing(symbol: String, node: GrammarSyntaxNode) -> [String] { [] }
+
+    func reduce(
+        production: GrammarProductionSnapshot,
+        children: [[String]],
+        node: GrammarSyntaxNode
+    ) -> [String] {
+        children.flatMap { $0 }
+    }
+}
+
 @Test func textSnapshotsApplyUTF16AndSequentialEdits() throws {
     let original = GrammarTextSnapshot(revision: 1, text: "a😀b\nc")
     let updated = try original.applying([
@@ -499,4 +515,100 @@ Optional : ;
     #expect(decoded.parse == snapshot.parse)
     #expect(decoded.incrementalParsing.strategy == .full)
     #expect(decoded.incrementalParsing.fallbackReason != nil)
+}
+
+@Test func incrementalSemanticEvaluationReusesUnchangedSubtrees() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let evaluator = try GrammarIncrementalSemanticEvaluator(
+        compilation: compilation, reducer: IncrementalListSemantics()
+    )
+    let opened = try await session.openDocument(
+        id: "semantics", text: "one, two, three", revision: 1
+    )
+    let initial = try await evaluator.evaluate(opened)
+    #expect(initial.value == ["one", "two", "three"])
+    #expect(initial.metrics.reusedValues == 0)
+    #expect(initial.metrics.evaluatedValues == opened.semanticIndex.entries.count)
+
+    let updated = try await session.apply(
+        documentID: "semantics",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 10),
+                end: .init(line: 0, utf16Column: 15)
+            ),
+            replacement: "four"
+        )],
+        revision: 2
+    )
+    let incremental = try await evaluator.evaluate(updated)
+    #expect(incremental.value == ["one", "two", "four"])
+    #expect(incremental.metrics.reusedValues > 0)
+    #expect(incremental.metrics.evaluatedValues < updated.semanticIndex.entries.count)
+    #expect(!incremental.metrics.invalidatedByGrammarChange)
+}
+
+@Test func incrementalSemanticEvaluationInvalidatesAcrossGrammarRevision() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let evaluator = try GrammarIncrementalSemanticEvaluator(
+        compilation: compilation, reducer: IncrementalListSemantics()
+    )
+    let opened = try await session.openDocument(id: "grammar-change", text: "one, two")
+    _ = try await evaluator.evaluate(opened)
+
+    let replacement = GrammarWorkbenchAPI.compile(.init(
+        source: incrementalLanguageGrammar + "\nUnused : 'unused' ;"
+    ))
+    let refreshed = try #require(try await session.updateCompilation(replacement).first)
+    try await evaluator.updateCompilation(replacement)
+    let result = try await evaluator.evaluate(refreshed)
+
+    #expect(result.value == ["one", "two"])
+    #expect(result.metrics.reusedValues == 0)
+    #expect(result.metrics.invalidatedByGrammarChange)
+}
+
+@Test func incrementalSemanticIndexSupportsStableNavigationAndChangeMetrics() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let opened = try await session.openDocument(id: "index", text: "one, two", revision: 1)
+    let oldTwo = try #require(opened.semanticIndex.entries.first { $0.lexeme == "two" })
+
+    #expect(opened.semanticIndex.entries(named: "List").count == 2)
+    #expect(opened.semanticIndex.entry(id: oldTwo.id) == oldTwo)
+    #expect(opened.semanticIndex.entry(atUTF16Offset: 6)?.lexeme == "two")
+
+    let updated = try await session.apply(
+        documentID: "index",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 0),
+                end: .init(line: 0, utf16Column: 3)
+            ),
+            replacement: "three"
+        )],
+        revision: 2
+    )
+    let newTwo = try #require(updated.semanticIndex.entries.first { $0.lexeme == "two" })
+    #expect(newTwo.id == oldTwo.id)
+    #expect(newTwo.range?.start.offset == 7)
+    #expect(updated.incrementalIndexing.updatedEntries > 0)
+    #expect(updated.incrementalIndexing.createdEntries > 0)
+}
+
+@Test func incrementalSnapshotDecodesPreSemanticIndexPayload() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let snapshot = try await session.openDocument(id: "legacy-index", text: "one")
+    let encoded = try JSONEncoder().encode(snapshot)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object["semanticIndex"] = nil
+    object["incrementalIndexing"] = nil
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    let decoded = try JSONDecoder().decode(GrammarIncrementalAnalysisSnapshot.self, from: legacy)
+
+    #expect(decoded.semanticIndex.entries.count == snapshot.semanticIndex.entries.count)
+    #expect(decoded.incrementalIndexing.createdEntries == decoded.semanticIndex.entries.count)
 }

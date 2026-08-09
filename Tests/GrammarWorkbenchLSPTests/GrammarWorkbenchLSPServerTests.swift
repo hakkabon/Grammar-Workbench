@@ -11,7 +11,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     private var connection: LocalConnection!
     /// The connection the server uses to send messages back to the client.
     private var clientConnection: LocalConnection!
-
+    
     override func setUp() {
         super.setUp()
         client = TestClient()
@@ -21,7 +21,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         connection = LocalConnection(receiverName: "server")
         connection.start(handler: server)
     }
-
+    
     override func tearDown() {
         connection.close()
         clientConnection.close()
@@ -31,11 +31,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         clientConnection = nil
         super.tearDown()
     }
-
+    
     private var mockURI: DocumentURI {
         DocumentURI(filePath: "/tmp/mock-document.txt", isDirectory: false)
     }
-
+    
     /// Sends `request` from the client to the server and awaits the reply.
     private func send<Request: RequestType>(
         _ request: Request,
@@ -47,7 +47,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             }
         }
     }
-
+    
     /// Polls `condition` until it returns true or `timeout` elapses. Notifications
     /// are handled by the server in separate tasks, so tests must wait for them.
     private func waitUntil(
@@ -62,7 +62,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         return await condition()
     }
-
+    
     func testInitializeReturnsFullTextSyncCapabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
@@ -89,7 +89,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             XCTFail("expected didSave sync options with included text, got \(String(describing: sync.save))")
         }
     }
-
+    
     func testShutdownRepliesAndSetsExitState() async {
         _ = await send(InitializeRequest(
             processId: nil,
@@ -104,7 +104,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let hasReceivedShutdown = await server.hasReceivedShutdown
         XCTAssertTrue(hasReceivedShutdown)
     }
-
+    
     func testUnknownRequestRepliesMethodNotFound() async {
         let result: LSPResult<WorkspaceFoldersRequest.Response> = await send(WorkspaceFoldersRequest())
         guard case .failure(let error) = result else {
@@ -112,7 +112,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(error.code, .methodNotFound)
     }
-
+    
     func testDidOpenStoresDocument() async {
         let uri = DocumentURI(filePath: "/tmp/test.grammar", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
@@ -124,7 +124,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let stored = await waitUntil { await self.server.documentStore.text(for: uri) == "hello world" }
         XCTAssertTrue(stored, "server did not store the opened document")
     }
-
+    
     func testDidChangeFullSyncReplacesDocument() async {
         let uri = DocumentURI(filePath: "/tmp/test.grammar", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
@@ -142,7 +142,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let version = await server.documentStore.document(for: uri)?.version
         XCTAssertEqual(version, 2)
     }
-
+    
     func testDidCloseRemovesDocument() async {
         let uri = DocumentURI(filePath: "/tmp/test.txt", isDirectory: false)
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
@@ -155,7 +155,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let removed = await waitUntil { await self.server.documentStore.text(for: uri) == nil }
         XCTAssertTrue(removed, "server did not remove the closed document")
     }
-
+    
     func testUnknownNotificationIsIgnored() async throws {
         // A notification our server does not handle must not crash the server.
         connection.send(SetTraceNotification(value: .off))
@@ -163,9 +163,9 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let uris = await server.documentStore.openURIs
         XCTAssertTrue(uris.isEmpty)
     }
-
+    
     // MARK: - M1: publishDiagnostics
-
+    
     private func openDocument(uri: DocumentURI, language: String, text: String) {
         connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
             uri: uri,
@@ -174,14 +174,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             text: text
         )))
     }
-
+    
     private func changeDocument(uri: DocumentURI, version: Int, text: String) {
         connection.send(DidChangeTextDocumentNotification(
             textDocument: VersionedTextDocumentIdentifier(uri, version: version),
             contentChanges: [TextDocumentContentChangeEvent(range: nil, rangeLength: nil, text: text)]
         ))
     }
-
+    
     func testGrammarDocumentWithSyntaxErrorPublishesDiagnostics() async {
         let uri = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         // `'b ;` opens a terminal literal that is never closed.
@@ -198,7 +198,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(diagnostic.range.lowerBound.line, 1)
         XCTAssertEqual(diagnostic.range.lowerBound.utf16index, 8)
     }
-
+    
     func testValidGrammarPublishesEmptyDiagnostics() async {
         let uri = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: uri, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -207,21 +207,21 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let notification = client.publishDiagnostics(uri: uri).last!
         XCTAssertTrue(notification.diagnostics.isEmpty, "valid grammar reported diagnostics: \(notification.diagnostics)")
     }
-
+    
     func testGrammarDidChangeRepublishesDiagnostics() async {
         let uri = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: uri, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
         let validPublished = await waitUntil { !self.client.publishDiagnostics(uri: uri).isEmpty }
         XCTAssertTrue(validPublished)
         XCTAssertTrue(client.publishDiagnostics(uri: uri).last?.diagnostics.isEmpty ?? false)
-
+        
         changeDocument(uri: uri, version: 2, text: "%start S\nS : 'hello' 'world ;\n")
         let broken = await waitUntil {
             guard let notification = self.client.publishDiagnostics(uri: uri).last else { return false }
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(broken, "server did not republish diagnostics after the grammar broke")
-
+        
         changeDocument(uri: uri, version: 3, text: "%start S\nS : 'hello' 'world' ;\n")
         let fixed = await waitUntil {
             let diagnostics = self.client.publishDiagnostics(uri: uri).last?.diagnostics
@@ -229,11 +229,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertTrue(fixed, "server did not clear diagnostics after the grammar was fixed")
     }
-
+    
     func testSourceDocumentPublishesSyntaxDiagnostics() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
-
+        
         // The source language id `expr` matches the grammar's base name.
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "expr", text: "hello")
@@ -253,7 +253,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             "expected an unexpected-token diagnostic, got '\(diagnostic.message)'"
         )
     }
-
+    
     func testSourceDocumentDidChangeUpdatesDiagnostics() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -264,14 +264,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published)
-
+        
         changeDocument(uri: sourceURI, version: 2, text: "hello world")
         let fixed = await waitUntil {
             self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false
         }
         XCTAssertTrue(fixed, "server did not clear source diagnostics after the input was fixed")
     }
-
+    
     func testSourceDocumentWithoutGrammarPublishesEmptyDiagnostics() async {
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "expr", text: "hello")
@@ -279,9 +279,9 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(published)
         XCTAssertTrue(client.publishDiagnostics(uri: sourceURI).last!.diagnostics.isEmpty)
     }
-
+    
     // MARK: - M5: didSave and diagnostic hints
-
+    
     func testSyntaxDiagnosticsIncludeExpectedTerminals() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -298,7 +298,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             "expected a terminal hint on the last diagnostic, got '\(diagnostics.last!.message)'"
         )
     }
-
+    
     func testDidSaveWithTextAppliesAndReanalyzes() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -309,7 +309,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published)
-
+        
         // Saving with the corrected content re-analyzes the document.
         connection.send(DidSaveTextDocumentNotification(
             textDocument: TextDocumentIdentifier(sourceURI),
@@ -318,11 +318,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let fixed = await waitUntil {
             guard let stored = await self.server.documentStore.text(for: sourceURI) else { return false }
             return stored == "hello world"
-                && (self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false)
+            && (self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false)
         }
         XCTAssertTrue(fixed, "server did not apply and re-analyze the saved content")
     }
-
+    
     func testDidSaveWithoutTextRepublishesStoredText() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -333,7 +333,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published)
-
+        
         connection.send(DidSaveTextDocumentNotification(textDocument: TextDocumentIdentifier(sourceURI)))
         let republished = await waitUntil {
             guard let notification = self.client.publishDiagnostics(uri: sourceURI).last else { return false }
@@ -345,7 +345,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             "stored text was not re-analyzed after save"
         )
     }
-
+    
     func testRapidChangesSettleOnFinalText() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -354,7 +354,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let published = await waitUntil { !self.client.publishDiagnostics(uri: sourceURI).isEmpty }
         XCTAssertTrue(published)
         let publishesAfterOpen = client.publishDiagnostics(uri: sourceURI).count
-
+        
         // Two changes back-to-back; the debounce must coalesce them into a
         // single re-analysis of the final text.
         changeDocument(uri: sourceURI, version: 2, text: "hello ")
@@ -370,26 +370,25 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             "rapid changes should coalesce into a single re-analysis"
         )
     }
-
-<<<<<<< HEAD
+    
     // MARK: - M6: definition and grammar-document services
-
+    
     private static let twoRuleGrammar = """
     %start S
     S : A 'b' ;
     A : 'a' ;
     """
-
+    
     private func openGrammar(_ uri: DocumentURI, _ text: String) async -> Bool {
         openDocument(uri: uri, language: "grammar", text: text)
         return await waitUntil { !self.client.publishDiagnostics(uri: uri).isEmpty }
     }
-
+    
     func testGrammarDocumentDefinitionJumpsToDefiningProduction() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // `A` in the first production's body refers to the production on line 2.
         let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -406,7 +405,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(location.range.lowerBound.utf16index, 0)
         XCTAssertEqual(location.range.upperBound.line, 2)
     }
-
+    
     func testSourceDocumentDefinitionJumpsToTokenRule() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let grammar = """
@@ -418,7 +417,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         """
         let opened = await openGrammar(grammarURI, grammar)
         XCTAssertTrue(opened)
-
+        
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "num", text: "print 42")
         let published = await waitUntil {
@@ -426,7 +425,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published, "valid source document reported diagnostics")
-
+        
         // `42` is a NUMBER token; its rule is the first line of the grammar.
         let result: LSPResult<DefinitionRequest.Response> = await send(DefinitionRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
@@ -441,12 +440,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(location.uri, grammarURI)
         XCTAssertEqual(location.range.lowerBound.line, 0)
     }
-
+    
     func testGrammarDocumentCompletionOffersDirectivesAndSymbols() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // On a directive, prefix-matched directives are offered.
         let result: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -457,7 +456,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         let directives = list.items.map(\.label)
         XCTAssertEqual(directives, ["%start"])
-
+        
         // At the end of a production line, grammar symbols are offered.
         let symbolsResult: LSPResult<CompletionRequest.Response> = await send(CompletionRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -471,12 +470,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(symbols.contains("A"))
         XCTAssertFalse(symbols.contains("%start"), "non-directive context should not offer directives")
     }
-
+    
     func testGrammarDocumentHoverShowsProductionAndDirective() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // Hover on the `%start` directive.
         let directiveHover: LSPResult<HoverRequest.Response> = await send(HoverRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -488,7 +487,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("expected a directive hover, got \(directiveHover)")
         }
         XCTAssertTrue(directiveContents.value.contains("start symbol"))
-
+        
         // Hover on `A`'s defining production.
         let symbolHover: LSPResult<HoverRequest.Response> = await send(HoverRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -502,9 +501,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(contents.value.contains("A → a"), contents.value)
         XCTAssertTrue(contents.value.contains("Nonterminal"))
     }
-
-=======
->>>>>>> dev-branch
+    
     func testClosingSourceDocumentClearsDiagnostics() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -515,14 +512,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published)
-
+        
         connection.send(DidCloseTextDocumentNotification(textDocument: TextDocumentIdentifier(sourceURI)))
         let cleared = await waitUntil {
             self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false
         }
         XCTAssertTrue(cleared, "server did not clear diagnostics for the closed document")
     }
-
+    
     func testClosingGrammarReanalyzesSourceDocuments() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -533,16 +530,16 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return !notification.diagnostics.isEmpty
         }
         XCTAssertTrue(published)
-
+        
         connection.send(DidCloseTextDocumentNotification(textDocument: TextDocumentIdentifier(grammarURI)))
         let cleared = await waitUntil {
             self.client.publishDiagnostics(uri: sourceURI).last?.diagnostics.isEmpty ?? false
         }
         XCTAssertTrue(cleared, "server did not re-analyze sources after the grammar closed")
     }
-
+    
     // MARK: - M2: folding ranges and document symbols
-
+    
     func testInitializeAdvertisesFoldingAndSymbolCapabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
@@ -557,13 +554,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(initializeResult.capabilities.foldingRangeProvider?.isSupported ?? false)
         XCTAssertTrue(initializeResult.capabilities.documentSymbolProvider?.isSupported ?? false)
     }
-
+    
     /// Waits until the server has published diagnostics for `uri`, which
     /// implies the document was opened and analyzed before requests run.
     private func waitForPublish(uri: DocumentURI) async -> Bool {
         await waitUntil { !self.client.publishDiagnostics(uri: uri).isEmpty }
     }
-
+    
     func testDocumentSymbolsForSourceDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/prog.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -576,7 +573,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "prog", text: "print number\nprint string\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentSymbolRequest.Response> = await send(
             DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -591,7 +588,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(symbols[0].selectionRange.lowerBound.utf16index, 0)
         XCTAssertEqual(symbols[0].selectionRange.upperBound.utf16index, 5)
     }
-
+    
     func testFoldingRangesForSourceDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -602,7 +599,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<FoldingRangeRequest.Response> = await send(
             FoldingRangeRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -615,7 +612,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(ranges[0].endLine, 2)
         XCTAssertEqual(ranges[0].collapsedText, "List")
     }
-
+    
     func testDocumentSymbolsForLexerRuleGrammar() async {
         let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -628,7 +625,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentSymbolRequest.Response> = await send(
             DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -639,7 +636,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(symbols[0].range.lowerBound.line, 1)
         XCTAssertEqual(symbols[0].range.upperBound.line, 2)
     }
-
+    
     func testOutlineRequestsReturnNilForGrammarDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -648,7 +645,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             """)
         let analyzed = await waitForPublish(uri: grammarURI)
         XCTAssertTrue(analyzed, "server did not compile the grammar document")
-
+        
         let symbolsResult: LSPResult<DocumentSymbolRequest.Response> = await send(
             DocumentSymbolRequest(textDocument: TextDocumentIdentifier(grammarURI))
         )
@@ -656,7 +653,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("documentSymbol request failed: \(symbolsResult)")
         }
         XCTAssertNil(response)
-
+        
         let foldingResult: LSPResult<FoldingRangeRequest.Response> = await send(
             FoldingRangeRequest(textDocument: TextDocumentIdentifier(grammarURI))
         )
@@ -665,13 +662,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(ranges)
     }
-
+    
     func testOutlineRequestsReturnNilWithoutGrammar() async {
         let sourceURI = DocumentURI(filePath: "/tmp/list.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "list", text: "item\nitem\nitem\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let symbolsResult: LSPResult<DocumentSymbolRequest.Response> = await send(
             DocumentSymbolRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -679,7 +676,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("documentSymbol request failed: \(symbolsResult)")
         }
         XCTAssertNil(response)
-
+        
         let foldingResult: LSPResult<FoldingRangeRequest.Response> = await send(
             FoldingRangeRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -688,13 +685,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(ranges)
     }
-
+    
     // MARK: - M3: completion and hover
-
+    
     private func progGrammarURI() -> DocumentURI {
         DocumentURI(filePath: "/tmp/prog.grammarworkbench", isDirectory: false)
     }
-
+    
     private func openProgGrammar() async {
         openDocument(uri: progGrammarURI(), language: "grammar", text: """
             %start Program
@@ -705,7 +702,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         let published = await waitForPublish(uri: progGrammarURI())
         XCTAssertTrue(published, "server did not compile the grammar document")
     }
-
+    
     func testInitializeAdvertisesCompletionAndHoverCapabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
@@ -719,20 +716,17 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNotNil(initializeResult.capabilities.completionProvider)
         XCTAssertEqual(initializeResult.capabilities.hoverProvider, .bool(true))
-<<<<<<< HEAD
-=======
         XCTAssertTrue(initializeResult.capabilities.definitionProvider?.isSupported ?? false)
         XCTAssertTrue(initializeResult.capabilities.codeActionProvider?.isSupported ?? false)
->>>>>>> dev-branch
     }
-
+    
     func testCompletionOffersExpectedTokensFilteredByPrefix() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print nu")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 8))
         )
@@ -749,14 +743,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(edit.newText, "number")
         XCTAssertEqual(edit.range, Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 8))
     }
-
+    
     func testCompletionAtDocumentStartOffersReachableTerminals() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         // State 0's closure includes every production's first symbol, so all
         // reachable terminals are expected at the start of the document.
         let result: LSPResult<CompletionRequest.Response> = await send(
@@ -771,14 +765,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(edit.range, Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 0))
     }
-
+    
     func testCompletionAtEndOfValidDocumentOffersContinuation() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print number ")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 13))
         )
@@ -789,14 +783,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         // ('print') or begin a new Expr inside the list's closure.
         XCTAssertEqual(list.items.map(\.label), ["number", "print", "string"])
     }
-
+    
     func testCompletionMatchesFuzzySubsequence() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print srg")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 10))
         )
@@ -805,14 +799,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(list.items.map(\.label), ["string"])
     }
-
+    
     func testCompletionRanksPrefixMatchAboveSubsequenceMatch() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 7))
         )
@@ -823,7 +817,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         // matches ('n' occurs inside both); the prefix match ranks first.
         XCTAssertEqual(list.items.map(\.label), ["number", "print", "string"])
     }
-
+    
     func testCompletionForLexerRuleGrammarUsesTokenPattern() async {
         let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -838,7 +832,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "list", text: "item\nite")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 1, utf16index: 3))
         )
@@ -854,27 +848,24 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(edit.newText, "item")
         XCTAssertEqual(edit.range, Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 3))
     }
-
-<<<<<<< HEAD
+    
     func testGrammarDocumentCompletionOffersDirectives() async {
         await openProgGrammar()
         let result: LSPResult<CompletionRequest.Response> = await send(
-            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 1))
-=======
+            CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 1)))
+    }
+    
     func testCompletionForGrammarDocumentUsesEditorIntelligence() async {
         await openProgGrammar()
         let result: LSPResult<CompletionRequest.Response> = await send(
             CompletionRequest(textDocument: TextDocumentIdentifier(progGrammarURI()), position: Position(line: 0, utf16index: 3))
->>>>>>> dev-branch
         )
         guard case .success(let list) = result else {
             return XCTFail("completion request failed: \(result)")
         }
         XCTAssertEqual(list.items.map(\.label), ["%start"])
     }
-
-<<<<<<< HEAD
-=======
+    
     func testGrammarDefinitionNavigatesToNonterminalDeclaration() async {
         let uri = DocumentURI(filePath: "/tmp/definition.grammarworkbench", isDirectory: false)
         openDocument(uri: uri, language: "grammar", text: "%start Root\nRoot : Item ;\nItem : 'x' ;")
@@ -890,7 +881,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(locations[0].uri, uri)
         XCTAssertEqual(locations[0].range.lowerBound.line, 2)
     }
-
+    
     func testGrammarCodeActionUsesNativeQuickFix() async {
         let uri = DocumentURI(filePath: "/tmp/fix.grammarworkbench", isDirectory: false)
         openDocument(uri: uri, language: "grammar", text: "%start S\nS 'x' ;")
@@ -906,15 +897,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(actions.first?.title, "Insert missing ‘:’")
         XCTAssertEqual(actions.first?.kind, .quickFix)
     }
-
->>>>>>> dev-branch
+    
     func testHoverOnTerminalShowsTokenAndProduction() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print number")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<HoverRequest.Response> = await send(
             HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 6))
         )
@@ -929,7 +919,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(contents.value.contains("Expr → 'number'"), contents.value)
         XCTAssertEqual(response.range, Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 12))
     }
-
+    
     func testHoverShowsLexerTokenProduction() async {
         let grammarURI = DocumentURI(filePath: "/tmp/list.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: """
@@ -944,7 +934,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "list", text: "item\nitem\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<HoverRequest.Response> = await send(
             HoverRequest(textDocument: TextDocumentIdentifier(sourceURI), position: Position(line: 0, utf16index: 2))
         )
@@ -957,14 +947,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(contents.value.contains("Token `ITEM`"), contents.value)
         XCTAssertTrue(contents.value.contains("List → ITEM List"), contents.value)
     }
-
+    
     func testHoverOverWhitespaceShowsEnclosingProduction() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print number")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         // Whitespace between tokens is inside the enclosing statement, so the
         // hover shows its production without a token line.
         let whitespaceResult: LSPResult<HoverRequest.Response> = await send(
@@ -981,7 +971,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertTrue(contents.value.contains("Stmt → 'print' Expr"), contents.value)
     }
-
+    
     func testHoverReturnsNilWithoutGrammar() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/other.txt", isDirectory: false)
@@ -994,10 +984,9 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(response)
     }
-<<<<<<< HEAD
-
+    
     // MARK: - M7: semantic tokens, references, rename, code actions, progress
-
+    
     private static let numGrammar = """
     %token NUMBER /[0-9]+/
     %token PRINT /print\\b/
@@ -1005,14 +994,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
     %start S
     S : PRINT NUMBER ;
     """
-
+    
     private struct DecodedToken: Equatable {
         let line: Int
         let start: Int
         let length: Int
         let type: Int
     }
-
+    
     /// Decodes relative-encoded `data` into absolute tokens.
     private func decodeTokens(_ data: [UInt32]) -> [DecodedToken] {
         var tokens: [DecodedToken] = []
@@ -1030,7 +1019,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         return tokens
     }
-
+    
     func testInitializeAdvertisesM7Capabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
@@ -1051,12 +1040,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(initializeResult.capabilities.renameProvider?.isSupported ?? false)
         XCTAssertTrue(initializeResult.capabilities.codeActionProvider?.isSupported ?? false)
     }
-
+    
     func testSemanticTokensForGrammarDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentSemanticTokensRequest.Response> = await send(
             DocumentSemanticTokensRequest(textDocument: TextDocumentIdentifier(grammarURI))
         )
@@ -1078,12 +1067,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             DecodedToken(line: 2, start: 8, length: 1, type: 5),   // ;
         ])
     }
-
+    
     func testSemanticTokensForSourceDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.numGrammar)
         XCTAssertTrue(opened)
-
+        
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "num", text: "print 42")
         let analyzed = await waitUntil {
@@ -1091,7 +1080,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return notification.diagnostics.isEmpty
         }
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentSemanticTokensRequest.Response> = await send(
             DocumentSemanticTokensRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -1104,7 +1093,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             DecodedToken(line: 0, start: 6, length: 2, type: 2),  // 42 → NUMBER → number
         ])
     }
-
+    
     func testSemanticTokensReturnNilWithoutGrammar() async {
         let sourceURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "orphan", text: "print 42")
@@ -1116,12 +1105,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(response)
     }
-
+    
     func testReferencesForNonterminalIncludesDeclarationByDefault() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // `A` at (1,4) is used in the first production and defined on line 2.
         let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
@@ -1137,12 +1126,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertTrue(locations.allSatisfy { $0.uri == grammarURI })
     }
-
+    
     func testReferencesForNonterminalCanExcludeDeclaration() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 4),
@@ -1153,14 +1142,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(locations.map(\.range.lowerBound), [Position(line: 1, utf16index: 4)])
     }
-
+    
     func testReferencesReturnEmptyForSourceDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "two", text: "a")
-
+        
         let result: LSPResult<ReferencesRequest.Response> = await send(ReferencesRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
             position: Position(line: 0, utf16index: 0),
@@ -1171,12 +1160,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertTrue(locations.isEmpty)
     }
-
+    
     func testRenameNonterminalReplacesEveryOccurrence() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<RenameRequest.Response> = await send(RenameRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 4),
@@ -1190,12 +1179,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             TextEdit(range: Position(line: 2, utf16index: 0)..<Position(line: 2, utf16index: 1), newText: "B"),
         ])
     }
-
+    
     func testRenameRejectsInvalidNamesAndTerminalLiterals() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let invalidName: LSPResult<RenameRequest.Response> = await send(RenameRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 4),
@@ -1205,7 +1194,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("expected invalidParams failure, got \(invalidName)")
         }
         XCTAssertEqual(error.code, .invalidParams)
-
+        
         let literal: LSPResult<RenameRequest.Response> = await send(RenameRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 7),
@@ -1216,14 +1205,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(literalError.code, .invalidParams)
     }
-
+    
     func testRenameReturnsNilOutsideGrammarDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
         let sourceURI = DocumentURI(filePath: "/tmp/input.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "two", text: "a")
-
+        
         let result: LSPResult<RenameRequest.Response> = await send(RenameRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
             position: Position(line: 0, utf16index: 0),
@@ -1234,14 +1223,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(edit)
     }
-
+    
     func testRecoveryCodeActionInsertsMissingTerminal() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print nu")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         // `nu` at (0,6)-(0,8) is unexpected; the first recovery inserts the
         // preferred terminal before it.
         let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
@@ -1265,13 +1254,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             TextEdit(range: Position(line: 0, utf16index: 6)..<Position(line: 0, utf16index: 6), newText: "number "),
         ])
     }
-
+    
     func testGrammarCodeActionDeclaresUndefinedSymbol() async {
         let grammarURI = DocumentURI(filePath: "/tmp/undef.grammarworkbench", isDirectory: false)
         let grammar = "%token B /b/\n%start S\nS : B A ;\n"
         let opened = await openGrammar(grammarURI, grammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<CodeActionRequest.Response> = await send(CodeActionRequest(
             range: Position(line: 0, utf16index: 0)..<Position(line: 2, utf16index: 8),
             context: CodeActionContext(diagnostics: []),
@@ -1294,7 +1283,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             TextEdit(range: Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 0), newText: "%token A\n"),
         ])
     }
-
+    
     func testCancelRequestCancelsInFlightRequest() async {
         final class Gate: @unchecked Sendable {
             private var continuation: CheckedContinuation<Void, Never>?
@@ -1308,11 +1297,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         let gate = Gate()
         await server.setRequestGate({ await gate.wait() })
-
+        
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // The request id 2 starts and parks at the gate.
         let connection = self.connection
         let resultTask = Task {
@@ -1326,7 +1315,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         let tracked = await waitUntil { await self.server.isRequestInFlight(.number(2)) }
         XCTAssertTrue(tracked, "request id 2 was not tracked")
-
+        
         connection!.send(CancelRequestNotification(id: .number(2)))
         gate.open()
         let result = await resultTask.value
@@ -1338,7 +1327,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertFalse(inFlight, "cancelled request was not untracked")
         await server.setRequestGate(nil)
     }
-
+    
     func testRepublishingReportsWorkDoneProgress() async {
         let grammarURI = DocumentURI(filePath: "/tmp/expr.grammarworkbench", isDirectory: false)
         openDocument(uri: grammarURI, language: "grammar", text: "%start S\nS : 'hello' 'world' ;\n")
@@ -1348,43 +1337,43 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: secondURI, language: "expr", text: "hello")
         let analyzed = await waitUntil {
             !self.client.publishDiagnostics(uri: firstURI).isEmpty
-                && !self.client.publishDiagnostics(uri: secondURI).isEmpty
+            && !self.client.publishDiagnostics(uri: secondURI).isEmpty
         }
         XCTAssertTrue(analyzed)
-
+        
         // Changing the grammar re-analyzes every source document with progress.
         changeDocument(uri: grammarURI, version: 2, text: "%start S\nS : 'hi' 'world' ;\n")
         let progressed = await waitUntil {
             await self.server.workDoneProgressNotifications.count >= 4
         }
         XCTAssertTrue(progressed, "server did not report work-done progress")
-
+        
         let tokens = await server.workDoneProgressNotifications
         let sent = client.progressNotifications
         XCTAssertEqual(sent.map(\.token), tokens)
-
+        
         let first = sent[0]
         XCTAssertEqual(first.token, .string("grammar-workbench-1"))
         guard case .begin(let begin) = first.value else {
             return XCTFail("expected a begin event, got \(first.value)")
         }
         XCTAssertEqual(begin.title, "Grammar Workbench")
-
+        
         let reports = sent[1...2]
         let percentages = reports.map { progress -> Int? in
             guard case .report(let report) = progress.value else { return nil }
             return report.percentage
         }
         XCTAssertEqual(percentages, [50, 100])
-
+        
         guard case .end(let end) = sent[3].value else {
             return XCTFail("expected an end event, got \(sent[3].value)")
         }
         XCTAssertEqual(end.message, "2 document(s) analyzed")
     }
-
+    
     // MARK: - M8: document highlights, formatting, and document links
-
+    
     func testInitializeAdvertisesM8Capabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
@@ -1401,12 +1390,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(initializeResult.capabilities.documentRangeFormattingProvider?.isSupported ?? false)
         XCTAssertNotNil(initializeResult.capabilities.documentLinkProvider)
     }
-
+    
     func testDocumentHighlightsForNonterminalMarkDeclarationsAsWrites() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         // `A` at (1,4) is used in the first production and defined on line 2;
         // the declaration is a write, the use a read.
         let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
@@ -1422,12 +1411,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertEqual(highlights.map(\.kind), [.read, .write])
     }
-
+    
     func testDocumentHighlightsForTerminalLiteralHighlightEveryUse() async {
         let grammarURI = DocumentURI(filePath: "/tmp/lit.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, "%start S\nS : 'a' 'a' 'b' ;\n")
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 4)
@@ -1441,12 +1430,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertTrue(highlights.allSatisfy { $0.kind == .read })
     }
-
+    
     func testDocumentHighlightsForTokenNameIncludeDeclaration() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.numGrammar)
         XCTAssertTrue(opened)
-
+        
         // `NUMBER` in the `%token` declaration is a write; its use in the
         // production is a read.
         let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
@@ -1462,7 +1451,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertEqual(highlights.map(\.kind), [.write, .read])
     }
-
+    
     func testDocumentHighlightsForSourceDocumentHighlightExactTokens() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.numGrammar)
@@ -1471,7 +1460,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "num", text: "print 42\nprint 42\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         // On `print`: every PRINT token; on the number: only the `42`s.
         let printResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
@@ -1484,7 +1473,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             Position(line: 0, utf16index: 0)..<Position(line: 0, utf16index: 5),
             Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 5),
         ])
-
+        
         let numberResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
             position: Position(line: 0, utf16index: 6)
@@ -1498,14 +1487,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertTrue(numberHighlights.allSatisfy { $0.kind == .read })
     }
-
+    
     func testDocumentHighlightsForSourceDocumentWithoutLexerRules() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print number\nprint number\n")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
             position: Position(line: 0, utf16index: 0)
@@ -1518,12 +1507,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 5),
         ])
     }
-
+    
     func testDocumentHighlightsReturnNilOnWhitespaceOrWithoutGrammar() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let whitespaceResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             position: Position(line: 1, utf16index: 1)
@@ -1532,7 +1521,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("documentHighlight request failed: \(whitespaceResult)")
         }
         XCTAssertNil(highlights)
-
+        
         let orphanURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
         openDocument(uri: orphanURI, language: "orphan", text: "print 42")
         let orphanResult: LSPResult<DocumentHighlightRequest.Response> = await send(DocumentHighlightRequest(
@@ -1544,13 +1533,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(orphanHighlights)
     }
-
+    
     func testFormattingCanonicalizesSpacingIndentationAndComments() async {
         let grammarURI = DocumentURI(filePath: "/tmp/messy.grammarworkbench", isDirectory: false)
         let messy = "%start  S\n\nS : A |   B ;\n  A : 'a' ;  \nB : 'b' ;\t// comment\n"
         let opened = await openGrammar(grammarURI, messy)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             options: FormattingOptions(tabSize: 4, insertSpaces: true)
@@ -1560,12 +1549,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(applying(edits, to: messy), "%start S\n\nS : A | B ;\nA : 'a' ;\nB : 'b' ; // comment\n")
     }
-
+    
     func testFormattingReturnsNoEditsForCanonicalDocument() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             options: FormattingOptions(tabSize: 4, insertSpaces: true)
@@ -1575,13 +1564,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(edits, [])
     }
-
+    
     func testFormattingPreservesMultiLineProductions() async {
         let grammarURI = DocumentURI(filePath: "/tmp/multiline.grammarworkbench", isDirectory: false)
         let grammar = "%start S\nS : A\n  | B ; // alternatives\nA : 'a' ;\n"
         let opened = await openGrammar(grammarURI, grammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
             textDocument: TextDocumentIdentifier(grammarURI),
             options: FormattingOptions(tabSize: 4, insertSpaces: true)
@@ -1591,13 +1580,13 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(applying(edits, to: grammar), "%start S\nS : A\n| B ; // alternatives\nA : 'a' ;\n")
     }
-
+    
     func testRangeFormattingFormatsOnlyRequestedLines() async {
         let grammarURI = DocumentURI(filePath: "/tmp/messy.grammarworkbench", isDirectory: false)
         let messy = "%start S\nS : A |  B ;\nA  : 'a' ;\nB : 'b' ;\n"
         let opened = await openGrammar(grammarURI, messy)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentRangeFormattingRequest.Response> = await send(
             DocumentRangeFormattingRequest(
                 textDocument: TextDocumentIdentifier(grammarURI),
@@ -1611,14 +1600,14 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(edits.map(\.range.lowerBound.line), [1, 2])
         XCTAssertEqual(applying(edits, to: messy), "%start S\nS : A | B ;\nA : 'a' ;\nB : 'b' ;\n")
     }
-
+    
     func testFormattingReturnsNilForSourceAndEbnfDocuments() async {
         await openProgGrammar()
         let sourceURI = DocumentURI(filePath: "/tmp/program.txt", isDirectory: false)
         openDocument(uri: sourceURI, language: "prog", text: "print number")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let sourceResult: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
             textDocument: TextDocumentIdentifier(sourceURI),
             options: FormattingOptions(tabSize: 4, insertSpaces: true)
@@ -1627,7 +1616,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             return XCTFail("formatting request failed: \(sourceResult)")
         }
         XCTAssertNil(edits)
-
+        
         let ebnfURI = DocumentURI(filePath: "/tmp/expr.ebnf", isDirectory: false)
         openDocument(uri: ebnfURI, language: "ebnf", text: "S = 'a' ;")
         let ebnfResult: LSPResult<DocumentFormattingRequest.Response> = await send(DocumentFormattingRequest(
@@ -1639,7 +1628,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(ebnfEdits)
     }
-
+    
     func testDocumentLinksForSourceDocumentPointToGrammarRules() async {
         let grammarURI = DocumentURI(filePath: "/tmp/num.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.numGrammar)
@@ -1648,7 +1637,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "num", text: "print 42")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentLinkRequest.Response> = await send(
             DocumentLinkRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -1662,7 +1651,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertEqual(links.map(\.target), [grammarURI, grammarURI])
         XCTAssertEqual(links.map(\.tooltip), ["Go to rule for PRINT", "Go to rule for NUMBER"])
     }
-
+    
     func testDocumentLinksForLiteralTerminalsPointToContainingProduction() async {
         let grammarURI = DocumentURI(filePath: "/tmp/block.grammarworkbench", isDirectory: false)
         let grammar = "%start Program\nProgram : Stmt Program | Stmt ;\nStmt : '{' Stmt '}' | 'expr' ;\n"
@@ -1672,7 +1661,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         openDocument(uri: sourceURI, language: "block", text: "expr\n{\nexpr }")
         let analyzed = await waitForPublish(uri: sourceURI)
         XCTAssertTrue(analyzed, "server did not analyze the source document")
-
+        
         let result: LSPResult<DocumentLinkRequest.Response> = await send(
             DocumentLinkRequest(textDocument: TextDocumentIdentifier(sourceURI))
         )
@@ -1687,12 +1676,12 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         ])
         XCTAssertEqual(links.map(\.target), [grammarURI, grammarURI, grammarURI, grammarURI])
     }
-
+    
     func testDocumentLinksForGrammarDocumentAreEmpty() async {
         let grammarURI = DocumentURI(filePath: "/tmp/two.grammarworkbench", isDirectory: false)
         let opened = await openGrammar(grammarURI, Self.twoRuleGrammar)
         XCTAssertTrue(opened)
-
+        
         let result: LSPResult<DocumentLinkRequest.Response> = await send(
             DocumentLinkRequest(textDocument: TextDocumentIdentifier(grammarURI))
         )
@@ -1701,11 +1690,11 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertEqual(links, [])
     }
-
+    
     func testDocumentLinksReturnNilWithoutGrammar() async {
         let orphanURI = DocumentURI(filePath: "/tmp/orphan.txt", isDirectory: false)
         openDocument(uri: orphanURI, language: "orphan", text: "print 42")
-
+        
         let result: LSPResult<DocumentLinkRequest.Response> = await send(
             DocumentLinkRequest(textDocument: TextDocumentIdentifier(orphanURI))
         )
@@ -1714,7 +1703,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         XCTAssertNil(links)
     }
-
+    
     /// Applies line-scoped `edits` to `text` and returns the result.
     private func applying(_ edits: [TextEdit], to text: String) -> String {
         var lines = text.components(separatedBy: "\n")
@@ -1727,6 +1716,4 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         }
         return lines.joined(separator: "\n")
     }
-=======
->>>>>>> dev-branch
 }

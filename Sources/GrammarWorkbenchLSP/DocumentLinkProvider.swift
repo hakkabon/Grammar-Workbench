@@ -41,7 +41,7 @@ public enum DocumentLinkProvider {
             } else {
                 target = nil
             }
-            guard let range, let target else { return nil }
+            guard let range, target != nil else { return nil }
             return DocumentLink(
                 range: DiagnosticsManager.position(range.start)..<DiagnosticsManager.position(range.end),
                 target: grammarURI,

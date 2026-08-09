@@ -112,7 +112,6 @@ function startClient(vscode, context, options) {
   function handleMessage(message) {
     if (message.id !== undefined && message.id !== null) {
       const entry = pending.get(message.id);
-<<<<<<< HEAD
       if (entry) {
         pending.delete(message.id);
         if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
@@ -130,12 +129,10 @@ function startClient(vscode, context, options) {
       output.appendLine(
         `progress ${message.params.value.kind}: ${message.params.value.message || message.params.value.title || ""}`
       );
-=======
       if (!entry) return;
       pending.delete(message.id);
       if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
       else entry.resolve(message.result);
->>>>>>> dev-branch
       return;
     }
     if (message.method === "textDocument/publishDiagnostics") {
@@ -157,7 +154,6 @@ function startClient(vscode, context, options) {
   const positionOf = (position) => new vscode.Position(position.line, position.character);
   const rangeOf = (range) => new vscode.Range(positionOf(range.start), positionOf(range.end));
 
-<<<<<<< HEAD
   // The semantic token types advertised by the server (see
   // SemanticTokensProvider.legend); the client legend must match it exactly.
   const LEGEND_TYPES = [
@@ -176,8 +172,6 @@ function startClient(vscode, context, options) {
     return result;
   }
 
-=======
->>>>>>> dev-branch
   // MARK: - Document sync
 
   function openDocument(document) {
@@ -318,7 +312,6 @@ function startClient(vscode, context, options) {
         });
       },
     }),
-<<<<<<< HEAD
     vscode.languages.registerDefinitionProvider(selector(), {
       provideDefinition(document, position) {
         if (!child) return null;
@@ -403,8 +396,6 @@ function startClient(vscode, context, options) {
       },
       { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }
     ),
-=======
->>>>>>> dev-branch
     vscode.languages.registerDocumentSymbolProvider(selector(), {
       provideDocumentSymbols(document) {
         if (!child) return null;
@@ -416,7 +407,6 @@ function startClient(vscode, context, options) {
         });
       },
     }),
-<<<<<<< HEAD
     vscode.languages.registerDocumentHighlightProvider(selector(), {
       provideDocumentHighlights(document, position) {
         if (!child) return null;
@@ -482,8 +472,6 @@ function startClient(vscode, context, options) {
         );
       },
     }),
-=======
->>>>>>> dev-branch
     vscode.languages.registerFoldingRangeProvider(selector(), {
       provideFoldingRanges(document) {
         if (!child) return [];
@@ -499,7 +487,6 @@ function startClient(vscode, context, options) {
         );
       },
     }),
-<<<<<<< HEAD
     vscode.languages.registerDocumentSemanticTokensProvider(
       selector(),
       {
@@ -515,7 +502,6 @@ function startClient(vscode, context, options) {
       },
       new vscode.SemanticTokensLegend(LEGEND_TYPES, [])
     ),
-=======
     vscode.languages.registerDefinitionProvider(selector(), {
       provideDefinition(document, position) {
         if (!child) return null;
@@ -559,7 +545,6 @@ function startClient(vscode, context, options) {
         }));
       },
     }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
->>>>>>> dev-branch
   ];
 
   function symbolOf(symbol) {

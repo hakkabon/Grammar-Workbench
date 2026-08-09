@@ -183,4 +183,4 @@ The UI consumes immutable `GrammarArtifact` values rather than construction inte
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.  
+MIT License — see [LICENSE](LICENSE) for details.

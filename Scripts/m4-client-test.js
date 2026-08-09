@@ -3,10 +3,7 @@
 // End-to-end verification of the VS Code extension's protocol handling:
 // runs Clients/vscode/client.js against the real grammar-workbench-lsp server
 // with a stubbed `vscode` API, and drives it like VS Code would.
-<<<<<<< HEAD
-=======
 
->>>>>>> dev-branch
 const assert = require("assert");
 const fs = require("fs");
 const { startClient } = require("../Clients/vscode/client.js");
@@ -62,7 +59,6 @@ class DocumentSymbol {
 }
 class FoldingRange { constructor(startLine, endLine) { this.startLine = startLine; this.endLine = endLine; } }
 class Location { constructor(uri, range) { this.uri = uri; this.range = range; } }
-<<<<<<< HEAD
 class WorkspaceEdit {
   constructor() { this.edits = new Map(); }
   set(uri, edits) { this.edits.set(uri.toString(), edits); }
@@ -94,13 +90,11 @@ class CodeAction {
   constructor(title, kind) { this.title = title; this.kind = kind; this.isPreferred = false; this.edit = undefined; }
 }
 const CodeActionKind = { QuickFix: "quickfix" };
-=======
 class CodeAction { constructor(title, kind) { this.title = title; this.kind = kind; } }
 class WorkspaceEdit {
   constructor() { this.edits = []; }
   replace(uri, range, newText) { this.edits.push({ uri, range, newText }); }
 }
->>>>>>> dev-branch
 class Disposable { constructor(fn) { this.fn = fn; } dispose() { if (this.fn) { const fn = this.fn; this.fn = null; fn(); } } }
 class FakeDocument {
   constructor(fsPath, languageId, text) {
@@ -146,7 +140,6 @@ function makeVscode() {
         }),
         registerCompletionItemProvider: (selector, provider) => { providers.completion = { selector, provider }; return new Disposable(() => {}); },
         registerHoverProvider: (selector, provider) => { providers.hover = { selector, provider }; return new Disposable(() => {}); },
-<<<<<<< HEAD
         registerDefinitionProvider: (selector, provider) => { providers.definition = { selector, provider }; return new Disposable(() => {}); },
         registerReferenceProvider: (selector, provider) => { providers.references = { selector, provider }; return new Disposable(() => {}); },
         registerRenameProvider: (selector, provider) => { providers.rename = { selector, provider }; return new Disposable(() => {}); },
@@ -164,7 +157,6 @@ function makeVscode() {
       DocumentSymbol, SymbolKind, FoldingRange, Location, WorkspaceEdit,
       SemanticTokens, SemanticTokensLegend, CodeAction, CodeActionKind,
       DocumentHighlight, DocumentHighlightKind, DocumentLink,
-=======
         registerDocumentSymbolProvider: (selector, provider) => { providers.symbols = { selector, provider }; return new Disposable(() => {}); },
         registerFoldingRangeProvider: (selector, provider) => { providers.folding = { selector, provider }; return new Disposable(() => {}); },
         registerDefinitionProvider: (selector, provider) => { providers.definition = { selector, provider }; return new Disposable(() => {}); },
@@ -174,7 +166,6 @@ function makeVscode() {
       CompletionItem, CompletionItemKind, MarkdownString, Hover,
       DocumentSymbol, SymbolKind, FoldingRange,
       Location, CodeAction, CodeActionKind: { QuickFix: "quickfix" }, WorkspaceEdit,
->>>>>>> dev-branch
       TextEdit: { replace: (range, newText) => ({ range, newText }) },
       Disposable,
     },
@@ -201,7 +192,6 @@ function waitFor(check, timeoutMs = 8000) {
   });
 }
 
-<<<<<<< HEAD
 /** Decodes relative semantic-token data into [line, start, length, type]. */
 function decodeTokens(data) {
   const tokens = [];
@@ -228,6 +218,9 @@ function applyLineEdits(text, edits) {
   return lines.join("\n");
 }
 
+<<<<<<< HEAD
+=======
+>>>>>>> dev-branch
 =======
 >>>>>>> dev-branch
 // MARK: - Scenario
@@ -252,6 +245,7 @@ function applyLineEdits(text, edits) {
   assert.deepStrictEqual(harness.diagnosticsByUri.get("file:///tmp/prog.grammarworkbench"), []);
   console.log("PASS: grammar document compiled, empty diagnostics published");
 
+<<<<<<< HEAD
 <<<<<<< HEAD
 =======
   const grammarCompletions = await harness.providers.completion.provider.provideCompletionItems(
@@ -283,6 +277,8 @@ function applyLineEdits(text, edits) {
   assert.strictEqual(fixes[0].edit.edits[0].newText, ": ");
   console.log("PASS: grammar quick-fix round-trip");
 
+>>>>>>> dev-branch
+=======
 >>>>>>> dev-branch
   const source = new FakeDocument("/tmp/sample.prog", "prog", "print nu");
   harness.open(source);
@@ -352,6 +348,9 @@ function applyLineEdits(text, edits) {
   console.log("PASS: folding ranges round-trip:", JSON.stringify(folding));
 
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> dev-branch
   const tokensResult = await harness.providers.semanticTokens.provider.provideDocumentSemanticTokens(grammarDoc);
   assert.ok(tokensResult, "expected semantic tokens for the grammar document");
   const tokens = decodeTokens(tokensResult.data);
@@ -414,6 +413,10 @@ function applyLineEdits(text, edits) {
   await waitFor(() =>
     harness.outputLines.some((line) => line.includes("progress begin") && line.includes("Analyzing source documents"))
   );
+  await waitFor(() =>
+    harness.outputLines.some((line) => line.includes("Analyzed 2/2 documents")) &&
+    harness.outputLines.some((line) => line.includes("progress end"))
+  );
   assert.ok(
     harness.outputLines.some((line) => line.includes("Analyzed 2/2 documents")),
     "expected a per-document progress report"
@@ -472,12 +475,10 @@ function applyLineEdits(text, edits) {
   await waitFor(() => harness.outputLines.includes("server exited (0)"));
   console.log("PASS: shutdown + exit on deactivate");
   console.log("ALL CLIENT CHECKS PASSED");
-=======
   for (const subscription of harness.context.subscriptions) subscription.dispose();
   await waitFor(() => harness.outputLines.includes("server exited (0)"));
   console.log("PASS: shutdown + exit on deactivate");
   console.log("ALL M4 CLIENT CHECKS PASSED");
->>>>>>> dev-branch
   process.exit(0);
 })().catch((error) => {
   console.error("FAILED:", error.message);

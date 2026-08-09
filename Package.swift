@@ -5,17 +5,20 @@ let lspVendoredPath = "LocalDependencies/Sources"
 
 let package = Package(
     name: "GrammarWorkbench",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v14)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
-        .executable(name: "grammar-workbench-app", targets: ["GrammarWorkbenchApp"]),
+        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
         .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
     ],
     dependencies: [
-        .package(url: "https://github.com/hakkabon/Grammar.git", branch: "main"),
+        .package(
+            url: "https://github.com/hakkabon/Grammar.git",
+            revision: "940fdb4f857391e7cdecbb016adabd33db2121c8"
+        )
     ],
     targets: [
         .target(

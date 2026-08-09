@@ -14,8 +14,7 @@ here so the package builds with the current Swift 6.1 toolchain.
   - `LanguageServerProtocolTransport` — `JSONRPCConnection`, `LocalConnection`,
     and JSON-RPC message framing.
   - `SKLogging` — logging used by the transport.
-  - `ToolsProtocolsSwiftExtensions` — small extensions used by the above.
-  - `BuildServerMessageDependencyTracker.swift` was intentionally **removed** from
+- `BuildServerMessageDependencyTracker.swift` was intentionally **removed** from
   the transport because it imports the unrelated `BuildServerProtocol` module,
   which this server does not need. No other upstream source is modified.
 
@@ -33,7 +32,6 @@ To refresh the vendored copy, fetch `swiftlang/swift-tools-protocols` and copy:
     cp -R <checkout>/Sources/LanguageServerProtocol   Sources/
     cp -R <checkout>/Sources/LanguageServerProtocolTransport Sources/
     cp -R <checkout>/Sources/SKLogging                Sources/
-    cp -R <checkout>/Sources/ToolsProtocolsSwiftExtensions Sources/
     rm Sources/LanguageServerProtocolTransport/BuildServerMessageDependencyTracker.swift
 
 ## Moving to the upstream package
@@ -44,5 +42,5 @@ package instead:
 
     .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", branch: "main")
 
-then replace the four vendored targets with the `LanguageServerProtocol` and
+then replace the three vendored targets with the `LanguageServerProtocol` and
 `LanguageServerProtocolTransport` products.

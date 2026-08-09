@@ -92,18 +92,6 @@ rm -f "$CLI_ZIP"
 ditto -c -k "$OUTPUT_DIR/grammar-workbench" "$CLI_ZIP"
 LSP_ZIP="$OUTPUT_DIR/Grammar-Workbench-LSP-$VERSION-macOS.zip"
 rm -f "$LSP_ZIP"
-ditto -c -k "$OUTPUT_DIR/grammar-workbench-lsp" "$LSP_ZIP"
-
-VSIX_PATH="$OUTPUT_DIR/grammar-workbench-lsp-$VERSION.vsix"
-if command -v npx >/dev/null 2>&1; then
-    rm -f "$VSIX_PATH"
-    (cd "$ROOT_DIR/Clients/vscode" && npx --yes @vscode/vsce package \
-        --allow-missing-repository --out "$VSIX_PATH" >/dev/null)
-    echo "Created $VSIX_PATH"
-else
-    echo "npx not found; skipping the VS Code extension package."
-    VSIX_PATH=""
-fi
 LSP_PACKAGE="$WORK_DIR/Grammar-Workbench-LSP-$VERSION"
 mkdir -p "$LSP_PACKAGE"
 cp "$OUTPUT_DIR/grammar-workbench-lsp" "$LSP_PACKAGE/"
@@ -129,14 +117,6 @@ fi
 BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
-if [ -n "$VSIX_PATH" ]; then
-    (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$VSIX_PATH")" > SHA256SUMS)
-else
-    (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" > SHA256SUMS)
-fi
-echo "Created $ZIP_PATH"
-echo "Created $CLI_ZIP"
-echo "Created $LSP_ZIP"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"

@@ -27,8 +27,6 @@ diagnostics, completion, hover, symbols, folding, semantic highlighting,
 references, rename, quick fixes, document highlights, formatting, and document
 links all work against the workspace's own
 `.build/debug/grammar-workbench-lsp` binary.
-diagnostics, completion, hover, symbols, and folding all work against the
-workspace's own `.build/debug/grammar-workbench-lsp` binary.
 
 ## Package
 
@@ -42,8 +40,6 @@ code --install-extension grammar-workbench-lsp-0.1.0.vsix
 
 The produced VSIX is also shipped alongside the server binary by
 `Scripts/package-release.sh` (see `dist/`).
-Release archives include this dependency-free client source. A VSIX remains an
-explicit packaging step so release validation never downloads npm tooling.
 
 ## Configure
 
@@ -80,9 +76,6 @@ punctuation, and replace unknown directives. Source documents get quick fixes
 that insert or delete the tokens the parser recovered, plus document
 highlights for repeated tokens and links that jump from a token to the rule
 that defines it in the grammar.
-diagnostics appear as you type. Grammar documents additionally provide shared
-editor completion, go-to-definition, and quick fixes; source documents provide
-expected-terminal completion, production-aware hover, document symbols, and folding.
 
 ## Develop
 

@@ -129,10 +129,6 @@ function startClient(vscode, context, options) {
       output.appendLine(
         `progress ${message.params.value.kind}: ${message.params.value.message || message.params.value.title || ""}`
       );
-      if (!entry) return;
-      pending.delete(message.id);
-      if (message.error) entry.reject(new Error(`${message.error.code}: ${message.error.message}`));
-      else entry.resolve(message.result);
       return;
     }
     if (message.method === "textDocument/publishDiagnostics") {
@@ -502,49 +498,6 @@ function startClient(vscode, context, options) {
       },
       new vscode.SemanticTokensLegend(LEGEND_TYPES, [])
     ),
-    vscode.languages.registerDefinitionProvider(selector(), {
-      provideDefinition(document, position) {
-        if (!child) return null;
-        return request("textDocument/definition", {
-          textDocument: { uri: document.uri.toString() },
-          position: { line: position.line, character: position.character },
-        }).then((result) => (result || []).map((location) =>
-          new vscode.Location(vscode.Uri.parse(location.uri), rangeOf(location.range))
-        ));
-      },
-    }),
-    vscode.languages.registerCodeActionsProvider(selector(), {
-      provideCodeActions(document, range, context) {
-        if (!child) return [];
-        return request("textDocument/codeAction", {
-          textDocument: { uri: document.uri.toString() },
-          range: {
-            start: { line: range.start.line, character: range.start.character },
-            end: { line: range.end.line, character: range.end.character },
-          },
-          context: { diagnostics: (context.diagnostics || []).map((diagnostic) => ({
-            range: {
-              start: { line: diagnostic.range.start.line, character: diagnostic.range.start.character },
-              end: { line: diagnostic.range.end.line, character: diagnostic.range.end.character },
-            },
-            message: diagnostic.message,
-          })) },
-        }).then((result) => (result || []).map((item) => {
-          const action = new vscode.CodeAction(item.title, vscode.CodeActionKind.QuickFix);
-          action.isPreferred = item.isPreferred;
-          if (item.edit && item.edit.changes) {
-            const edit = new vscode.WorkspaceEdit();
-            for (const [uri, edits] of Object.entries(item.edit.changes)) {
-              for (const change of edits) {
-                edit.replace(vscode.Uri.parse(uri), rangeOf(change.range), change.newText);
-              }
-            }
-            action.edit = edit;
-          }
-          return action;
-        }));
-      },
-    }, { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }),
   ];
 
   function symbolOf(symbol) {

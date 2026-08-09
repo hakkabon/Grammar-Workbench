@@ -34,12 +34,8 @@ let package = Package(
             dependencies: [.target(name: "GrammarWorkbenchCLI")]
         ),
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"]),
-        // Vendored Language Server Protocol framework. See LocalDependencies/README.md
-        // for provenance and for how to swap these for the upstream
-        // swiftlang/swift-tools-protocols package on a Swift 6.2+ toolchain.
         .target(
-            name: "LanguageServerProtocol",
-            dependencies: ["SKLogging"],
+            name: "LanguageServerProtocol", dependencies: ["SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocol"
         ),
         .target(
@@ -47,28 +43,19 @@ let package = Package(
             dependencies: ["LanguageServerProtocol", "SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocolTransport"
         ),
-        // A local, minimal stand-in for the upstream `SKLogging` module (which
-        // requires Swift 6.2 / macOS 15); see LocalDependencies/README.md.
-        .target(
-            name: "SKLogging",
-            path: "\(lspVendoredPath)/SKLogging"
-        ),
+        .target(name: "SKLogging", path: "\(lspVendoredPath)/SKLogging"),
         .target(
             name: "GrammarWorkbenchLSP",
             dependencies: [
-                "GrammarWorkbench",
-                "LanguageServerProtocol",
-                "LanguageServerProtocolTransport",
+                "GrammarWorkbench", "LanguageServerProtocol", "LanguageServerProtocolTransport"
             ]
         ),
         .executableTarget(name: "GrammarWorkbenchLSPApp", dependencies: ["GrammarWorkbenchLSP"]),
         .testTarget(
             name: "GrammarWorkbenchLSPTests",
             dependencies: [
-                "GrammarWorkbenchLSP",
-                "LanguageServerProtocol",
-                "LanguageServerProtocolTransport",
+                "GrammarWorkbenchLSP", "LanguageServerProtocol", "LanguageServerProtocolTransport"
             ]
-        ),
+        )
     ]
 )

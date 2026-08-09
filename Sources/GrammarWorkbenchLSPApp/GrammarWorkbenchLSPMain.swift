@@ -31,10 +31,6 @@ enum GrammarWorkbenchLSPMain {
                 DocumentFormattingRequest.self,
                 DocumentRangeFormattingRequest.self,
                 DocumentLinkRequest.self,
-<<<<<<< HEAD
-                CodeActionRequest.self,
-=======
->>>>>>> dev-branch
             ],
             notifications: [
                 DidOpenTextDocumentNotification.self,

@@ -30,8 +30,6 @@ extension LocalConnection: ServerConnection {}
 /// reporting and request cancellation, and — most recently — document
 /// highlights, formatting, and document links, all powered by
 /// `GrammarCompilation`.
-/// Later milestones add folding ranges, document symbols, and completion
-/// powered by `GrammarCompilation`.
 public actor GrammarWorkbenchLSPServer: MessageHandler {
     /// Storage of open documents, mirroring client editor contents.
     public let documentStore: DocumentStore
@@ -100,10 +98,6 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         if let cancel = notification as? CancelRequestNotification {
             Task { await self.cancelRequest(id: cancel.id) }
         } else if let didOpen = notification as? DidOpenTextDocumentNotification {
-    // MARK: - MessageHandler
-
-    public nonisolated func handle(_ notification: some NotificationType) {
-        if let didOpen = notification as? DidOpenTextDocumentNotification {
             Task { await self.didOpen(didOpen) }
         } else if let didChange = notification as? DidChangeTextDocumentNotification {
             Task { await self.didChange(didChange) }
@@ -154,21 +148,6 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             respond(id: id, reply: reply) { .success(await self.rangeFormatting(rangeFormatting) as! Request.Response) }
         } else if let links = request as? DocumentLinkRequest {
             respond(id: id, reply: reply) { .success(await self.documentLinks(links) as! Request.Response) }
-            Task { reply(.success(await self.initialize(initialize) as! Request.Response)) }
-        } else if let shutdown = request as? ShutdownRequest {
-            Task { reply(.success(await self.shutdown(shutdown) as! Request.Response)) }
-        } else if let folding = request as? FoldingRangeRequest {
-            Task { reply(.success(await self.foldingRanges(folding) as! Request.Response)) }
-        } else if let symbols = request as? DocumentSymbolRequest {
-            Task { reply(.success(await self.documentSymbols(symbols) as! Request.Response)) }
-        } else if let completion = request as? CompletionRequest {
-            Task { reply(.success(await self.completions(completion) as! Request.Response)) }
-        } else if let hover = request as? HoverRequest {
-            Task { reply(.success(await self.hover(hover) as! Request.Response)) }
-        } else if let definition = request as? DefinitionRequest {
-            Task { reply(.success(await self.definition(definition) as! Request.Response)) }
-        } else if let action = request as? CodeActionRequest {
-            Task { reply(.success(await self.codeActions(action) as! Request.Response)) }
         } else {
             reply(.failure(.methodNotFound(Request.method)))
         }
@@ -239,7 +218,14 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench,
+            guard notation == .workbench else {
+                return GrammarDocumentService.completions(
+                    text: document.text,
+                    position: request.position,
+                    notation: notation
+                )
+            }
+            guard
                   let compilation = await diagnosticsManager.compilation(for: document.uri),
                   let grammar = compilation.parsedGrammar
             else {
@@ -287,7 +273,15 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench,
+            guard notation == .workbench else {
+                return GrammarDocumentService.definition(
+                    uri: document.uri,
+                    text: document.text,
+                    position: request.position,
+                    notation: notation
+                )
+            }
+            guard
                   let compilation = await diagnosticsManager.compilation(for: document.uri),
                   let grammar = compilation.parsedGrammar
             else {
@@ -377,7 +371,15 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         guard let document = await documentStore.document(for: request.textDocument.uri) else { return nil }
         switch document.uri.grammarWorkbenchKind {
         case .grammar(let notation):
-            guard notation == .workbench,
+            guard notation == .workbench else {
+                return GrammarDocumentService.codeActions(
+                    uri: document.uri,
+                    text: document.text,
+                    notation: notation,
+                    requestedRange: request.range
+                )
+            }
+            guard
                   let compilation = await diagnosticsManager.compilation(for: document.uri)
             else {
                 return nil
@@ -393,46 +395,6 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 in: document.text, range: request.range, compilation: compilation, uri: document.uri
             ))
         }
-        if case .grammar(let notation) = document.uri.grammarWorkbenchKind {
-            return GrammarDocumentService.completions(
-                text: document.text, position: request.position, notation: notation
-            )
-        }
-        guard document.uri.grammarWorkbenchKind == .source,
-              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
-        else {
-            return CompletionList(isIncomplete: false, items: [])
-        }
-        return CompletionProvider.completions(in: document.text, at: request.position, compilation: compilation)
-    }
-
-    private func definition(_ request: DefinitionRequest) async -> LocationsOrLocationLinksResponse? {
-        guard let document = await documentStore.document(for: request.textDocument.uri),
-              case .grammar(let notation) = document.uri.grammarWorkbenchKind else { return nil }
-        return GrammarDocumentService.definition(
-            uri: document.uri, text: document.text, position: request.position, notation: notation
-        )
-    }
-
-    private func codeActions(_ request: CodeActionRequest) async -> CodeActionRequestResponse? {
-        guard let document = await documentStore.document(for: request.textDocument.uri),
-              case .grammar(let notation) = document.uri.grammarWorkbenchKind else { return nil }
-        return GrammarDocumentService.codeActions(
-            uri: document.uri, text: document.text, notation: notation,
-            requestedRange: request.range
-        )
-    }
-
-    /// Hover information for the token at `request`'s position, derived from
-    /// the parse tree and the productions that matched it.
-    private func hover(_ request: HoverRequest) async -> HoverResponse? {
-        guard let document = await documentStore.document(for: request.textDocument.uri),
-              document.uri.grammarWorkbenchKind == .source,
-              let compilation = await diagnosticsManager.exactGrammarCompilation(for: document.language.rawValue)
-        else {
-            return nil
-        }
-        return HoverProvider.hover(in: document.text, at: request.position, compilation: compilation)
     }
 
     /// Parses the source document at `uri` with its associated grammar and
@@ -549,10 +511,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
                 semanticTokensProvider: SemanticTokensOptions(
                     legend: SemanticTokensProvider.legend,
                     full: .value(SemanticTokensOptions.SemanticTokensFullOptions())
-                ),
-                documentSymbolProvider: .bool(true),
-                codeActionProvider: .bool(true),
-                foldingRangeProvider: .bool(true)
+                )
             )
         )
     }
@@ -697,7 +656,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         progressCounter += 1
         let token = ProgressToken.string("grammar-workbench-\(progressCounter)")
         let created = await withCheckedContinuation { continuation in
-            connection.send(CreateWorkDoneProgressRequest(token: token)) { result in
+            _ = connection.send(CreateWorkDoneProgressRequest(token: token)) { result in
                 switch result {
                 case .success:
                     continuation.resume(returning: true)
@@ -729,12 +688,6 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             token: token,
             value: .end(WorkDoneProgressEnd(message: message))
         ))
-    }
-            
-    private func republishSourceDiagnostics() async {
-        for uri in await documentStore.openURIs where uri.grammarWorkbenchKind == .source {
-            await publishDiagnostics(for: uri)
-        }
     }
 
     private func handleExit() async {

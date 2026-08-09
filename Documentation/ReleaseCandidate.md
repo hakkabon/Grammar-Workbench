@@ -8,6 +8,7 @@ The release-candidate gate verifies the product from four perspectives:
 4. A representative ambiguous grammar must complete generalized parsing within the declared configuration, step, and forest-size budgets.
 5. A representative incremental edit must retain the declared minimum percentages of unchanged token identities and semantic values, and remain below the declared maximum relex and reparse percentages.
 6. Optional packaging assembles and validates the application, CLI, LSP, and editor-client archives exactly as a release build does.
+7. The reference multi-document project manifest must decode, analyze, test, validate its generator plan, and generate its declared output through the packaged CLI.
 
 Run the normal gate:
 

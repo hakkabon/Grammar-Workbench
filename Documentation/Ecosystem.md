@@ -21,6 +21,10 @@ A grammar file is associated with source documents through its base name. For ex
 
 Grammar documents provide compilation diagnostics, Workbench/EBNF-aware completion, definition navigation, and quick fixes shared with the native editor. Source documents provide lexical and recovery diagnostics, expected-token completion, production-aware hover, hierarchical symbols, and folding. Open/change/save/close synchronization republishes affected source diagnostics when a grammar changes.
 
+## Project automation
+
+Portable project manifests group a grammar, multiple source snapshots, regression tests, and generator targets behind the same public library contracts. `GrammarProjectWorkspace` supplies aggregate analysis and indexing to IDEs and build services, while the CLI provides `project-check` and `project-generate` for CI. Manifests embed their inputs and restrict output declarations to safe relative paths, making validation deterministic and preventing generator configuration from escaping its chosen output root.
+
 ## Validation and distribution
 
 The release-candidate gate runs the complete Swift suite, a framed stdio smoke session, and—when Node is available—the real VS Code client against the server. Release packaging produces independent LSP and editor-client archives, includes them in `SHA256SUMS`, and does not download npm dependencies. Consumers may package the included VS Code source as a VSIX explicitly with `@vscode/vsce`.

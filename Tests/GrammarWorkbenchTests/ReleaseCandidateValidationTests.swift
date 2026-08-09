@@ -27,6 +27,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let minimumMacOSVersion: String
     let requiredConsumerFixtures: [String]
     let requiredProducts: [String]
+    let requiredProjectManifests: [String]
     let budgets: Budgets
 }
 
@@ -53,6 +54,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.languageServer == .stable)
     #expect(GrammarWorkbenchCapabilities.generalizedParsing == .stable)
     #expect(GrammarWorkbenchCapabilities.incrementalLanguageInfrastructure == .stable)
+    #expect(GrammarWorkbenchCapabilities.projectInfrastructure == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -64,6 +66,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let manifest = try String(contentsOf: packageRoot().appendingPathComponent("Package.swift"))
     for product in policy.requiredProducts {
         #expect(manifest.contains("name: \"\(product)\""))
+    }
+    for path in policy.requiredProjectManifests {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        #expect(try GrammarProjectCodec.decode(data).kind == GrammarProjectManifest.kindIdentifier)
     }
 }
 

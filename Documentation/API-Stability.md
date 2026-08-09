@@ -12,6 +12,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - SLR(1), LALR(1), canonical LR(1), lexer modes, EBNF input and production-origin mapping, algorithm comparison, and artifact diffs.
 - Bounded generalized LR parsing, stable alternative identities, per-alternative semantic evaluation, structured rejection and limit diagnostics, search strategies, and cooperative cancellation.
 - Versioned UTF-16 text snapshots, incremental edits, checkpoint-based relexing and deterministic reparsing, typed incremental semantic evaluation, source-aware semantic indexes, multi-document language sessions, the shared analysis coordinator, stable token/subtree identities, grammar replacement, and reuse/fallback metrics.
+- Versioned project manifests, project workspaces, aggregate semantic indexes, batch-test orchestration, and configured generator targets.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

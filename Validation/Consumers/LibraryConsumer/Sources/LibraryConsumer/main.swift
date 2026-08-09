@@ -123,5 +123,23 @@ guard incrementalSemanticResult.metrics.reusedValues > 0,
       incrementalSemanticResult.metrics.evaluatedValues > 0 else {
     fatalError("Unexpected incremental semantic reuse")
 }
+let project = GrammarProjectManifest(
+    name: "Consumer Project",
+    grammar: .init(source: source),
+    sources: [.init(id: "main", path: "Sources/main.expr", text: "1 + 2")],
+    tests: [.init(name: "valid", input: "1 + 2", expectation: .accept)],
+    generators: [.init(generator: "semantic-model-json", outputDirectory: "Generated")]
+)
+let projectData = try GrammarProjectCodec.encode(project)
+let projectWorkspace = try GrammarProjectWorkspace(
+    manifest: GrammarProjectCodec.decode(projectData)
+)
+let projectAnalysis = try await projectWorkspace.analyze()
+let projectGeneration = try await projectWorkspace.generate()
+guard projectAnalysis.isSuccessful,
+      projectAnalysis.index.entries(named: "Expr").count > 0,
+      projectGeneration.first?.result.files.first?.suggestedFilename == "Grammar.semantic.json" else {
+    fatalError("Unexpected project infrastructure result")
+}
 await coordinator.closeDocument(id: "consumer")
 print("library-consumer-ok")

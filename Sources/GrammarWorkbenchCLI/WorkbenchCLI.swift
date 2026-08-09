@@ -55,6 +55,52 @@ struct GrammarWorkbenchCLI {
             }
             print("\(report.passed) passed, \(report.failed) failed")
             if !report.allPassed { throw CLIError.testsFailed }
+        case "project-check":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("project-check requires a project manifest")
+            }
+            let manifest = try GrammarProjectCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let workspace = try GrammarProjectWorkspace(manifest: manifest)
+            let analysis = try await workspace.analyze()
+            for document in analysis.documents {
+                let source = manifest.sources.first { $0.id == document.documentID }
+                let status = document.lexing.diagnostics.isEmpty
+                    ? document.parse.status.rawValue : "lexical-error"
+                print("\(status.uppercased()) \(source?.path ?? document.documentID)")
+            }
+            for result in analysis.tests.results {
+                print("\(result.status.rawValue.uppercased()) \(result.name): \(result.message)")
+            }
+            let generated = try await workspace.generate()
+            print("Project \(manifest.name): \(analysis.documents.count) sources, \(analysis.index.entries.count) index entries, \(analysis.tests.passed) tests passed, \(generated.count) generator targets valid")
+            if !analysis.isSuccessful { throw CLIError.projectFailed }
+        case "project-generate":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("project-generate requires PROJECT OUTPUT_ROOT")
+            }
+            let manifest = try GrammarProjectCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let workspace = try GrammarProjectWorkspace(manifest: manifest)
+            let analysis = try await workspace.analyze()
+            guard analysis.isSuccessful else { throw CLIError.projectFailed }
+            let generated = try await workspace.generate()
+            let root = URL(fileURLWithPath: arguments[2], isDirectory: true)
+            for generation in generated {
+                let directory = root.appendingPathComponent(
+                    generation.target.outputDirectory, isDirectory: true
+                )
+                try FileManager.default.createDirectory(
+                    at: directory, withIntermediateDirectories: true
+                )
+                for file in generation.result.files {
+                    let destination = directory.appendingPathComponent(file.suggestedFilename)
+                    try file.contents.write(to: destination, options: .atomic)
+                    print("Wrote \(destination.path)")
+                }
+            }
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -280,6 +326,8 @@ struct GrammarWorkbenchCLI {
     Usage:
       grammar-workbench validate GRAMMAR
       grammar-workbench test PROJECT
+      grammar-workbench project-check PROJECT
+      grammar-workbench project-generate PROJECT OUTPUT_ROOT
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
       grammar-workbench list-generators
@@ -303,6 +351,7 @@ private enum CLIError: LocalizedError {
     case validationFailed
     case testsFailed
     case parseFailed(String)
+    case projectFailed
 
     var errorDescription: String? {
         switch self {
@@ -310,6 +359,7 @@ private enum CLIError: LocalizedError {
         case .validationFailed: "grammar validation failed"
         case .testsFailed: "one or more grammar tests failed"
         case .parseFailed(let status): "input was not accepted (\(status))"
+        case .projectFailed: "project validation failed"
         }
     }
 }

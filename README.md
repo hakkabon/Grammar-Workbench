@@ -70,6 +70,8 @@ Built-ins provide the standalone Swift parser (`swift`), a coverage-complete Swi
 
 Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange is schema 2 and records the source notation; schema-1 projects remain readable and default to the native workbench notation.
 
+For multi-document language projects, `GrammarProjectManifest` provides a separate versioned envelope containing the grammar configuration, embedded sources, batch tests, and generator targets. `GrammarProjectWorkspace` incrementally analyzes all sources, publishes a project-wide semantic index, refreshes them after grammar changes, and invokes configured generators. Automation can use `grammar-workbench project-check PROJECT` and `grammar-workbench project-generate PROJECT OUTPUT_ROOT`. See [Documentation/ProjectInfrastructure.md](Documentation/ProjectInfrastructure.md).
+
 For live editors and build services, `GrammarWorkbenchIncrementalCompiler` moves construction off the caller's executor, coalesces concurrent equal requests, and keeps a bounded least-recently-used cache of immutable compilations. Each result includes front-end, LR-construction, total-delivery, state, item, and table-entry metrics; `statistics()` exposes cache hits, misses, shared requests, and evictions.
 
 ```swift
@@ -176,6 +178,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `IncrementalConstruction.swift`: actor-isolated request coalescing, bounded LRU reuse, and construction metrics.
 - `IncrementalLanguageInfrastructure.swift`: versioned UTF-16 edits, multi-document analysis, stable session identities, and reuse metrics.
 - `IncrementalSemanticInfrastructure.swift`: typed semantic caching, grammar invalidation, searchable source indexes, and indexing metrics.
+- `ProjectInfrastructure.swift`: portable project manifests, multi-document workspaces, aggregate indexes, tests, and generator plans.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
 - `GeneratorInfrastructure.swift`: public generator protocol, registry, multi-file results, and built-in generators.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.

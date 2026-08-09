@@ -1,0 +1,49 @@
+{
+  "apiVersion" : 1,
+  "generators" : [
+    {
+      "generator" : "semantic-model-json",
+      "id" : "semantic-model",
+      "options" : {
+        "values" : {}
+      },
+      "outputDirectory" : "Generated"
+    }
+  ],
+  "grammar" : {
+    "algorithm" : "LALR(1)",
+    "notation" : "Workbench",
+    "source" : "%start E\n%token ID /[A-Za-z_][A-Za-z0-9_]*/\n%skip /\\s+/\n%left '+'\n%left '*'\nE : E '+' E | E '*' E | ID ;"
+  },
+  "kind" : "grammar-workbench-project",
+  "name" : "Expression Example",
+  "schemaVersion" : 1,
+  "sources" : [
+    {
+      "id" : "main",
+      "path" : "Sources/main.expr",
+      "revision" : 1,
+      "text" : "alpha + beta * gamma"
+    },
+    {
+      "id" : "secondary",
+      "path" : "Sources/secondary.expr",
+      "revision" : 1,
+      "text" : "left + right"
+    }
+  ],
+  "tests" : [
+    {
+      "expectation" : "Accept",
+      "id" : "9C9140CE-A8ED-4585-A20A-39C08D20A51E",
+      "input" : "alpha + beta",
+      "name" : "Valid expression"
+    },
+    {
+      "expectation" : "Reject",
+      "id" : "72B14DCF-4899-43C0-920B-BA30DE3AC68D",
+      "input" : "alpha +",
+      "name" : "Missing operand"
+    }
+  ]
+}

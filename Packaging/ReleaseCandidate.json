@@ -11,6 +11,9 @@
     "GrammarWorkbenchLSP",
     "grammar-workbench-lsp"
   ],
+  "requiredProjectManifests": [
+    "Examples/ExpressionProject.json"
+  ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,

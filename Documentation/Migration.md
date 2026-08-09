@@ -4,6 +4,8 @@
 
 Schema-1 projects remain readable. They default to workbench grammar notation and an empty test suite where those fields were absent. New exports use schema 2.
 
+The native `GrammarWorkbenchInterchange` remains the single-document app format. Multi-document automation should adopt the separate `GrammarProjectManifest` envelope rather than attempting to extend native document JSON. Its schema starts at 1 and explicitly records its envelope kind and required public API version.
+
 ## Artifact interchange
 
 Schema-1 artifact envelopes remain readable and normalize to schema 2. Consumers should validate both envelope and public API versions and should not persist state or production identifiers across grammar edits.

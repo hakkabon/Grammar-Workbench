@@ -30,4 +30,8 @@ Lowering snapshots now include `productionOrigins`. Decoding older snapshots def
 
 ## Language server
 
-The server is distributed as the `grammar-workbench-lsp` executable and the reusable `GrammarWorkbenchLSP` SwiftPM product. Grammar documents use language id `grammarworkbench` or `ebnf`; source documents use the associated grammar file's base name. Clients should advertise full-document synchronization and send text with `didSave`, as incremental range edits are not accepted.
+The server is distributed as the `grammar-workbench-lsp` executable and the reusable `GrammarWorkbenchLSP` SwiftPM product. Grammar documents use language id `grammarworkbench` or `ebnf`; source documents use the associated grammar file's base name. The server now advertises incremental synchronization and applies LSP ranges as UTF-16 positions. Full-document changes remain accepted for compatibility, but stale versions and invalid ranges are ignored.
+
+## Incremental language sessions
+
+`GrammarWorkbenchIncrementalCompiler` remains the grammar-construction cache. Use the new `GrammarIncrementalLanguageSession` when maintaining source-language documents across edits. Its token and syntax-node identities are session-local and replace any caller-created identity heuristics; do not compare them between sessions or persist them as artifact identities.

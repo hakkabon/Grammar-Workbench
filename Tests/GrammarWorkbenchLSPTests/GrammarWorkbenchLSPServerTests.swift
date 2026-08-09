@@ -63,7 +63,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         return await condition()
     }
 
-    func testInitializeReturnsFullTextSyncCapabilities() async {
+    func testInitializeReturnsIncrementalTextSyncCapabilities() async {
         let result = await send(InitializeRequest(
             processId: nil,
             rootPath: nil,
@@ -80,7 +80,7 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
             )
         }
         XCTAssertEqual(sync.openClose, true)
-        XCTAssertEqual(sync.change, .full)
+        XCTAssertEqual(sync.change, .incremental)
         XCTAssertEqual(sync.willSave, false)
         XCTAssertEqual(sync.willSaveWaitUntil, false)
         if case .value(let save) = sync.save {
@@ -141,6 +141,40 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertTrue(replaced, "server did not apply the full-sync change")
         let version = await server.documentStore.document(for: uri)?.version
         XCTAssertEqual(version, 2)
+    }
+
+    func testDidChangeIncrementalSyncAppliesUTF16RangeAndRejectsStaleVersion() async {
+        let uri = DocumentURI(filePath: "/tmp/incremental.txt", isDirectory: false)
+        connection.send(DidOpenTextDocumentNotification(textDocument: TextDocumentItem(
+            uri: uri,
+            language: Language(rawValue: "plain"),
+            version: 3,
+            text: "a😀b\nsecond"
+        )))
+        connection.send(DidChangeTextDocumentNotification(
+            textDocument: VersionedTextDocumentIdentifier(uri, version: 4),
+            contentChanges: [TextDocumentContentChangeEvent(
+                range: Position(line: 0, utf16index: 3)..<Position(line: 0, utf16index: 4),
+                rangeLength: 1,
+                text: "B"
+            )]
+        ))
+        let updated = await waitUntil {
+            await self.server.documentStore.text(for: uri) == "a😀B\nsecond"
+        }
+        XCTAssertTrue(updated)
+
+        connection.send(DidChangeTextDocumentNotification(
+            textDocument: VersionedTextDocumentIdentifier(uri, version: 4),
+            contentChanges: [TextDocumentContentChangeEvent(
+                range: Position(line: 1, utf16index: 0)..<Position(line: 1, utf16index: 6),
+                rangeLength: 6,
+                text: "stale"
+            )]
+        ))
+        try? await Task.sleep(for: .milliseconds(30))
+        let text = await server.documentStore.text(for: uri)
+        XCTAssertEqual(text, "a😀B\nsecond")
     }
 
     func testDidCloseRemovesDocument() async {

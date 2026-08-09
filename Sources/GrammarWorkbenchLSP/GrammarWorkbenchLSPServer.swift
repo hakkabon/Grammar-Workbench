@@ -22,7 +22,7 @@ extension LocalConnection: ServerConnection {}
 /// IDE services for the resulting language.
 ///
 /// M0 established the protocol skeleton: `initialize`, `shutdown`/`exit`
-/// handling, and full-document text synchronization. M1 adds
+/// handling and versioned incremental text synchronization. M1 adds
 /// `textDocument/publishDiagnostics` for grammar documents (compile errors)
 /// and source documents (lexical and parse errors) using the open grammars.
 /// Later milestones add folding ranges, document symbols, completion, hover,
@@ -484,7 +484,7 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
     private func initialize(_ request: InitializeRequest) -> InitializeResult {
         let syncOptions = TextDocumentSyncOptions(
             openClose: true,
-            change: .full,
+            change: .incremental,
             willSave: false,
             willSaveWaitUntil: false,
             save: .value(TextDocumentSyncOptions.SaveOptions(includeText: true))
@@ -540,11 +540,12 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
 
     private func didChange(_ notification: DidChangeTextDocumentNotification) async {
         let identifier = notification.textDocument
-        await documentStore.updateFull(
+        let applied = await documentStore.update(
             uri: identifier.uri,
             version: identifier.version,
             contentChanges: notification.contentChanges
         )
+        guard applied else { return }
         schedulePublish(for: identifier.uri)
     }
 

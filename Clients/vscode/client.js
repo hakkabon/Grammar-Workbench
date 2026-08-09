@@ -189,12 +189,22 @@ function startClient(vscode, context, options) {
 
   function changeDocument(event) {
     if (!handled.has(event.document.uri.toString())) return;
+    const contentChanges = event.contentChanges && event.contentChanges.length
+      ? event.contentChanges.map((change) => ({
+          range: change.range ? {
+            start: { line: change.range.start.line, character: change.range.start.character },
+            end: { line: change.range.end.line, character: change.range.end.character },
+          } : undefined,
+          rangeLength: change.rangeLength,
+          text: change.text,
+        }))
+      : [{ text: event.document.getText() }];
     send({
       jsonrpc: "2.0",
       method: "textDocument/didChange",
       params: {
         textDocument: { uri: event.document.uri.toString(), version: event.document.version },
-        contentChanges: [{ text: event.document.getText() }],
+        contentChanges,
       },
     });
   }

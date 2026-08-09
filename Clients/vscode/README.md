@@ -28,6 +28,9 @@ references, rename, quick fixes, document highlights, formatting, and document
 links all work against the workspace's own
 `.build/debug/grammar-workbench-lsp` binary.
 
+The client sends VS Code's incremental UTF-16 change ranges. Complete-document
+changes remain supported by the server for compatibility with simpler clients.
+
 ## Package
 
 Build a shareable `.vsix` (requires Node.js):

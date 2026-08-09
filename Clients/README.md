@@ -36,6 +36,8 @@ name as the language id:
 
 The server validates both kinds of documents and publishes diagnostics for
 grammar compilation errors and lexical/syntax errors in source documents.
+It advertises incremental text synchronization; changes use UTF-16 LSP ranges,
+while full-document replacements remain supported for simpler clients.
 
 ## Other editors
 

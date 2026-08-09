@@ -79,7 +79,20 @@ print(compilation.performance)
 print(await compiler.statistics())
 ```
 
-`GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Snapshot state and production identifiers are stable within one compiled artifact; clients should not persist them as identities across source edits. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
+`GrammarIncrementalLanguageSession` complements construction caching with versioned UTF-16 document edits, multi-document lex/parse snapshots, grammar replacement, stable session-local token and subtree identities, and explicit reuse metrics. It is suitable for editors, language servers, indexes, and build daemons; the bundled LSP now advertises incremental synchronization and uses the same edit semantics. See [Documentation/IncrementalLanguageInfrastructure.md](Documentation/IncrementalLanguageInfrastructure.md).
+
+```swift
+let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+let first = try await session.openDocument(id: "main", text: source, revision: 1)
+let next = try await session.apply(
+    documentID: "main",
+    edits: [.init(range: changedRange, replacement: replacement)],
+    revision: 2
+)
+print(next.reuse)
+```
+
+`GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Artifact state and production identifiers are stable within one compiled artifact; incremental token and node identities are stable only within their owning language session. Neither identity kind should be persisted globally. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Every reduction node records its production identity and exposes a bottom-up `evaluate` method, allowing applications to build typed ASTs without modifying generated parser tables. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.
 
@@ -160,6 +173,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `ArtifactModel.swift`: stable, typed identities and immutable artifact snapshots.
 - `PublicAPI.swift`: versioned library façade and engine-independent Codable snapshots.
 - `IncrementalConstruction.swift`: actor-isolated request coalescing, bounded LRU reuse, and construction metrics.
+- `IncrementalLanguageInfrastructure.swift`: versioned UTF-16 edits, multi-document analysis, stable session identities, and reuse metrics.
 - `SwiftParserCodeGenerator.swift`: standalone Swift lexer/parser source generation.
 - `GeneratorInfrastructure.swift`: public generator protocol, registry, multi-file results, and built-in generators.
 - `AlgorithmComparison.swift`: cross-algorithm metrics, state correspondence, table differences, and recommendations.

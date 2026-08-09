@@ -16,6 +16,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let generalizedMaximumConfigurations: Int
         let generalizedMaximumSteps: Int
         let generalizedMaximumTrees: Int
+        let incrementalMinimumTokenReusePercent: Double
     }
 
     let schemaVersion: Int
@@ -48,6 +49,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.generatorEcosystem == .stable)
     #expect(GrammarWorkbenchCapabilities.languageServer == .stable)
     #expect(GrammarWorkbenchCapabilities.generalizedParsing == .stable)
+    #expect(GrammarWorkbenchCapabilities.incrementalLanguageInfrastructure == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -60,6 +62,31 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     for product in policy.requiredProducts {
         #expect(manifest.contains("name: \"\(product)\""))
     }
+}
+
+@Test func incrementalLanguageSessionMeetsDeclaredReuseBudget() async throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let grammar = "%token ID /[a-z]+/\n%skip /\\s+/\n%start List\nList : List ',' ID | ID ;"
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let opened = try await session.openDocument(
+        id: "budget", text: "one, two, three, four, five", revision: 1
+    )
+    let changed = try await session.apply(
+        documentID: "budget",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 0),
+                end: .init(line: 0, utf16Column: 3)
+            ),
+            replacement: "zero"
+        )],
+        revision: 2
+    )
+    let reusePercent = Double(changed.reuse.reusedTokens) / Double(opened.tokens.count) * 100
+
+    #expect(changed.parse.status == .accepted)
+    #expect(reusePercent >= budget.incrementalMinimumTokenReusePercent)
 }
 
 @Test func generalizedParsingStaysWithinDeclaredReleaseBudgets() throws {

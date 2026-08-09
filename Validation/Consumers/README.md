@@ -2,7 +2,7 @@
 
 These packages compile Grammar Workbench strictly through its published products.
 
-- `LibraryConsumer` exercises compilation, structured and generalized parsing, stable forest identities, semantic reduction, source ranges, and semantic-model interchange.
+- `LibraryConsumer` exercises compilation, structured and generalized parsing, stable forest identities, versioned UTF-16 edits, semantic reduction, source ranges, and semantic-model interchange.
 - `LSPConsumer` exercises the reusable language-server library product through its public document-store API.
 - `PluginConsumer` exercises the SwiftPM build plugin and the dependency-free generated parser API.
 

@@ -67,4 +67,16 @@ guard ambiguous.status == .ambiguous,
       ambiguous.alternative(id: ambiguous.forest.alternatives[0].id) != nil else {
     fatalError("Unexpected generalized parse forest")
 }
+let edited = try GrammarTextSnapshot(revision: 1, text: "one two").applying([
+    .init(
+        range: .init(
+            start: .init(line: 0, utf16Column: 4),
+            end: .init(line: 0, utf16Column: 7)
+        ),
+        replacement: "three"
+    )
+], revision: 2)
+guard edited.snapshot.text == "one three", edited.change.utf16Delta == 2 else {
+    fatalError("Unexpected incremental text edit")
+}
 print("library-consumer-ok")

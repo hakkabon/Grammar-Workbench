@@ -17,6 +17,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let generalizedMaximumSteps: Int
         let generalizedMaximumTrees: Int
         let incrementalMinimumTokenReusePercent: Double
+        let incrementalMaximumRelexPercent: Double
     }
 
     let schemaVersion: Int
@@ -84,9 +85,13 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         revision: 2
     )
     let reusePercent = Double(changed.reuse.reusedTokens) / Double(opened.tokens.count) * 100
+    let relexPercent = Double(changed.incrementalLexing.relexedUTF16Length)
+        / Double(changed.text.text.utf16.count) * 100
 
     #expect(changed.parse.status == .accepted)
     #expect(reusePercent >= budget.incrementalMinimumTokenReusePercent)
+    #expect(changed.incrementalLexing.strategy == .incremental)
+    #expect(relexPercent <= budget.incrementalMaximumRelexPercent)
 }
 
 @Test func generalizedParsingStaysWithinDeclaredReleaseBudgets() throws {

@@ -6,7 +6,7 @@ The release-candidate gate verifies the product from four perspectives:
 2. Downstream fixtures compile only against published library and plugin products.
 3. The release CLI and LSP server run their corpus, interchange, framed-stdio, and editor-client smoke workflows.
 4. A representative ambiguous grammar must complete generalized parsing within the declared configuration, step, and forest-size budgets.
-5. A representative incremental edit must retain the declared minimum percentage of unchanged token identities.
+5. A representative incremental edit must retain the declared minimum percentage of unchanged token identities and remain below the declared maximum relex percentage.
 6. Optional packaging assembles and validates the application, CLI, LSP, and editor-client archives exactly as a release build does.
 
 Run the normal gate:

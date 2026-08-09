@@ -546,6 +546,32 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
             contentChanges: notification.contentChanges
         )
         guard applied else { return }
+        if identifier.uri.grammarWorkbenchKind == .source,
+           let document = await documentStore.document(for: identifier.uri) {
+            let edits = notification.contentChanges.map { change in
+                GrammarTextEdit(
+                    range: change.range.map {
+                        .init(
+                            start: .init(
+                                line: $0.lowerBound.line,
+                                utf16Column: $0.lowerBound.utf16index
+                            ),
+                            end: .init(
+                                line: $0.upperBound.line,
+                                utf16Column: $0.upperBound.utf16index
+                            )
+                        )
+                    },
+                    replacement: change.text
+                )
+            }
+            await diagnosticsManager.applySourceEdits(
+                uri: identifier.uri,
+                languageId: document.language.rawValue,
+                edits: edits,
+                version: identifier.version
+            )
+        }
         schedulePublish(for: identifier.uri)
     }
 

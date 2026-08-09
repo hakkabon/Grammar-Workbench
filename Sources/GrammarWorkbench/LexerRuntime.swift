@@ -21,7 +21,14 @@ public struct LexerResult: Sendable {
     public let tokens: [LexedToken]
     public let diagnostics: [LexerDiagnostic]
     public let finalModeStack: [String]
+    let checkpoints: [LexerCheckpoint]
+    let stoppedAtUTF16Offset: Int?
     public var hasErrors: Bool { !diagnostics.isEmpty }
+}
+
+struct LexerCheckpoint: Hashable, Sendable {
+    let utf16Offset: Int
+    let modeStack: [String]
 }
 
 public enum GrammarLexerRuntime {
@@ -34,6 +41,16 @@ public enum GrammarLexerRuntime {
     }
 
     public static func lex(_ source: String, grammar: ParsedGrammar) -> LexerResult {
+        lex(source, grammar: grammar, startingAt: 0, initialModeStack: ["DEFAULT"])
+    }
+
+    static func lex(
+        _ source: String,
+        grammar: ParsedGrammar,
+        startingAt startOffset: Int,
+        initialModeStack: [String],
+        stopAtCheckpoint: ((LexerCheckpoint) -> Bool)? = nil
+    ) -> LexerResult {
         var rules: [CompiledRule] = grammar.lexerRules.enumerated().compactMap { offset, rule in
             guard let expression = try? NSRegularExpression(pattern: "(?:\(rule.pattern))") else { return nil }
             return CompiledRule(
@@ -51,11 +68,21 @@ public enum GrammarLexerRuntime {
         }
 
         let text = source as NSString
-        var location = 0
+        var location = startOffset
         var output: [LexedToken] = []
         var diagnostics: [LexerDiagnostic] = []
-        var modeStack = ["DEFAULT"]
+        var modeStack = initialModeStack.isEmpty ? ["DEFAULT"] : initialModeStack
+        var checkpoints: [LexerCheckpoint] = []
         while location < text.length {
+            let checkpoint = LexerCheckpoint(utf16Offset: location, modeStack: modeStack)
+            checkpoints.append(checkpoint)
+            if location > startOffset, stopAtCheckpoint?(checkpoint) == true {
+                return LexerResult(
+                    source: source, tokens: output, diagnostics: diagnostics,
+                    finalModeStack: modeStack, checkpoints: checkpoints,
+                    stoppedAtUTF16Offset: location
+                )
+            }
             let mode = modeStack.last ?? "DEFAULT"
             var best: (rule: CompiledRule, length: Int)?
             for rule in rules where rule.mode == mode {
@@ -108,6 +135,7 @@ public enum GrammarLexerRuntime {
             }
             location = end
         }
+        checkpoints.append(.init(utf16Offset: text.length, modeStack: modeStack))
         if modeStack != ["DEFAULT"] {
             diagnostics.append(.init(
                 id: diagnostics.count,
@@ -118,7 +146,8 @@ public enum GrammarLexerRuntime {
         }
         return LexerResult(
             source: source, tokens: output, diagnostics: diagnostics,
-            finalModeStack: modeStack
+            finalModeStack: modeStack, checkpoints: checkpoints,
+            stoppedAtUTF16Offset: nil
         )
     }
 

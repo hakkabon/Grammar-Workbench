@@ -2,6 +2,7 @@ import Foundation
 import XCTest
 import LanguageServerProtocol
 import LanguageServerProtocolTransport
+import GrammarWorkbench
 @testable import GrammarWorkbenchLSP
 
 final class GrammarWorkbenchLSPServerTests: XCTestCase {
@@ -88,6 +89,39 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         } else {
             XCTFail("expected didSave sync options with included text, got \(String(describing: sync.save))")
         }
+    }
+
+    func testDiagnosticsManagerForwardsRangedChangesToIncrementalLexer() async throws {
+        let manager = DiagnosticsManager()
+        let grammarURI = DocumentURI(filePath: "/tmp/items.grammarworkbench", isDirectory: false)
+        let sourceURI = DocumentURI(filePath: "/tmp/items.txt", isDirectory: false)
+        let grammar = "%token ID /[a-z]+/\n%skip /\\s+/\n%start S\nS : ID ID ID ;"
+        let compilation = await manager.compileGrammar(
+            uri: grammarURI, source: grammar, notation: .workbench
+        )
+        _ = await manager.sourceAnalysis(
+            uri: sourceURI, languageId: "items", text: "one two three", version: 1
+        )
+        await manager.applySourceEdits(
+            uri: sourceURI,
+            languageId: "items",
+            edits: [.init(
+                range: .init(
+                    start: .init(line: 0, utf16Column: 0),
+                    end: .init(line: 0, utf16Column: 3)
+                ),
+                replacement: "zero"
+            )],
+            version: 2
+        )
+        let analyzed = await manager.sourceAnalysis(
+            uri: sourceURI, languageId: "items", text: "zero two three", version: 2
+        )
+        let snapshot = try XCTUnwrap(analyzed)
+
+        XCTAssertEqual(snapshot.incrementalLexing.strategy, .incremental)
+        XCTAssertEqual(snapshot.lexing, compilation.lex("zero two three"))
+        XCTAssertGreaterThan(snapshot.incrementalLexing.reusedSuffixTokens, 0)
     }
 
     func testShutdownRepliesAndSetsExitState() async {

@@ -18,13 +18,20 @@ Create `GrammarIncrementalLanguageSession` with a successful `GrammarCompilation
 - session-local stable identities for tokens and syntax subtrees;
 - counts of reused, created, and removed tokens and nodes;
 - the grammar revision and applied text-change summary.
+- the lexer strategy, relexed UTF-16 range, prefix/suffix reuse, and fallback reason.
 
 Structurally unchanged tokens and subtrees keep their identities even when an earlier edit shifts their source ranges. `updateCompilation` reanalyzes all open documents after a grammar change while retaining identities wherever structure remains equal.
 
 Identities are scoped to one session and must not be persisted as global artifact IDs. Snapshots themselves are immutable, Codable, and Sendable, making them suitable for editor models, language servers, indexes, and build daemons.
 
-Incremental snapshots are continuously checked against clean lex/parse results. Complete reanalysis remains the correctness reference and current computational implementation; the consolidated layer provides incremental state, identity reuse, cancellation boundaries, and lifecycle ownership in preparation for region-based lexing and parsing.
+## Incremental lexing
+
+For a single ranged edit, lexing restarts at the last checkpoint preceding the damaged token. Checkpoints include the complete lexer-mode stack and are recorded after emitted tokens, skipped rules, and unmatched characters. Relexing stops when the changed suffix reaches an old checkpoint at the shifted offset with an identical mode stack. Unaffected prefix and suffix tokens are spliced into the result with updated ranges and indices.
+
+Full replacement, multiple sequential edits, a previously invalid lex, the legacy whitespace-token input mode, or regular expressions whose result can depend on text outside their matched range use an explicit full-lex fallback. `GrammarIncrementalLexingMetrics` makes the strategy and reason observable. Unicode positions, multiline tokens, skipped mode transitions, and push/pop/begin mode stacks use the same checkpoint rules.
+
+Incremental lex results are continuously checked against clean lexing. Deterministic parsing is still recomputed completely and remains the next incremental-computation phase.
 
 ## LSP synchronization
 
-The bundled language server advertises incremental synchronization and uses the same UTF-16 edit semantics. It still accepts complete-document replacements. Stale versions and malformed ranges are ignored so diagnostics never run against a partially applied document.
+The bundled language server advertises incremental synchronization and forwards accepted ranged edits to the shared coordinator before its diagnostic debounce. It still accepts complete-document replacements. Stale versions and malformed ranges are ignored so diagnostics never run against a partially applied document.

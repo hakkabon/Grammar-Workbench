@@ -87,5 +87,21 @@ guard coordinated.parse.status == .accepted,
       await coordinator.openDocumentIDs == ["consumer"] else {
     fatalError("Unexpected coordinated incremental analysis")
 }
+let incrementallyLexed = try await coordinator.apply(
+    documentID: "consumer",
+    edits: [.init(
+        range: .init(
+            start: .init(line: 0, utf16Column: 4),
+            end: .init(line: 0, utf16Column: 5)
+        ),
+        replacement: "3"
+    )],
+    externalRevision: 2
+)
+guard incrementallyLexed.parse.status == .accepted,
+      incrementallyLexed.incrementalLexing.strategy == .incremental,
+      incrementallyLexed.lexing.tokens.last?.lexeme == "3" else {
+    fatalError("Unexpected incremental lexer result")
+}
 await coordinator.closeDocument(id: "consumer")
 print("library-consumer-ok")

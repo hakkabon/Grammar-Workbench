@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 import GrammarWorkbench
 
@@ -188,4 +189,175 @@ List : List ',' ID | ID ;
     #expect(refreshed.count == 1)
     #expect(refreshed[0].tokens.map(\.id) == before.tokens.map(\.id))
     #expect(refreshed[0].parse == replacement.parse("one, two"))
+}
+
+@Test func incrementalLexerReusesStableSuffixAndMatchesCleanLex() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "main", text: "one, two, three", revision: 1)
+    let updated = try await session.apply(
+        documentID: "main",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 0),
+                end: .init(line: 0, utf16Column: 3)
+            ),
+            replacement: "zero"
+        )],
+        revision: 2
+    )
+
+    #expect(updated.lexing == compilation.lex("zero, two, three"))
+    #expect(updated.incrementalLexing.strategy == .incremental)
+    #expect(updated.incrementalLexing.relexedUTF16Length < updated.text.text.utf16.count)
+    #expect(updated.incrementalLexing.reusedSuffixTokens >= 4)
+}
+
+@Test func incrementalLexerHandlesUnicodeDamageAndDiagnostics() async throws {
+    let grammar = #"""
+%token WORD /[a-z]+/
+%token FACE /😀/
+%skip /\s+/
+%start S
+S : WORD FACE WORD ;
+"""#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "unicode", text: "one 😀 two", revision: 1)
+    let updated = try await session.apply(
+        documentID: "unicode",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 4),
+                end: .init(line: 0, utf16Column: 6)
+            ),
+            replacement: "😃"
+        )],
+        revision: 2
+    )
+
+    #expect(updated.lexing == compilation.lex("one 😃 two"))
+    #expect(updated.incrementalLexing.strategy == .incremental)
+    #expect(updated.lexing.diagnostics.count == 1)
+    #expect(updated.incrementalLexing.reusedSuffixTokens == 1)
+}
+
+@Test func incrementalLexerRestartsBeforeMultilineToken() async throws {
+    let grammar = #"""
+%token BLOCK /(?s:\/\*.*?\*\/)/
+%token ID /[a-z]+/
+%skip /\s+/
+%start S
+S : BLOCK ID ;
+"""#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "block", text: "/* first\nline */ tail", revision: 1)
+    let updated = try await session.apply(
+        documentID: "block",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 3),
+                end: .init(line: 0, utf16Column: 8)
+            ),
+            replacement: "changed"
+        )],
+        revision: 2
+    )
+    let expected = "/* changed\nline */ tail"
+
+    #expect(updated.lexing == compilation.lex(expected))
+    #expect(updated.incrementalLexing.strategy == .incremental)
+    #expect(updated.incrementalLexing.reusedSuffixTokens == 1)
+}
+
+@Test func incrementalLexerStabilizesAcrossModeTransitions() async throws {
+    let grammar = #"""
+%token QUOTE /"/ %push STRING
+%token ID /[a-z]+/
+%skip /\s+/
+%mode STRING
+%token TEXT /[a-z ]+/
+%token QUOTE /"/ %pop
+%start S
+S : QUOTE TEXT QUOTE ID ;
+"""#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "mode", text: "\"hello world\" tail", revision: 1)
+    let updated = try await session.apply(
+        documentID: "mode",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 1),
+                end: .init(line: 0, utf16Column: 6)
+            ),
+            replacement: "goodbye"
+        )],
+        revision: 2
+    )
+    let expected = "\"goodbye world\" tail"
+
+    #expect(updated.lexing == compilation.lex(expected))
+    #expect(updated.incrementalLexing.strategy == .incremental)
+    #expect(updated.incrementalLexing.reusedSuffixTokens >= 2)
+    #expect(updated.lexing.finalModeStack == ["DEFAULT"])
+}
+
+@Test func incrementalLexerReportsExplicitFallbackForFullReplacement() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "fallback", text: "one", revision: 1)
+    let updated = try await session.apply(
+        documentID: "fallback",
+        edits: [.init(range: nil, replacement: "two")],
+        revision: 2
+    )
+
+    #expect(updated.lexing == compilation.lex("two"))
+    #expect(updated.incrementalLexing.strategy == .fallback)
+    #expect(updated.incrementalLexing.fallbackReason != nil)
+}
+
+@Test func incrementalLexerFallsBackForContextSensitiveRegularExpressions() async throws {
+    let grammar = #"""
+%token A /a(?=b)/
+%token B /b/
+%token C /c/
+%start S
+S : A B | C ;
+"""#
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: grammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    _ = try await session.openDocument(id: "lookahead", text: "ab", revision: 1)
+    let updated = try await session.apply(
+        documentID: "lookahead",
+        edits: [.init(
+            range: .init(
+                start: .init(line: 0, utf16Column: 1),
+                end: .init(line: 0, utf16Column: 2)
+            ),
+            replacement: "c"
+        )],
+        revision: 2
+    )
+
+    #expect(updated.lexing == compilation.lex("ac"))
+    #expect(updated.incrementalLexing.strategy == .fallback)
+    #expect(updated.incrementalLexing.fallbackReason?.contains("outside") == true)
+}
+
+@Test func incrementalSnapshotDecodesPreLexingMetricsPayload() async throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
+    let session = try GrammarIncrementalLanguageSession(compilation: compilation)
+    let snapshot = try await session.openDocument(id: "legacy", text: "one", revision: 1)
+    let encoded = try JSONEncoder().encode(snapshot)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object["incrementalLexing"] = nil
+    let legacy = try JSONSerialization.data(withJSONObject: object)
+    let decoded = try JSONDecoder().decode(GrammarIncrementalAnalysisSnapshot.self, from: legacy)
+
+    #expect(decoded.lexing == snapshot.lexing)
+    #expect(decoded.incrementalLexing.strategy == .full)
+    #expect(decoded.incrementalLexing.fallbackReason != nil)
 }

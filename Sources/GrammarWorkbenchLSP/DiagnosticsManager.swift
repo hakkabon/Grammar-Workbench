@@ -108,6 +108,25 @@ public actor DiagnosticsManager {
         )
     }
 
+    /// Applies the editor's original ranged changes to an already-open source
+    /// analysis. The later debounced publish observes this exact snapshot.
+    public func applySourceEdits(
+        uri: DocumentURI,
+        languageId: String,
+        edits: [GrammarTextEdit],
+        version: Int
+    ) async {
+        let selected = grammarDocuments.values.first {
+            $0.uri.grammarFileBaseName == languageId
+        } ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
+        guard let coordinator = selected?.coordinator else { return }
+        _ = try? await coordinator.apply(
+            documentID: uri.stringValue,
+            edits: edits,
+            externalRevision: version
+        )
+    }
+
     /// The compilation used for source documents with the given language id.
     public func grammarCompilation(for languageId: String) -> GrammarCompilation? {
         if let match = grammarDocuments.values.first(where: { $0.uri.grammarFileBaseName == languageId }) {

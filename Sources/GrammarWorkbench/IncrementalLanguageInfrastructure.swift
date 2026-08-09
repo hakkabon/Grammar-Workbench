@@ -98,7 +98,7 @@ public struct GrammarTextSnapshot: Hashable, Codable, Sendable {
         )
     }
 
-    private static func utf16Offset(_ position: GrammarTextPosition, in text: NSString) throws -> Int {
+    static func utf16Offset(_ position: GrammarTextPosition, in text: NSString) throws -> Int {
         guard position.line >= 0, position.utf16Column >= 0 else {
             throw GrammarIncrementalLanguageError.invalidPosition(position)
         }
@@ -156,6 +156,25 @@ public struct GrammarIncrementalReuseMetrics: Hashable, Codable, Sendable {
     public let removedNodes: Int
 }
 
+public enum GrammarIncrementalLexingStrategy: String, Hashable, Codable, Sendable {
+    case full
+    case incremental
+    case fallback
+}
+
+public struct GrammarIncrementalLexingMetrics: Hashable, Codable, Sendable {
+    public let strategy: GrammarIncrementalLexingStrategy
+    public let relexedUTF16Start: Int
+    public let relexedUTF16End: Int
+    public let reusedPrefixTokens: Int
+    public let reusedSuffixTokens: Int
+    public let fallbackReason: String?
+
+    public var relexedUTF16Length: Int {
+        max(0, relexedUTF16End - relexedUTF16Start)
+    }
+}
+
 public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
     public let documentID: String
     public let text: GrammarTextSnapshot
@@ -166,6 +185,54 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
     public let tokens: [GrammarIncrementalToken]
     public let syntaxTree: GrammarIncrementalSyntaxNode?
     public let reuse: GrammarIncrementalReuseMetrics
+    public let incrementalLexing: GrammarIncrementalLexingMetrics
+
+    init(
+        documentID: String,
+        text: GrammarTextSnapshot,
+        grammarRevision: Int,
+        change: GrammarTextChangeSummary?,
+        lexing: GrammarLexingResult,
+        parse: GrammarParseResult,
+        tokens: [GrammarIncrementalToken],
+        syntaxTree: GrammarIncrementalSyntaxNode?,
+        reuse: GrammarIncrementalReuseMetrics,
+        incrementalLexing: GrammarIncrementalLexingMetrics
+    ) {
+        self.documentID = documentID; self.text = text
+        self.grammarRevision = grammarRevision; self.change = change
+        self.lexing = lexing; self.parse = parse; self.tokens = tokens
+        self.syntaxTree = syntaxTree; self.reuse = reuse
+        self.incrementalLexing = incrementalLexing
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case documentID, text, grammarRevision, change, lexing, parse, tokens
+        case syntaxTree, reuse, incrementalLexing
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        documentID = try values.decode(String.self, forKey: .documentID)
+        text = try values.decode(GrammarTextSnapshot.self, forKey: .text)
+        grammarRevision = try values.decode(Int.self, forKey: .grammarRevision)
+        change = try values.decodeIfPresent(GrammarTextChangeSummary.self, forKey: .change)
+        lexing = try values.decode(GrammarLexingResult.self, forKey: .lexing)
+        parse = try values.decode(GrammarParseResult.self, forKey: .parse)
+        tokens = try values.decode([GrammarIncrementalToken].self, forKey: .tokens)
+        syntaxTree = try values.decodeIfPresent(GrammarIncrementalSyntaxNode.self, forKey: .syntaxTree)
+        reuse = try values.decode(GrammarIncrementalReuseMetrics.self, forKey: .reuse)
+        incrementalLexing = try values.decodeIfPresent(
+            GrammarIncrementalLexingMetrics.self, forKey: .incrementalLexing
+        ) ?? .init(
+            strategy: .full,
+            relexedUTF16Start: 0,
+            relexedUTF16End: text.text.utf16.count,
+            reusedPrefixTokens: 0,
+            reusedSuffixTokens: 0,
+            fallbackReason: "Decoded from a snapshot created before incremental lexing metrics."
+        )
+    }
 }
 
 /// A versioned multi-document analysis session. Edits are applied with UTF-16
@@ -174,6 +241,7 @@ public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {
 public actor GrammarIncrementalLanguageSession {
     private struct DocumentState {
         var snapshot: GrammarIncrementalAnalysisSnapshot
+        var lexerCheckpoints: [LexerCheckpoint]
     }
 
     private var compilation: GrammarCompilation
@@ -197,14 +265,16 @@ public actor GrammarIncrementalLanguageSession {
         revision: Int = 0
     ) throws -> GrammarIncrementalAnalysisSnapshot {
         guard documents[id] == nil else { throw GrammarIncrementalLanguageError.duplicateDocument(id) }
-        let snapshot = analyze(
+        let analyzed = analyze(
             documentID: id,
             text: .init(revision: revision, text: text),
             previous: nil,
-            change: nil
+            previousCheckpoints: [],
+            change: nil,
+            edits: nil
         )
-        documents[id] = .init(snapshot: snapshot)
-        return snapshot
+        documents[id] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+        return analyzed.snapshot
     }
 
     @discardableResult
@@ -217,14 +287,16 @@ public actor GrammarIncrementalLanguageSession {
             throw GrammarIncrementalLanguageError.unknownDocument(documentID)
         }
         let updated = try previous.text.applying(edits, revision: revision)
-        let snapshot = analyze(
+        let analyzed = analyze(
             documentID: documentID,
             text: updated.snapshot,
             previous: previous,
-            change: updated.change
+            previousCheckpoints: documents[documentID]?.lexerCheckpoints ?? [],
+            change: updated.change,
+            edits: edits
         )
-        documents[documentID] = .init(snapshot: snapshot)
-        return snapshot
+        documents[documentID] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+        return analyzed.snapshot
     }
 
     public func snapshot(documentID: String) -> GrammarIncrementalAnalysisSnapshot? {
@@ -251,14 +323,16 @@ public actor GrammarIncrementalLanguageSession {
         var results: [GrammarIncrementalAnalysisSnapshot] = []
         for id in documents.keys.sorted() {
             guard let previous = documents[id]?.snapshot else { continue }
-            let snapshot = analyze(
+            let analyzed = analyze(
                 documentID: id,
                 text: previous.text,
                 previous: previous,
-                change: nil
+                previousCheckpoints: documents[id]?.lexerCheckpoints ?? [],
+                change: nil,
+                edits: nil
             )
-            documents[id] = .init(snapshot: snapshot)
-            results.append(snapshot)
+            documents[id] = .init(snapshot: analyzed.snapshot, lexerCheckpoints: analyzed.checkpoints)
+            results.append(analyzed.snapshot)
         }
         return results
     }
@@ -267,18 +341,25 @@ public actor GrammarIncrementalLanguageSession {
         documentID: String,
         text: GrammarTextSnapshot,
         previous: GrammarIncrementalAnalysisSnapshot?,
-        change: GrammarTextChangeSummary?
-    ) -> GrammarIncrementalAnalysisSnapshot {
-        let lexing = compilation.lex(text.text)
+        previousCheckpoints: [LexerCheckpoint],
+        change: GrammarTextChangeSummary?,
+        edits: [GrammarTextEdit]?
+    ) -> (snapshot: GrammarIncrementalAnalysisSnapshot, checkpoints: [LexerCheckpoint]) {
+        let lexed = incrementalLex(
+            text: text.text,
+            previous: previous,
+            previousCheckpoints: previousCheckpoints,
+            edits: edits
+        )
         let parse = compilation.parse(text.text)
-        let tokenResult = reconcileTokens(lexing.tokens, previous: previous?.tokens ?? [])
+        let tokenResult = reconcileTokens(lexed.result.tokens, previous: previous?.tokens ?? [])
         let nodeResult = reconcileTree(parse.syntaxTree, previous: previous?.syntaxTree)
-        return .init(
+        return (.init(
             documentID: documentID,
             text: text,
             grammarRevision: grammarRevision,
             change: change,
-            lexing: lexing,
+            lexing: lexed.result,
             parse: parse,
             tokens: tokenResult.values,
             syntaxTree: nodeResult.value,
@@ -289,8 +370,155 @@ public actor GrammarIncrementalLanguageSession {
                 reusedNodes: nodeResult.reused,
                 createdNodes: nodeResult.created,
                 removedNodes: nodeResult.removed
+            ),
+            incrementalLexing: lexed.metrics
+        ), lexed.checkpoints)
+    }
+
+    private func incrementalLex(
+        text: String,
+        previous: GrammarIncrementalAnalysisSnapshot?,
+        previousCheckpoints: [LexerCheckpoint],
+        edits: [GrammarTextEdit]?
+    ) -> (result: GrammarLexingResult, checkpoints: [LexerCheckpoint], metrics: GrammarIncrementalLexingMetrics) {
+        guard let grammar = compilation.compiledGrammar, !grammar.lexerRules.isEmpty else {
+            let result = compilation.lex(text)
+            return (result, [], .init(
+                strategy: previous == nil ? .full : .fallback,
+                relexedUTF16Start: 0, relexedUTF16End: text.utf16.count,
+                reusedPrefixTokens: 0, reusedSuffixTokens: 0,
+                fallbackReason: previous == nil ? nil : "The grammar uses the legacy token-input lexer."
+            ))
+        }
+        let contextSensitivePattern = grammar.lexerRules.first { rule in
+            ["(?=", "(?!", "(?<=", "(?<!", "\\z", "\\Z", "$"].contains { rule.pattern.contains($0) }
+        }
+        if let contextSensitivePattern, previous != nil {
+            let full = GrammarLexerRuntime.lex(text, grammar: grammar)
+            return (Self.snapshot(full), full.checkpoints, .init(
+                strategy: .fallback,
+                relexedUTF16Start: 0, relexedUTF16End: text.utf16.count,
+                reusedPrefixTokens: 0, reusedSuffixTokens: 0,
+                fallbackReason: "Lexer rule \(contextSensitivePattern.id) uses context outside its matched range."
+            ))
+        }
+        guard let previous, let edits, edits.count == 1, let edit = edits.first,
+              let range = edit.range, !previousCheckpoints.isEmpty,
+              previous.lexing.diagnostics.isEmpty else {
+            let full = GrammarLexerRuntime.lex(text, grammar: grammar)
+            return (Self.snapshot(full), full.checkpoints, .init(
+                strategy: previous == nil ? .full : .fallback,
+                relexedUTF16Start: 0, relexedUTF16End: text.utf16.count,
+                reusedPrefixTokens: 0, reusedSuffixTokens: 0,
+                fallbackReason: previous == nil ? nil : "Incremental lexing requires one ranged edit and a clean previous lex."
+            ))
+        }
+
+        let oldText = previous.text.text as NSString
+        guard let oldStart = try? GrammarTextSnapshot.utf16Offset(range.start, in: oldText),
+              let oldEnd = try? GrammarTextSnapshot.utf16Offset(range.end, in: oldText),
+              let restart = previousCheckpoints.last(where: { $0.utf16Offset <= oldStart }) else {
+            let full = GrammarLexerRuntime.lex(text, grammar: grammar)
+            return (Self.snapshot(full), full.checkpoints, .init(
+                strategy: .fallback, relexedUTF16Start: 0, relexedUTF16End: text.utf16.count,
+                reusedPrefixTokens: 0, reusedSuffixTokens: 0,
+                fallbackReason: "No safe lexer checkpoint precedes the edit."
+            ))
+        }
+        let delta = edit.replacement.utf16.count - (oldEnd - oldStart)
+        let newChangedEnd = oldStart + edit.replacement.utf16.count
+        let oldCheckpoints = Dictionary(uniqueKeysWithValues: previousCheckpoints.map {
+            ($0.utf16Offset, $0.modeStack)
+        })
+        let partial = GrammarLexerRuntime.lex(
+            text,
+            grammar: grammar,
+            startingAt: restart.utf16Offset,
+            initialModeStack: restart.modeStack
+        ) { checkpoint in
+            guard checkpoint.utf16Offset >= newChangedEnd else { return false }
+            let oldOffset = checkpoint.utf16Offset - delta
+            guard oldOffset >= oldEnd else { return false }
+            return oldCheckpoints[oldOffset] == checkpoint.modeStack
+        }
+        let stop = partial.stoppedAtUTF16Offset ?? text.utf16.count
+        let oldStop = stop - delta
+        let prefix = previous.lexing.tokens.filter {
+            ($0.range?.end.offset ?? Int.max) <= restart.utf16Offset
+        }
+        let suffix: [GrammarInputTokenSnapshot]
+        if partial.stoppedAtUTF16Offset != nil {
+            suffix = previous.lexing.tokens.filter {
+                ($0.range?.start.offset ?? Int.min) >= oldStop
+            }.map { Self.shifted($0, by: delta, in: text) }
+        } else {
+            suffix = []
+        }
+        let middle = Self.snapshot(partial).tokens
+        let tokens = (prefix + middle + suffix).enumerated().map { index, token in
+            GrammarInputTokenSnapshot(
+                index: index, kind: token.kind, lexeme: token.lexeme,
+                mode: token.mode, range: token.range
+            )
+        }
+        let diagnostics = Self.snapshot(partial).diagnostics.enumerated().map { index, value in
+            GrammarInputDiagnostic(
+                id: index, message: value.message, mode: value.mode, range: value.range
+            )
+        }
+        var checkpoints = previousCheckpoints.filter { $0.utf16Offset < restart.utf16Offset }
+        checkpoints.append(contentsOf: partial.checkpoints)
+        if partial.stoppedAtUTF16Offset != nil {
+            checkpoints.append(contentsOf: previousCheckpoints.filter { $0.utf16Offset > oldStop }.map {
+                .init(utf16Offset: $0.utf16Offset + delta, modeStack: $0.modeStack)
+            })
+        }
+        return (.init(
+            tokens: tokens,
+            diagnostics: diagnostics,
+            finalModeStack: partial.stoppedAtUTF16Offset == nil
+                ? partial.finalModeStack : previous.lexing.finalModeStack
+        ), checkpoints, .init(
+            strategy: .incremental,
+            relexedUTF16Start: restart.utf16Offset,
+            relexedUTF16End: stop,
+            reusedPrefixTokens: prefix.count,
+            reusedSuffixTokens: suffix.count,
+            fallbackReason: nil
+        ))
+    }
+
+    private static func snapshot(_ result: LexerResult) -> GrammarLexingResult {
+        .init(
+            tokens: result.tokens.map {
+                .init(index: $0.index, kind: $0.kind, lexeme: $0.lexeme, mode: $0.mode, range: $0.range)
+            },
+            diagnostics: result.diagnostics.map {
+                .init(id: $0.id, message: $0.message, mode: $0.mode, range: $0.range)
+            },
+            finalModeStack: result.finalModeStack
+        )
+    }
+
+    private static func shifted(
+        _ token: GrammarInputTokenSnapshot,
+        by delta: Int,
+        in source: String
+    ) -> GrammarInputTokenSnapshot {
+        guard let range = token.range else { return token }
+        return .init(
+            index: token.index, kind: token.kind, lexeme: token.lexeme, mode: token.mode,
+            range: .init(
+                start: sourcePosition(range.start.offset + delta, in: source),
+                end: sourcePosition(range.end.offset + delta, in: source)
             )
         )
+    }
+
+    private static func sourcePosition(_ offset: Int, in source: String) -> SourcePosition {
+        let prefix = (source as NSString).substring(to: offset)
+        let lines = prefix.split(separator: "\n", omittingEmptySubsequences: false)
+        return .init(offset: offset, line: lines.count, column: (lines.last?.utf16.count ?? 0) + 1)
     }
 
     private func reconcileTokens(
@@ -397,6 +625,25 @@ public actor GrammarIncrementalAnalysisCoordinator {
             id: id,
             text: text,
             revision: max(0, externalRevision ?? 0)
+        )
+    }
+
+    /// Applies editor-native ranged edits without first materializing a full
+    /// replacement request, enabling the session's incremental lexer path.
+    @discardableResult
+    public func apply(
+        documentID: String,
+        edits: [GrammarTextEdit],
+        externalRevision: Int? = nil
+    ) async throws -> GrammarIncrementalAnalysisSnapshot {
+        try Task.checkCancellation()
+        guard let current = await session.snapshot(documentID: documentID) else {
+            throw GrammarIncrementalLanguageError.unknownDocument(documentID)
+        }
+        return try await session.apply(
+            documentID: documentID,
+            edits: edits,
+            revision: max(current.text.revision + 1, externalRevision ?? 0)
         )
     }
 

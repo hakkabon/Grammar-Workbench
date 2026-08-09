@@ -22,6 +22,7 @@
     "generalizedMaximumConfigurations": 4096,
     "generalizedMaximumSteps": 100000,
     "generalizedMaximumTrees": 32,
-    "incrementalMinimumTokenReusePercent": 80
+    "incrementalMinimumTokenReusePercent": 80,
+    "incrementalMaximumRelexPercent": 40
   }
 }

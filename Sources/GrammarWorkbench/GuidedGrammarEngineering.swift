@@ -85,11 +85,13 @@ public struct GrammarGuidanceExample: Identifiable, Hashable, Codable, Sendable 
 public enum GrammarGuidedTransformation: String, CaseIterable, Codable, Sendable {
     case removeDuplicateProductionLines
     case removeUnreachableProductionLines
+    case removeUnproductiveProductionLines
 
     public var title: String {
         switch self {
         case .removeDuplicateProductionLines: "Remove duplicate production lines"
         case .removeUnreachableProductionLines: "Remove unreachable production lines"
+        case .removeUnproductiveProductionLines: "Remove unproductive production lines"
         }
     }
 }
@@ -116,12 +118,15 @@ public struct GrammarGuidedTransformationPreview: Sendable {
     public let examples: [GrammarGuidedExampleComparison]
     public let testsBefore: WorkbenchTestReport?
     public let testsAfter: WorkbenchTestReport?
+    public let plan: GrammarTransformationPlan?
+    public let behavior: GrammarBehaviorComparison?
 
     public var hasChanges: Bool { originalSource != proposedSource }
     public var changedExamples: [GrammarGuidedExampleComparison] { examples.filter(\.changed) }
     public var regressedExamples: [GrammarGuidedExampleComparison] { examples.filter(\.regressed) }
     public var isSafeToApply: Bool {
-        guard hasChanges, !diagnostics.contains(where: { $0.severity == .error }), regressedExamples.isEmpty else {
+        guard hasChanges, !diagnostics.contains(where: { $0.severity == .error }), regressedExamples.isEmpty,
+              behavior?.agreesOnCorpus != false else {
             return false
         }
         guard let testsAfter else { return true }
@@ -244,15 +249,19 @@ public enum GrammarGuidanceEngine {
         tests: [WorkbenchTestCase] = []
     ) -> GrammarGuidedTransformationPreview {
         let before = GrammarWorkbenchAPI.compile(request)
-        let codes: Set<String> = switch transformation {
-        case .removeDuplicateProductionLines: ["duplicate-production"]
-        case .removeUnreachableProductionLines: ["unreachable-nonterminal"]
+        let kind: GrammarTransformationKind = switch transformation {
+        case .removeDuplicateProductionLines: .removeDuplicateProductions
+        case .removeUnreachableProductionLines: .removeUnreachableProductions
+        case .removeUnproductiveProductionLines: .removeUnproductiveProductions
         }
-        let lines = Set(before.diagnostics.filter { codes.contains($0.code) }.map { $0.range.start.line })
-        let proposed = removing(lines: lines, from: request.source)
-        let after = GrammarWorkbenchAPI.compile(.init(
-            source: proposed, algorithm: request.algorithm, notation: request.notation
-        ))
+        let corpus = examples.map { GrammarBehaviorCorpusEntry(id: $0.id, input: $0.input, origin: "sample") }
+        let plan = try? GrammarEngineering.plan(kind, for: before)
+        let execution = plan.flatMap {
+            try? GrammarEngineering.execute($0, request: request, corpus: corpus, tests: tests)
+        }
+        let proposed = execution?.proposedSource ?? request.source
+        let after = execution?.compilation ?? before
+        let lines = Set(plan?.affectedLines ?? [])
         let comparisons = examples.map { example in
             GrammarGuidedExampleComparison(
                 id: example.id, name: example.name,
@@ -263,18 +272,11 @@ public enum GrammarGuidanceEngine {
         return .init(
             transformation: transformation, originalSource: request.source,
             proposedSource: proposed, removedLines: lines.sorted(), diagnostics: after.diagnostics,
-            artifactDiff: try? after.diff(from: before), examples: comparisons,
-            testsBefore: tests.isEmpty ? nil : before.runTests(tests),
-            testsAfter: tests.isEmpty ? nil : after.runTests(tests)
+            artifactDiff: execution?.artifactDiff, examples: comparisons,
+            testsBefore: execution?.testsBefore,
+            testsAfter: execution?.testsAfter,
+            plan: plan, behavior: execution?.behavior
         )
-    }
-
-    private static func removing(lines numbers: Set<Int>, from source: String) -> String {
-        guard !numbers.isEmpty else { return source }
-        let kept = source.split(separator: "\n", omittingEmptySubsequences: false).enumerated().compactMap {
-            numbers.contains($0.offset + 1) ? nil : String($0.element)
-        }
-        return kept.joined(separator: "\n")
     }
 
     private static func plainTitle(for diagnostic: GrammarDiagnostic) -> String {

@@ -13,6 +13,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Bounded generalized LR parsing, stable alternative identities, per-alternative semantic evaluation, structured rejection and limit diagnostics, search strategies, and cooperative cancellation.
 - Deterministic/generalized/adaptive platform requests, common result envelopes, reproducible ambiguity selection, semantic evaluation, and bounded ordered batches.
 - UI-neutral grammar-health reports, prioritized guided actions, task destinations, and validated cleanup previews.
+- Structural grammar reports, explainable source-fingerprinted cleanup plans, bounded corpus generation, generalized membership comparison, and project transformation previews.
 - Versioned UTF-16 text snapshots, incremental edits, checkpoint-based relexing and deterministic reparsing, typed incremental semantic evaluation, source-aware semantic indexes, multi-document language sessions, the shared analysis coordinator, stable token/subtree identities, grammar replacement, and reuse/fallback metrics.
 - Versioned project manifests, project workspaces, aggregate semantic indexes, batch-test orchestration, and configured generator targets.
 

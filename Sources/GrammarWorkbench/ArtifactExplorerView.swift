@@ -258,6 +258,23 @@ public struct ArtifactExplorerView: View {
                     }
                 }
 
+                if let structural = store.structuralAnalysis() {
+                    DisclosureGroup("Grammar structure") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("\(structural.statistics.nonterminals) nonterminals · \(structural.statistics.terminals) terminals · \(structural.statistics.productions) productions · \(structural.statistics.dependencyEdges) dependencies")
+                                .font(.caption.monospacedDigit())
+                            structuralSet("Nullable", structural.nullableNonterminals)
+                            structuralSet("Unreachable", structural.unreachableNonterminals)
+                            structuralSet("Unproductive", structural.unproductiveNonterminals)
+                            structuralSet("Directly left-recursive", structural.directlyLeftRecursiveNonterminals)
+                            if !structural.indirectlyLeftRecursiveComponents.isEmpty {
+                                Text("Indirect left recursion: \(structural.indirectlyLeftRecursiveComponents.map { $0.joined(separator: " ↔ ") }.joined(separator: "; "))")
+                                    .font(.caption).foregroundStyle(.orange)
+                            }
+                        }.padding(.top, 8)
+                    }
+                }
+
                 if store.notation == .workbench && cleanupTransformations.isEmpty == false {
                     Divider()
                     Text("Safe change preview").font(.headline)
@@ -283,14 +300,7 @@ public struct ArtifactExplorerView: View {
     }
 
     private var cleanupTransformations: [GrammarGuidedTransformation] {
-        var values: [GrammarGuidedTransformation] = []
-        if store.frontEnd.diagnostics.contains(where: { $0.code == "duplicate-production" }) {
-            values.append(.removeDuplicateProductionLines)
-        }
-        if store.frontEnd.diagnostics.contains(where: { $0.code == "unreachable-nonterminal" }) {
-            values.append(.removeUnreachableProductionLines)
-        }
-        return values
+        store.availableGuidedTransformations()
     }
 
     private var guidedExamples: [GrammarGuidanceExample] {
@@ -309,6 +319,13 @@ public struct ArtifactExplorerView: View {
         VStack(alignment: .leading, spacing: 2) {
             Text("\(value)").font(.headline.monospacedDigit()).foregroundStyle(value == 0 ? .secondary : color)
             Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private func structuralSet(_ label: String, _ values: [String]) -> some View {
+        if !values.isEmpty {
+            Text("\(label): \(values.joined(separator: ", "))")
+                .font(.caption).foregroundStyle(label == "Nullable" ? Color.secondary : Color.orange)
         }
     }
 
@@ -387,6 +404,13 @@ public struct ArtifactExplorerView: View {
                 if let diff = preview.artifactDiff {
                     Text("Parser impact: \(signed(diff.stateDelta)) states · \(signed(diff.tableEntryDelta)) table entries · \(signed(diff.decisionDelta)) decisions")
                         .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                if let plan = preview.plan {
+                    Text(plan.explanation).font(.caption).foregroundStyle(.secondary)
+                }
+                if let behavior = preview.behavior {
+                    Text("Behavior check: \(behavior.cases.count) inputs · \(behavior.discrepancies.count) membership differences. \(behavior.conclusion)")
+                        .font(.caption).foregroundStyle(behavior.agreesOnCorpus ? Color.secondary : Color.red)
                 }
                 if !preview.regressedExamples.isEmpty {
                     Text("\(preview.regressedExamples.count) previously accepted sample(s) would stop working.").foregroundStyle(.red)

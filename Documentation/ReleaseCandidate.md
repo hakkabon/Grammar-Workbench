@@ -11,6 +11,7 @@ The release-candidate gate verifies the product from four perspectives:
 7. The reference multi-document project manifest must decode, analyze, test, validate its generator plan, and generate its declared output through the packaged CLI.
 8. Adaptive parsing must escalate at unresolved conflicts, and the declared bounded batch must preserve request order while staying within generalized-engine limits.
 9. Guided grammar engineering must remain a stable public capability, prioritize blocking diagnostics and unresolved decisions, and validate source cleanup against samples and tests before application.
+10. Grammar transformation plans must explain every edit, reject stale source, stay within declared corpus-generation bounds, and preserve membership for the release corpus and recorded tests.
 
 Run the normal gate:
 

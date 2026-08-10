@@ -41,6 +41,20 @@ Expr : Expr '+' NUMBER | NUMBER ;
 
 let compilation = GrammarWorkbenchAPI.compile(.init(source: source, algorithm: .lalr))
 guard compilation.succeeded else { fatalError("Compilation failed: \(compilation.diagnostics)") }
+let structural = try compilation.structuralAnalysis()
+guard structural.startSymbol == "Expr",
+      structural.directlyLeftRecursiveNonterminals == ["Expr"],
+      structural.unreachableNonterminals.isEmpty,
+      structural.statistics.productions == 2 else {
+    fatalError("Unexpected structural grammar analysis")
+}
+let behavior = GrammarEngineering.compare(
+    compilation, compilation,
+    corpus: [.init(input: "1 + 2", origin: "consumer")]
+)
+guard behavior.agreesOnCorpus, behavior.cases.count == 1 else {
+    fatalError("Unexpected grammar behavior comparison")
+}
 let semantic = try compilation.parse("1 + 2", using: ExpressionReducer())
 guard semantic.parse.status == .accepted,
       semantic.value == .addition(.number(1), .number(2)),

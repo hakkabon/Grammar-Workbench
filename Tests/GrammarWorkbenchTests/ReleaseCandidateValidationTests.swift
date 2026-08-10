@@ -18,6 +18,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let generalizedMaximumTrees: Int
         let platformMaximumConcurrentRequests: Int
         let platformBatchRequestCount: Int
+        let transformationMaximumGeneratedInputs: Int
+        let transformationMaximumGeneratedCandidates: Int
+        let transformationMaximumDerivationSteps: Int
         let incrementalMinimumTokenReusePercent: Double
         let incrementalMaximumRelexPercent: Double
         let incrementalMaximumReparsePercent: Double
@@ -59,6 +62,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.projectInfrastructure == .stable)
     #expect(GrammarWorkbenchCapabilities.advancedParsingPlatform == .stable)
     #expect(GrammarWorkbenchCapabilities.guidedGrammarEngineering == .stable)
+    #expect(GrammarWorkbenchCapabilities.grammarAnalysisAndTransformation == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -75,6 +79,30 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         #expect(try GrammarProjectCodec.decode(data).kind == GrammarProjectManifest.kindIdentifier)
     }
+}
+
+@Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let source = "%start S\nS : 'ok' | 'other' ;\nDead : 'unused' ;"
+    let request = GrammarCompilationRequest(source: source)
+    let compilation = GrammarWorkbenchAPI.compile(request)
+    let plan = try GrammarEngineering.plan(.removeUnreachableProductions, for: compilation)
+    let result = try GrammarEngineering.execute(
+        plan,
+        request: request,
+        corpus: [.init(input: "ok", origin: "release")],
+        tests: [.init(name: "accept", input: "ok", expectation: .accept)],
+        options: .init(
+            maximumGeneratedInputs: budget.transformationMaximumGeneratedInputs,
+            maximumGeneratedCandidates: budget.transformationMaximumGeneratedCandidates,
+            maximumDerivationSteps: budget.transformationMaximumDerivationSteps
+        )
+    )
+
+    #expect(plan.operations.allSatisfy { !$0.reason.isEmpty })
+    #expect(result.isSafeToApply)
+    #expect(result.behavior.generatedInputs <= budget.transformationMaximumGeneratedInputs)
+    #expect(result.testsAfter?.allPassed == true)
 }
 
 @Test func incrementalLanguageSessionMeetsDeclaredReuseBudget() async throws {

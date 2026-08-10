@@ -45,3 +45,7 @@ Ranged edits now use checkpoint-based incremental lexing. Integrations using `Gr
 Successful deterministic parses now retain consumed-prefix checkpoints for subsequent edits. Analysis snapshots add `incrementalParsing`; older encoded snapshots decode with full-analysis compatibility metrics. Recovery and rejection results remain source-compatible and intentionally become full-parse boundaries for the following edit.
 
 Analysis snapshots now include `semanticIndex` and `incrementalIndexing`. Older encoded snapshots rebuild the index from their retained incremental syntax tree and receive compatibility metrics. Applications that repeatedly run a `GrammarSemanticReducer` can adopt `GrammarIncrementalSemanticEvaluator`; call its `updateCompilation` together with the language session's grammar replacement so production metadata and cache invalidation remain synchronized.
+
+## Grammar analysis and transformations
+
+Existing front-end diagnostics and `GrammarAnalysisSnapshot` remain source-compatible. Consumers that need hygiene, dependency cycles, left recursion, duplicate groups, or transformation planning may adopt `GrammarEngineering` incrementally. Transformation plans are source-fingerprinted and do not mutate a compilation or project workspace. Treat `GrammarBehaviorComparison.agreesOnCorpus` as bounded evidence, not a proof of global grammar equivalence.

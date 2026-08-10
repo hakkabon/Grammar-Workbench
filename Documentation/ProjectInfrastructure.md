@@ -18,6 +18,8 @@ Grammar replacement atomically installs a new successful compilation and refresh
 
 `parse(documentID:options:)` and `parseAll(options:batchOptions:)` expose the advanced parsing platform over manifest sources. Project-wide batches preserve manifest order and enforce their declared concurrency bound independently of incremental deterministic analysis.
 
+`structuralGrammarAnalysis()` exposes the grammar analysis library for the project grammar. `previewGrammarTransformation` validates a cleanup plan against every embedded project source, the bounded generated corpus, and the manifest's saved tests without mutating the workspace.
+
 The project index preserves document identity and manifest path around each `GrammarIncrementalIndexEntry`. It supports project-wide symbol lookup and per-document filtering without conflating session-local syntax identities across documents.
 
 ## Generators and automation

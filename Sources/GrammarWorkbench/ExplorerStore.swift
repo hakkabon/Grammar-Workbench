@@ -104,6 +104,21 @@ final class ExplorerStore {
         )
     }
 
+    func structuralAnalysis() -> GrammarStructuralAnalysis? {
+        try? GrammarEngineering.analyze(currentCompilation)
+    }
+
+    func availableGuidedTransformations() -> [GrammarGuidedTransformation] {
+        let mappings: [(GrammarGuidedTransformation, GrammarTransformationKind)] = [
+            (.removeDuplicateProductionLines, .removeDuplicateProductions),
+            (.removeUnreachableProductionLines, .removeUnreachableProductions),
+            (.removeUnproductiveProductionLines, .removeUnproductiveProductions)
+        ]
+        return mappings.compactMap { guided, kind in
+            (try? GrammarEngineering.plan(kind, for: currentCompilation).hasChanges) == true ? guided : nil
+        }
+    }
+
     func preview(
         _ transformation: GrammarGuidedTransformation,
         examples: [GrammarGuidanceExample],

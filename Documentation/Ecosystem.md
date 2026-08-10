@@ -27,6 +27,8 @@ Portable project manifests group a grammar, multiple source snapshots, regressio
 
 The advanced parsing platform is available from the library, project workspaces, and `platform-parse` CLI command. These surfaces share the same engine-selection, ambiguity, cancellation, and resource-limit semantics, so CI results can be reproduced in an editor or embedded service.
 
+Structural grammar reports and explainable transformations are similarly shared by the library, Guide workspace, project workspaces, and CLI. Behavioral comparison uses the generalized recognizer so ambiguity does not masquerade as a language difference, while exact bounds and concrete counterexamples remain visible to automation.
+
 ## Validation and distribution
 
 The release-candidate gate runs the complete Swift suite, a framed stdio smoke session, and—when Node is available—the real VS Code client against the server. Release packaging produces independent LSP and editor-client archives, includes them in `SHA256SUMS`, and does not download npm dependencies. Consumers may package the included VS Code source as a VSIX explicitly with `@vscode/vsce`.

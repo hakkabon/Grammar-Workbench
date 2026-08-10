@@ -1,0 +1,3 @@
+%start Root
+Root : 'ok' | 'other' ;
+Unused : 'unused' ;

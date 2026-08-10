@@ -372,6 +372,28 @@ public actor GrammarProjectWorkspace {
         )
     }
 
+    public func structuralGrammarAnalysis() throws -> GrammarStructuralAnalysis {
+        try GrammarEngineering.analyze(compilation)
+    }
+
+    public func previewGrammarTransformation(
+        _ kind: GrammarTransformationKind,
+        options: GrammarBehaviorComparisonOptions = .init()
+    ) throws -> GrammarTransformationResult {
+        let request = GrammarCompilationRequest(
+            source: manifest.grammar.source,
+            algorithm: manifest.grammar.algorithm,
+            notation: manifest.grammar.notation
+        )
+        let plan = try GrammarEngineering.plan(kind, for: compilation)
+        let corpus = manifest.sources.map {
+            GrammarBehaviorCorpusEntry(id: $0.id, input: $0.text, origin: $0.path)
+        }
+        return try GrammarEngineering.execute(
+            plan, request: request, corpus: corpus, tests: manifest.tests, options: options
+        )
+    }
+
     public func projectManifest() -> GrammarProjectManifest { manifest }
 
     private func currentAnalysis() -> GrammarProjectAnalysis {

@@ -4,6 +4,8 @@ A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 
 The app opens in a guided grammar-engineering workspace: it summarizes grammar health, identifies one recommended next step, and organizes validation, examples, ambiguity, tests, algorithm choice, and generation around ordinary development tasks. Parser automata, tables, replay, and generalized analysis remain available through **Expert tools**. Safe cleanup previews recompile proposed edits and protect recorded samples and tests before Apply is enabled. See [Documentation/GuidedGrammarEngineering.md](Documentation/GuidedGrammarEngineering.md).
 
+The grammar analysis and transformation library publishes reachability, productivity, nullability, dependency components, left recursion, duplicate productions, terminal usage, and FIRST/FOLLOW as immutable reports. Explainable cleanup plans are protected by source fingerprints, artifact diffs, saved tests, and bounded generalized language-membership comparison. The same facilities are available through project workspaces and the `grammar-analyze` and `grammar-transform` CLI commands. See [Documentation/GrammarAnalysisAndTransformation.md](Documentation/GrammarAnalysisAndTransformation.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -193,6 +195,7 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `AdvancedParsing.swift`: bounded, cancellable generalized LR parsing, stable forest identities, rejection diagnostics, and engineering metrics.
 - `AdvancedParsingPlatform.swift`: adaptive engine selection, ambiguity policy, common results, semantic selection, and bounded batches.
 - `GuidedGrammarEngineering.swift`: plain-language grammar health, prioritized actions, and validated source-change previews.
+- `GrammarAnalysisAndTransformation.swift`: structural reports, explainable cleanup plans, corpus generation, and bounded behavioral comparison.
 - `LRConstructionEngine.swift`: deterministic LR(0)/LR(1) closure, goto, LALR merging, table generation, and precedence resolution.
 - `LexerRuntime.swift`: maximal-munch raw-source lexing, skipped rules, lexeme ranges, and lexical diagnostics.
 - `ParserRuntime.swift`: legacy token input, LR execution, parse trees, trace frames, conflict witnesses, and branch replay.

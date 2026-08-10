@@ -16,12 +16,12 @@ Turning on **Expert tools** adds the Automaton, Table, and Research workspaces. 
 
 ## Safe change previews
 
-Workbench-notation grammars can preview removal of duplicate and unreachable production lines. A preview:
+Workbench-notation grammars can preview removal of duplicate, unreachable, and non-start unproductive production lines. Phase 8 delegates these edits to the shared transformation library. A preview:
 
 1. derives proposed source without changing the document;
 2. compiles it through the normal public API;
 3. computes the artifact diff;
-4. reparses every document sample;
+4. compares every document sample plus a bounded generated corpus with generalized recognition;
 5. reruns the saved grammar tests;
 6. enables Apply only when the result compiles, no accepted sample regresses, and all recorded tests pass.
 

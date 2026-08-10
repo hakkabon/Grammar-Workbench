@@ -202,9 +202,14 @@ public enum GrammarFrontEnd {
         let parsed = parser.parse()
         let syntacticallyValidGrammar = parser.diagnostics.contains { $0.severity == .error } ? nil : parsed
         let analysis = syntacticallyValidGrammar.map(GrammarAnalyzer.analyze)
-        let semanticDiagnostics = syntacticallyValidGrammar.map {
-            GrammarValidator.validate($0, startingAt: parser.diagnostics.count)
-        } ?? []
+        let semanticDiagnostics: [GrammarDiagnostic]
+        if let grammar = syntacticallyValidGrammar, let analysis {
+            semanticDiagnostics = GrammarValidator.validate(
+                grammar, analysis: analysis, startingAt: parser.diagnostics.count
+            )
+        } else {
+            semanticDiagnostics = []
+        }
         let lexerAnalysis = syntacticallyValidGrammar.map {
             LexerModeAnalyzer.analyze($0, startingAt: parser.diagnostics.count + semanticDiagnostics.count)
         }
@@ -229,39 +234,24 @@ public enum GrammarFrontEnd {
 }
 
 private enum GrammarValidator {
-    static func validate(_ grammar: ParsedGrammar, startingAt firstID: Int) -> [GrammarDiagnostic] {
+    static func validate(
+        _ grammar: ParsedGrammar, analysis: GrammarAnalysis, startingAt firstID: Int
+    ) -> [GrammarDiagnostic] {
         var diagnostics: [GrammarDiagnostic] = []
         let nonterminals = Set(grammar.nonterminals)
         let productionsByLHS = Dictionary(grouping: grammar.productions, by: \.lhs)
+        let structural = GrammarStructuralAnalyzer.analyze(
+            grammar,
+            first: analysis.first.mapValues { $0.sorted() },
+            follow: analysis.follow.mapValues { $0.sorted() }
+        )
 
-        var reachable: Set<String> = [grammar.startSymbol]
-        var changed = true
-        while changed {
-            changed = false
-            for symbol in reachable {
-                for production in productionsByLHS[symbol, default: []] {
-                    for referenced in production.rhs where nonterminals.contains(referenced) {
-                        changed = reachable.insert(referenced).inserted || changed
-                    }
-                }
-            }
-        }
-        for symbol in grammar.nonterminals where !reachable.contains(symbol) {
+        for symbol in structural.unreachableNonterminals {
             if let range = productionsByLHS[symbol]?.first?.range {
                 append(.warning, "unreachable-nonterminal", "Nonterminal ‘\(symbol)’ is unreachable from the start symbol.", range, to: &diagnostics, firstID: firstID)
             }
         }
-
-        var productive: Set<String> = []
-        changed = true
-        while changed {
-            changed = false
-            for production in grammar.productions
-            where production.rhs.allSatisfy({ !nonterminals.contains($0) || productive.contains($0) }) {
-                changed = productive.insert(production.lhs).inserted || changed
-            }
-        }
-        for symbol in grammar.nonterminals where !productive.contains(symbol) {
+        for symbol in structural.unproductiveNonterminals {
             if let range = productionsByLHS[symbol]?.first?.range {
                 append(.warning, "unproductive-nonterminal", "Nonterminal ‘\(symbol)’ cannot derive a terminal string.", range, to: &diagnostics, firstID: firstID)
             }

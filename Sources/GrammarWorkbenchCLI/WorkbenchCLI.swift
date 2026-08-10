@@ -291,6 +291,47 @@ struct GrammarWorkbenchCLI {
                 print(String(decoding: data, as: UTF8.self))
             }
             guard result.isAccepted else { throw CLIError.platformParseFailed(result.status.rawValue) }
+        case "grammar-analyze":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("grammar-analyze requires GRAMMAR [OUTPUT]")
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            let analysis = try GrammarEngineering.analyze(compilation)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(analysis)
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(analysis.statistics.productions) productions, \(analysis.statistics.dependencyEdges) dependencies")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+        case "grammar-transform":
+            guard arguments.count == 4 else {
+                throw CLIError.usage("grammar-transform requires duplicate|unreachable|unproductive GRAMMAR OUTPUT")
+            }
+            let kind: GrammarTransformationKind = switch arguments[1].lowercased() {
+            case "duplicate", "duplicates": .removeDuplicateProductions
+            case "unreachable": .removeUnreachableProductions
+            case "unproductive": .removeUnproductiveProductions
+            default: throw CLIError.usage("unknown grammar transformation ‘\(arguments[1])’")
+            }
+            let request = GrammarCompilationRequest(
+                source: try read(arguments[2]), notation: notation(for: arguments[2])
+            )
+            let compilation = GrammarWorkbenchAPI.compile(request)
+            let plan = try GrammarEngineering.plan(kind, for: compilation)
+            guard plan.hasChanges else { throw CLIError.transformationFailed("no applicable declarations were found") }
+            let result = try GrammarEngineering.execute(plan, request: request)
+            guard result.isSafeToApply else {
+                throw CLIError.transformationFailed(result.behavior.conclusion)
+            }
+            try result.proposedSource.write(
+                to: URL(fileURLWithPath: arguments[3]), atomically: true, encoding: .utf8
+            )
+            print("Wrote \(arguments[3]): removed \(plan.affectedLines.count) declaration line(s); checked \(result.behavior.cases.count) inputs")
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -392,6 +433,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench parse GRAMMAR INPUT [OUTPUT]
       grammar-workbench platform-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
+      grammar-workbench grammar-analyze GRAMMAR [OUTPUT]
+      grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version
@@ -412,6 +455,7 @@ private enum CLIError: LocalizedError {
     case parseFailed(String)
     case projectFailed
     case platformParseFailed(String)
+    case transformationFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -421,6 +465,7 @@ private enum CLIError: LocalizedError {
         case .parseFailed(let status): "input was not accepted (\(status))"
         case .projectFailed: "project validation failed"
         case .platformParseFailed(let status): "platform parse did not select an accepted tree (\(status))"
+        case .transformationFailed(let message): "grammar transformation was not applied: \(message)"
         }
     }
 }

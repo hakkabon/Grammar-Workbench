@@ -2,13 +2,15 @@
 
 Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artifacts from editable grammars.
 
-1. Create or open a `.grammarworkbench` document.
+1. Create or open a `.grammarworkbench` document and begin in **Guide**, which recommends the next useful action.
 2. Declare tokens with `%token`, optional lexer patterns with `/pattern/`, and ignored text with `%skip`. For context-sensitive lexing, select rules with `%mode` and transition with `%begin`, `%push`, or `%pop`.
-3. Choose an LR algorithm and inspect analysis, automaton, table, decisions, samples, and tests.
+3. Follow task-oriented links to validate the grammar, try an input, resolve ambiguity, protect behavior with tests, compare algorithms, or generate a parser.
 4. Export a standalone HTML report, project interchange JSON, versioned artifact JSON, portable BNF, or a standalone Swift parser.
 5. Build integrations can register custom `GrammarGenerator` implementations or invoke built-ins through the `generate` CLI command.
 6. Enter malformed sample input to inspect expected tokens, recovery decisions, the recovered tree, and replay trace.
 7. Open Compare to inspect state merging, table differences, conflicts, and the recommended LR algorithm.
+
+Enable **Expert tools** to inspect the LR automaton, parse table, replay details, and generalized parsing research. Guide never hides the underlying evidence; it provides a task-oriented path to it. When duplicate or unreachable production lines are found, a safe change preview recompiles the proposal and checks samples and tests before enabling Apply.
 
 Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
 

@@ -58,6 +58,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.incrementalLanguageInfrastructure == .stable)
     #expect(GrammarWorkbenchCapabilities.projectInfrastructure == .stable)
     #expect(GrammarWorkbenchCapabilities.advancedParsingPlatform == .stable)
+    #expect(GrammarWorkbenchCapabilities.guidedGrammarEngineering == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

@@ -93,6 +93,34 @@ final class ExplorerStore {
         sourceSelection = diagnostic.range
     }
 
+    func selectGuidance(_ finding: GrammarGuidanceFinding) {
+        if let range = finding.sourceRange { sourceSelection = range }
+    }
+
+    func guidance(tests: [WorkbenchTestCase]) -> GrammarGuidanceReport {
+        GrammarGuidanceEngine.assess(
+            currentCompilation, sampleInput: sampleInput,
+            testReport: testReport, testCount: tests.count
+        )
+    }
+
+    func preview(
+        _ transformation: GrammarGuidedTransformation,
+        examples: [GrammarGuidanceExample],
+        tests: [WorkbenchTestCase]
+    ) -> GrammarGuidedTransformationPreview {
+        GrammarGuidanceEngine.preview(
+            transformation,
+            request: .init(
+                source: sourceText,
+                algorithm: GrammarAlgorithm(rawValue: algorithm.rawValue) ?? .lalr,
+                notation: notation
+            ),
+            examples: examples,
+            tests: tests
+        )
+    }
+
     func selectComparisonState(algorithm target: GrammarAlgorithm, state: Int) {
         if let value = LRAlgorithm(rawValue: target.rawValue), algorithm != value { algorithm = value }
         select(.state(.init(rawValue: state)))

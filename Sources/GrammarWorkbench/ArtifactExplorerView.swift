@@ -3,10 +3,12 @@ import AppKit
 
 public struct ArtifactExplorerView: View {
     @State private var store: ExplorerStore
-    @State private var tab = ExplorerTab.automaton
+    @State private var tab = ExplorerTab.guide
     @State private var exportMessage: String?
     @State private var selectedTestID: UUID?
     @State private var exploresResolvedConflicts = false
+    @State private var showsExpertTools = false
+    @State private var transformationPreview: GrammarGuidedTransformationPreview?
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -28,8 +30,15 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", research = "Research", tests = "Tests"
+        case guide = "Guide", analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", research = "Research", tests = "Tests"
         var id: Self { self }
+
+        var isExpert: Bool {
+            switch self {
+            case .automaton, .table, .research: true
+            default: false
+            }
+        }
     }
 
     public var body: some View {
@@ -39,7 +48,11 @@ public struct ArtifactExplorerView: View {
                 .clipped()
         } content: {
             VStack(spacing: 0) {
-                Picker("View", selection: $tab) { ForEach(ExplorerTab.allCases) { Text($0.rawValue).tag($0) } }
+                Picker("View", selection: $tab) {
+                    ForEach(ExplorerTab.allCases.filter { showsExpertTools || !$0.isExpert }) {
+                        Text($0.rawValue).tag($0)
+                    }
+                }
                     .pickerStyle(.segmented).padding()
                 Divider()
                 selectedTab
@@ -77,6 +90,10 @@ public struct ArtifactExplorerView: View {
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
             ToolbarItem {
+                Toggle("Expert tools", systemImage: "graduationcap", isOn: $showsExpertTools)
+                    .help("Show automata, parse tables, and generalized parsing research")
+            }
+            ToolbarItem {
                 Menu("Interchange", systemImage: "arrow.left.arrow.right") {
                     if document != nil {
                         Button("Export Project JSON…", action: exportInterchange)
@@ -98,6 +115,9 @@ public struct ArtifactExplorerView: View {
         }
         .onChange(of: document?.wrappedValue.notation) { _, notation in
             if let notation, store.notation != notation { store.notation = notation }
+        }
+        .onChange(of: showsExpertTools) { _, visible in
+            if !visible, tab.isExpert { tab = .guide }
         }
     }
 
@@ -170,6 +190,7 @@ public struct ArtifactExplorerView: View {
 
     @ViewBuilder private var selectedTab: some View {
         switch tab {
+        case .guide: guidedView
         case .analysis: analysisView
         case .comparison: comparisonView
         case .automaton:
@@ -180,6 +201,211 @@ public struct ArtifactExplorerView: View {
         case .research: researchView
         case .tests: testsView
         }
+    }
+
+    private var guidedView: some View {
+        let report = store.guidance(tests: document?.wrappedValue.tests ?? [])
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 24) {
+                    ZStack {
+                        Circle().stroke(.quaternary, lineWidth: 10)
+                        Circle()
+                            .trim(from: 0, to: Double(report.summary.healthScore) / 100)
+                            .stroke(healthColor(report.summary), style: .init(lineWidth: 10, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                        VStack(spacing: 0) {
+                            Text("\(report.summary.healthScore)").font(.title.bold()).monospacedDigit()
+                            Text("Health").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 112, height: 112)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(report.summary.headline).font(.title2.bold())
+                        Text("Start with the first recommended action. Detailed parser machinery remains available through Expert tools when you need it.")
+                            .foregroundStyle(.secondary)
+                        HStack(spacing: 16) {
+                            guidanceMetric("Errors", report.summary.errors, .red)
+                            guidanceMetric("Warnings", report.summary.warnings, .orange)
+                            guidanceMetric("Conflicts", report.summary.unresolvedConflicts, .red)
+                            guidanceMetric("Tests passing", report.summary.passingTests, .green)
+                        }
+                    }
+                }
+
+                if let next = report.nextAction {
+                    GroupBox("Recommended next step") {
+                        guidanceRow(next, prominent: true)
+                            .padding(.vertical, 4)
+                    }
+                }
+
+                Text("Your workflow").font(.headline)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 12)], spacing: 12) {
+                    workflowCard("Write and validate", "Correct grammar declarations and inspect plain-language diagnostics.", "pencil.and.outline", .analysis)
+                    workflowCard("Try an input", "See whether an example is accepted and understand any recovery.", "play.circle", .sample)
+                    workflowCard("Resolve ambiguity", "Compare competing interpretations and their example input.", "arrow.triangle.branch", .decisions)
+                    workflowCard("Protect behavior", "Record accepted, rejected, and conflicting examples as tests.", "checklist", .tests)
+                    workflowCard("Choose an algorithm", "Compare parser size and unresolved decisions.", "scale.3d", .comparison)
+                    workflowCard("Generate a parser", "Export a standalone Swift parser when the grammar is ready.", "hammer", .analysis)
+                }
+
+                if report.findings.count > 1 {
+                    DisclosureGroup("All recommendations (\(report.findings.count))") {
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(report.findings) { guidanceRow($0, prominent: false) }
+                        }.padding(.top, 8)
+                    }
+                }
+
+                if store.notation == .workbench && cleanupTransformations.isEmpty == false {
+                    Divider()
+                    Text("Safe change preview").font(.headline)
+                    Text("Grammar Workbench proposes a source change, recompiles it, and checks your samples and tests before enabling Apply.")
+                        .foregroundStyle(.secondary)
+                    HStack {
+                        ForEach(cleanupTransformations, id: \.self) { transformation in
+                            Button(transformation.title, systemImage: "wand.and.stars") {
+                                transformationPreview = store.preview(
+                                    transformation,
+                                    examples: guidedExamples,
+                                    tests: document?.wrappedValue.tests ?? []
+                                )
+                            }
+                        }
+                    }
+                    if let preview = transformationPreview { transformationPreviewView(preview) }
+                }
+            }
+            .padding(24)
+            .frame(maxWidth: 1000, alignment: .leading)
+        }
+    }
+
+    private var cleanupTransformations: [GrammarGuidedTransformation] {
+        var values: [GrammarGuidedTransformation] = []
+        if store.frontEnd.diagnostics.contains(where: { $0.code == "duplicate-production" }) {
+            values.append(.removeDuplicateProductionLines)
+        }
+        if store.frontEnd.diagnostics.contains(where: { $0.code == "unreachable-nonterminal" }) {
+            values.append(.removeUnreachableProductionLines)
+        }
+        return values
+    }
+
+    private var guidedExamples: [GrammarGuidanceExample] {
+        (document?.wrappedValue.samples ?? []).map {
+            .init(id: $0.id.uuidString, name: $0.name, input: $0.input)
+        }
+    }
+
+    private func healthColor(_ summary: GrammarGuidanceSummary) -> Color {
+        if summary.errors > 0 || summary.unresolvedConflicts > 0 { return .red }
+        if summary.warnings > 0 || summary.failingTests > 0 { return .orange }
+        return .green
+    }
+
+    private func guidanceMetric(_ label: String, _ value: Int, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(value)").font(.headline.monospacedDigit()).foregroundStyle(value == 0 ? .secondary : color)
+            Text(label).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func guidanceRow(_ finding: GrammarGuidanceFinding, prominent: Bool) -> some View {
+        Button { follow(finding) } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: guidanceIcon(finding.severity))
+                    .foregroundStyle(guidanceColor(finding.severity)).font(prominent ? .title2 : .body)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(finding.title).font(prominent ? .headline : .subheadline.bold())
+                    Text(finding.explanation).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    Text(finding.action).font(.caption.bold()).foregroundStyle(.tint)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain)
+    }
+
+    private func workflowCard(
+        _ title: String, _ description: String, _ icon: String, _ destination: ExplorerTab
+    ) -> some View {
+        Button { tab = destination } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: icon).font(.title2).foregroundStyle(.tint)
+                Text(title).font(.headline)
+                Text(description).font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding().frame(maxWidth: .infinity, minHeight: 130, alignment: .topLeading)
+            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+        }.buttonStyle(.plain)
+    }
+
+    private func follow(_ finding: GrammarGuidanceFinding) {
+        store.selectGuidance(finding)
+        switch finding.destination {
+        case .editor: break
+        case .analysis, .generation: tab = .analysis
+        case .sample: tab = .sample
+        case .decisions: tab = .decisions
+        case .comparison: tab = .comparison
+        case .tests: tab = .tests
+        case .research: showsExpertTools = true; tab = .research
+        }
+    }
+
+    private func guidanceIcon(_ severity: GrammarGuidanceSeverity) -> String {
+        switch severity {
+        case .critical: "xmark.octagon.fill"
+        case .attention: "exclamationmark.triangle.fill"
+        case .opportunity: "lightbulb.fill"
+        case .ready: "checkmark.seal.fill"
+        }
+    }
+
+    private func guidanceColor(_ severity: GrammarGuidanceSeverity) -> Color {
+        switch severity {
+        case .critical: .red
+        case .attention: .orange
+        case .opportunity: .blue
+        case .ready: .green
+        }
+    }
+
+    private func transformationPreviewView(_ preview: GrammarGuidedTransformationPreview) -> some View {
+        GroupBox(preview.transformation.title) {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(
+                    preview.isSafeToApply ? "Validation passed" : "Review required before applying",
+                    systemImage: preview.isSafeToApply ? "checkmark.shield.fill" : "exclamationmark.shield.fill"
+                ).foregroundStyle(preview.isSafeToApply ? .green : .orange)
+                Text("Removes source line\(preview.removedLines.count == 1 ? "" : "s") \(preview.removedLines.map(String.init).joined(separator: ", ")).")
+                    .font(.caption)
+                if let diff = preview.artifactDiff {
+                    Text("Parser impact: \(signed(diff.stateDelta)) states · \(signed(diff.tableEntryDelta)) table entries · \(signed(diff.decisionDelta)) decisions")
+                        .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                if !preview.regressedExamples.isEmpty {
+                    Text("\(preview.regressedExamples.count) previously accepted sample(s) would stop working.").foregroundStyle(.red)
+                } else if !preview.changedExamples.isEmpty {
+                    Text("\(preview.changedExamples.count) sample outcome(s) improve or otherwise change.").foregroundStyle(.orange)
+                }
+                HStack {
+                    Button("Discard") { transformationPreview = nil }
+                    Button("Apply to grammar") { apply(preview) }
+                        .buttonStyle(.borderedProminent).disabled(!preview.isSafeToApply || document == nil)
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func apply(_ preview: GrammarGuidedTransformationPreview) {
+        sourceBinding.wrappedValue = preview.proposedSource
+        store.updateSource(preview.proposedSource)
+        transformationPreview = nil
     }
 
     private var comparisonView: some View {

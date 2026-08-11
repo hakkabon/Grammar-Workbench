@@ -33,6 +33,8 @@
     "incrementalMinimumTokenReusePercent": 80,
     "incrementalMaximumRelexPercent": 40,
     "incrementalMaximumReparsePercent": 25,
-    "incrementalMinimumSemanticReusePercent": 50
+    "incrementalMinimumSemanticReusePercent": 50,
+    "bootstrapMaximumGenerations": 4,
+    "bootstrapMinimumCorpusCases": 4
   }
 }

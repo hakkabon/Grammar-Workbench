@@ -332,6 +332,33 @@ struct GrammarWorkbenchCLI {
                 to: URL(fileURLWithPath: arguments[3]), atomically: true, encoding: .utf8
             )
             print("Wrote \(arguments[3]): removed \(plan.affectedLines.count) declaration line(s); checked \(result.behavior.cases.count) inputs")
+        case "bootstrap":
+            let trailing = Array(arguments.dropFirst())
+            let outputs = trailing.filter { !$0.hasPrefix("--") }
+            guard outputs.count <= 1 else {
+                throw CLIError.usage("bootstrap accepts at most one output path")
+            }
+            var maximumGenerations = 4
+            for flag in trailing where flag.hasPrefix("--") {
+                if let value = positiveOption(flag, name: "maximum-generations") {
+                    maximumGenerations = value
+                } else {
+                    throw CLIError.usage("unknown bootstrap option ‘\(flag)’")
+                }
+            }
+            let report = try GrammarBootstrapLaboratory.run(
+                options: .init(maximumGenerations: maximumGenerations)
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            if let output = outputs.first {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output): fixed point at generation \(report.fixedPointGeneration.map(String.init) ?? "none"), \(report.corpus.filter(\.matches).count)/\(report.corpus.count) differential checks passed")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.succeeded else { throw CLIError.bootstrapFailed }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -435,6 +462,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench platform-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench grammar-analyze GRAMMAR [OUTPUT]
       grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT
+      grammar-workbench bootstrap [OUTPUT] [--maximum-generations=N]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version
@@ -456,6 +484,7 @@ private enum CLIError: LocalizedError {
     case projectFailed
     case platformParseFailed(String)
     case transformationFailed(String)
+    case bootstrapFailed
 
     var errorDescription: String? {
         switch self {
@@ -466,6 +495,7 @@ private enum CLIError: LocalizedError {
         case .projectFailed: "project validation failed"
         case .platformParseFailed(let status): "platform parse did not select an accepted tree (\(status))"
         case .transformationFailed(let message): "grammar transformation was not applied: \(message)"
+        case .bootstrapFailed: "bootstrap laboratory did not reach a validated fixed point"
         }
     }
 }

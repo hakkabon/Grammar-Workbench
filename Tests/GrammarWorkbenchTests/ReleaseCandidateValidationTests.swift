@@ -25,6 +25,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let incrementalMaximumRelexPercent: Double
         let incrementalMaximumReparsePercent: Double
         let incrementalMinimumSemanticReusePercent: Double
+        let bootstrapMaximumGenerations: Int
+        let bootstrapMinimumCorpusCases: Int
     }
 
     let schemaVersion: Int
@@ -63,6 +65,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.advancedParsingPlatform == .stable)
     #expect(GrammarWorkbenchCapabilities.guidedGrammarEngineering == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarAnalysisAndTransformation == .stable)
+    #expect(GrammarWorkbenchCapabilities.bootstrapLaboratory == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -79,6 +82,17 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         #expect(try GrammarProjectCodec.decode(data).kind == GrammarProjectManifest.kindIdentifier)
     }
+}
+
+@Test func bootstrapLaboratoryRemainsBoundedAndDifferentiallyValidated() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let report = try GrammarBootstrapLaboratory.run(
+        options: .init(maximumGenerations: budget.bootstrapMaximumGenerations)
+    )
+    #expect(report.succeeded)
+    #expect(report.generations.count <= budget.bootstrapMaximumGenerations)
+    #expect(report.corpus.count >= budget.bootstrapMinimumCorpusCases)
+    #expect(report.corpus.allSatisfy { $0.matches })
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

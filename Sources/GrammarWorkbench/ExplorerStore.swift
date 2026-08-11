@@ -21,6 +21,9 @@ final class ExplorerStore {
     private(set) var generalizedResult: GrammarGeneralizedParseResult?
     private(set) var isExploringGeneralizedParse = false
     private(set) var incrementalSampleAnalysis: GrammarIncrementalAnalysisSnapshot?
+    private(set) var bootstrapReport: GrammarBootstrapReport?
+    private(set) var bootstrapError: String?
+    private(set) var isRunningBootstrap = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var selectedBranch = 0
@@ -30,6 +33,7 @@ final class ExplorerStore {
     @ObservationIgnored private var comparisonTask: Task<Void, Never>?
     @ObservationIgnored private var generalizedTask: Task<Void, Never>?
     @ObservationIgnored private var incrementalAnalysisTask: Task<Void, Never>?
+    @ObservationIgnored private var bootstrapTask: Task<Void, Never>?
     @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
     @ObservationIgnored private var incrementalCoordinator: GrammarIncrementalAnalysisCoordinator?
     @ObservationIgnored private var currentCompilation: GrammarCompilation
@@ -59,6 +63,8 @@ final class ExplorerStore {
         self.latestArtifactDiff = nil
         self.generalizedResult = nil
         self.incrementalSampleAnalysis = nil
+        self.bootstrapReport = nil
+        self.bootstrapError = nil
         self.currentCompilation = compilation
         self.incrementalCoordinator = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation)
         if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
@@ -178,6 +184,23 @@ final class ExplorerStore {
     }
 
     func clearTestReport() { testReport = nil }
+
+    func runBootstrapLaboratory() {
+        guard !isRunningBootstrap else { return }
+        bootstrapTask?.cancel()
+        bootstrapError = nil
+        isRunningBootstrap = true
+        bootstrapTask = Task { [weak self] in
+            let result = await Task.detached { Result { try GrammarBootstrapLaboratory.run() } }.value
+            guard !Task.isCancelled, let self else { return }
+            switch result {
+            case .success(let report): self.bootstrapReport = report
+            case .failure(let error): self.bootstrapError = error.localizedDescription
+            }
+            self.isRunningBootstrap = false
+            self.bootstrapTask = nil
+        }
+    }
 
     func compareAlgorithms() {
         guard algorithmComparison == nil, !isComparingAlgorithms,

@@ -38,6 +38,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let advancedParsingPlatform: GrammarWorkbenchFeatureMaturity = .stable
     public static let guidedGrammarEngineering: GrammarWorkbenchFeatureMaturity = .stable
     public static let grammarAnalysisAndTransformation: GrammarWorkbenchFeatureMaturity = .stable
+    public static let bootstrapLaboratory: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 public struct GrammarWorkbenchSettingsView: View {

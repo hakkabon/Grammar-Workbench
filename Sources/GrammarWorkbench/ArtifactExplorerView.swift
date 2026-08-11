@@ -30,12 +30,12 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case guide = "Guide", analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", research = "Research", tests = "Tests"
+        case guide = "Guide", analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", tests = "Tests"
         var id: Self { self }
 
         var isExpert: Bool {
             switch self {
-            case .automaton, .table, .research: true
+            case .automaton, .table, .bootstrap, .research: true
             default: false
             }
         }
@@ -198,8 +198,63 @@ public struct ArtifactExplorerView: View {
         case .table: tableView
         case .decisions: decisionsView
         case .sample: sampleView
+        case .bootstrap: bootstrapView
         case .research: researchView
         case .tests: testsView
+        }
+    }
+
+    private var bootstrapView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Bootstrap laboratory", systemImage: "arrow.triangle.2.circlepath").font(.title2.bold())
+                Text("Compile the trusted BNF seed, parse its own meta-grammar, regenerate the parser, and compare canonical grammar models until they reach a fixed point.")
+                    .foregroundStyle(.secondary)
+                HStack {
+                    Button("Run self-hosting experiment", systemImage: "play.fill") { store.runBootstrapLaboratory() }
+                        .disabled(store.isRunningBootstrap)
+                    if store.isRunningBootstrap { ProgressView().controlSize(.small) }
+                }
+                if let error = store.bootstrapError {
+                    Label(error, systemImage: "xmark.octagon.fill").foregroundStyle(.red)
+                }
+                if let report = store.bootstrapReport {
+                    Label(
+                        report.succeeded ? "Fixed point and differential checks passed" : "Experiment did not satisfy every gate",
+                        systemImage: report.succeeded ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+                    ).foregroundStyle(report.succeeded ? .green : .orange).font(.headline)
+                    LabeledContent("Profile", value: report.profile)
+                    LabeledContent("Fixed-point generation", value: report.fixedPointGeneration.map(String.init) ?? "Not reached")
+                    Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 7) {
+                        GridRow { Text("Generation").bold(); Text("Grammar").bold(); Text("Artifact").bold(); Text("States").bold(); Text("Stable").bold() }
+                        ForEach(report.generations) { generation in
+                            GridRow {
+                                Text("\(generation.generation)").monospacedDigit()
+                                Text(generation.grammarFingerprint).font(.system(.caption, design: .monospaced))
+                                Text(generation.artifactFingerprint).font(.system(.caption, design: .monospaced))
+                                Text("\(generation.stateCount)").monospacedDigit()
+                                Image(systemName: generation.stableWithPrevious ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(generation.stableWithPrevious ? .green : .secondary)
+                            }
+                        }
+                    }
+                    Divider()
+                    Text("Differential corpus").font(.headline)
+                    ForEach(report.corpus) { item in
+                        HStack {
+                            Label(item.name, systemImage: item.matches ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(item.matches ? .green : .red)
+                            Spacer()
+                            Text(item.detail).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                    DisclosureGroup("Laboratory boundaries") {
+                        ForEach(report.limitations, id: \.self) { Text("• \($0)").font(.caption) }
+                    }
+                } else if !store.isRunningBootstrap {
+                    ContentUnavailableView("Experiment not run", systemImage: "flask", description: Text("The trusted grammar reader is never replaced by this experiment."))
+                }
+            }.padding().frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

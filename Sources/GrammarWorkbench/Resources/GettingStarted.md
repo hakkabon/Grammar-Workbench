@@ -14,6 +14,8 @@ Enable **Expert tools** to inspect the LR automaton, parse table, replay details
 
 Open **Grammar structure** in Guide for reachability, productivity, nullability, dependency, and left-recursion insights. Cleanup previews are explainable transformation plans: they reject stale source and compare language membership over saved examples plus a bounded generated corpus. Automation can export the same report with `grammar-analyze` or create a validated cleaned grammar with `grammar-transform`.
 
+Enable **Expert tools** and open **Bootstrap** to run the bounded self-hosting laboratory. It compiles a trusted BNF seed, regenerates the parser from its meta-grammar until the canonical model stabilizes, then compares a BNF corpus with the handwritten Grammar reader. For automation, run `grammar-workbench bootstrap [report.json]`.
+
 Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
 
 For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to inspect lowering, `diff` to review artifact changes, and the `GrammarWorkbenchPlugin` SwiftPM build plugin to turn target-local `.grammar` or `.ebnf` files into standalone Swift parsers.

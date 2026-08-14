@@ -22,6 +22,8 @@ Grammar replacement atomically installs a new successful compilation and refresh
 
 The project index preserves document identity and manifest path around each `GrammarIncrementalIndexEntry`. It supports project-wide symbol lookup and per-document filtering without conflating session-local syntax identities across documents.
 
+`GrammarProjectAnalysis.semanticWorkspace(schema:)` adds a declarative language-aware layer over that index. Token kinds and enclosing production identities classify definitions and references, from which the service derives workspace symbols, navigation, diagnostics, dependency edges, and revision-guarded rename plans. `GrammarProjectWorkspace.applySemanticRename` validates all affected revisions and ranges before changing any source. See [SemanticWorkspaceServices.md](SemanticWorkspaceServices.md).
+
 ## Generators and automation
 
 Generator targets name a registry identifier, a safe relative output directory, and versioned string options. `GrammarProjectWorkspace.generate(using:)` validates and invokes them through the normal `GrammarGeneratorRegistry`; applications can supply a registry containing custom generators.
@@ -31,6 +33,7 @@ The CLI exposes the same workflow:
 ```sh
 grammar-workbench project-check Examples/ExpressionProject.json
 grammar-workbench project-generate Examples/ExpressionProject.json .build/generated
+grammar-workbench project-semantic Project.json SemanticSchema.json Report.json
 ```
 
 `project-check` compiles the grammar, analyzes every source, runs tests, validates all generator targets, and returns a failing exit status if project analysis fails. `project-generate` requires successful analysis and writes each validated generated filename beneath its declared output directory. `Examples/ExpressionProject.json` is the release-tested reference manifest.

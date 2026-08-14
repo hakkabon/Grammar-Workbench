@@ -18,6 +18,8 @@ Enable **Expert tools** and open **Bootstrap** to run the bounded self-hosting l
 
 The expert **Research** workspace exposes the shared-packed forest used by generalized parsing. It reports compact symbol/span nodes, packed families, represented derivations, and independent resource limits before showing the bounded set of materialized trees.
 
+Project integrations can add a declarative semantic schema to classify definitions and references. The resulting workspace service supplies cross-document navigation, diagnostics, dependencies, and safe revision-checked rename plans; `project-semantic` exports the same snapshot for editor and CI automation.
+
 Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
 
 For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to inspect lowering, `diff` to review artifact changes, and the `GrammarWorkbenchPlugin` SwiftPM build plugin to turn target-local `.grammar` or `.ebnf` files into standalone Swift parsers.

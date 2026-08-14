@@ -14,6 +14,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Deterministic/generalized/adaptive platform requests, common result envelopes, reproducible ambiguity selection, semantic evaluation, and bounded ordered batches.
 - UI-neutral grammar-health reports, prioritized guided actions, task destinations, and validated cleanup previews.
 - Structural grammar reports, explainable source-fingerprinted cleanup plans, bounded corpus generation, generalized membership comparison, and project transformation previews.
+- Declarative semantic workspace schemas, immutable symbol/diagnostic/dependency snapshots, cross-document definition and reference resolution, and revision-guarded atomic rename plans.
 - Versioned UTF-16 text snapshots, incremental edits, checkpoint-based relexing and deterministic reparsing, typed incremental semantic evaluation, source-aware semantic indexes, multi-document language sessions, the shared analysis coordinator, stable token/subtree identities, grammar replacement, and reuse/fallback metrics.
 - Versioned project manifests, project workspaces, aggregate semantic indexes, batch-test orchestration, and configured generator targets.
 

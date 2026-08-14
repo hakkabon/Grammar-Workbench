@@ -12,7 +12,8 @@
     "grammar-workbench-lsp"
   ],
   "requiredProjectManifests": [
-    "Examples/ExpressionProject.json"
+    "Examples/ExpressionProject.json",
+    "Examples/SemanticWorkspaceProject.json"
   ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
@@ -39,6 +40,8 @@
     "incrementalMaximumReparsePercent": 25,
     "incrementalMinimumSemanticReusePercent": 50,
     "bootstrapMaximumGenerations": 4,
-    "bootstrapMinimumCorpusCases": 4
+    "bootstrapMinimumCorpusCases": 4,
+    "semanticWorkspaceMaximumOccurrences": 16,
+    "semanticWorkspaceMaximumDependencies": 8
   }
 }

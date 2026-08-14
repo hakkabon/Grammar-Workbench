@@ -1,0 +1,27 @@
+{
+  "apiVersion": 1,
+  "generators": [],
+  "grammar": {
+    "algorithm": "LALR(1)",
+    "notation": "Workbench",
+    "source": "%token LET /let\\b/\n%token USE /use\\b/\n%token ID /[A-Za-z_][A-Za-z0-9_]*/\n%token SEMI /;/\n%skip /\\s+/\n%start Program\nProgram : Program Statement | Statement ;\nStatement : LET ID SEMI | USE ID SEMI ;"
+  },
+  "kind": "grammar-workbench-project",
+  "name": "Semantic Workspace Example",
+  "schemaVersion": 1,
+  "sources": [
+    {
+      "id": "definitions",
+      "path": "Sources/Definitions.lang",
+      "revision": 1,
+      "text": "let alpha;"
+    },
+    {
+      "id": "uses",
+      "path": "Sources/Uses.lang",
+      "revision": 1,
+      "text": "use alpha;"
+    }
+  ],
+  "tests": []
+}

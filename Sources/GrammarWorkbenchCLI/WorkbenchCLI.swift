@@ -101,6 +101,49 @@ struct GrammarWorkbenchCLI {
                     print("Wrote \(destination.path)")
                 }
             }
+        case "project-semantic":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("project-semantic requires PROJECT SCHEMA [OUTPUT]")
+            }
+            let manifest = try GrammarProjectCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let schema = try JSONDecoder().decode(
+                GrammarSemanticWorkspaceSchema.self,
+                from: Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let services = try await GrammarProjectWorkspace(manifest: manifest)
+                .semanticWorkspace(schema: schema)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(services)
+            if arguments.count == 4 {
+                try data.write(to: URL(fileURLWithPath: arguments[3]), options: .atomic)
+                print("Wrote \(arguments[3]): \(services.workspaceSymbols().count) symbols, \(services.diagnostics.count) diagnostics")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+        case "project-rename":
+            guard arguments.count == 7, let offset = Int(arguments[4]), offset >= 0 else {
+                throw CLIError.usage("project-rename requires PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT")
+            }
+            let manifest = try GrammarProjectCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let schema = try JSONDecoder().decode(
+                GrammarSemanticWorkspaceSchema.self,
+                from: Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let workspace = try GrammarProjectWorkspace(manifest: manifest)
+            let services = try await workspace.semanticWorkspace(schema: schema)
+            let plan = try services.renamePlan(
+                documentID: arguments[3], atUTF16Offset: offset, replacement: arguments[5]
+            )
+            let changed = try await workspace.applySemanticRename(plan)
+            try GrammarProjectCodec.encode(changed.manifest).write(
+                to: URL(fileURLWithPath: arguments[6]), options: .atomic
+            )
+            print("Wrote \(arguments[6]): renamed \(plan.affectedOccurrences) occurrence(s) in \(plan.documents.count) document(s)")
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -459,6 +502,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench project-generate PROJECT OUTPUT_ROOT
+      grammar-workbench project-semantic PROJECT SCHEMA [OUTPUT]
+      grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
       grammar-workbench list-generators

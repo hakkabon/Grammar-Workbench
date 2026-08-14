@@ -1,0 +1,20 @@
+{
+  "caseSensitive": true,
+  "renamePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+  "rules": [
+    {
+      "enclosingProduction": 3,
+      "kind": "variable",
+      "role": "definition",
+      "scope": "workspace",
+      "tokenKind": "ID"
+    },
+    {
+      "enclosingProduction": 4,
+      "kind": "variable",
+      "role": "reference",
+      "scope": "workspace",
+      "tokenKind": "ID"
+    }
+  ]
+}

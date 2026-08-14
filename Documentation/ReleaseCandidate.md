@@ -14,6 +14,7 @@ The release-candidate gate verifies the product from four perspectives:
 10. Grammar transformation plans must explain every edit, reject stale source, stay within declared corpus-generation bounds, and preserve membership for the release corpus and recorded tests.
 11. The bootstrap laboratory must reach a canonical fixed point within the packaged generation budget and agree with the trusted handwritten BNF reader on the packaged differential corpus. It remains a laboratory and must not silently replace the trusted reader.
 12. A Catalan-ambiguous grammar must retain all represented derivations in a shared-packed forest while staying within declared node and family budgets, independently of concrete-tree enumeration limits.
+13. Semantic workspace services must resolve the packaged cross-document corpus without diagnostics, stay within symbol and dependency budgets, and reject stale rename plans before applying any document edit.
 
 Run the normal gate:
 

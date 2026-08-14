@@ -78,6 +78,8 @@ Artifact interchange schema 2 uses the public engine-independent `GrammarArtifac
 
 For multi-document language projects, `GrammarProjectManifest` provides a separate versioned envelope containing the grammar configuration, embedded sources, batch tests, and generator targets. `GrammarProjectWorkspace` incrementally analyzes all sources, publishes a project-wide semantic index, refreshes them after grammar changes, and invokes configured generators. Automation can use `grammar-workbench project-check PROJECT` and `grammar-workbench project-generate PROJECT OUTPUT_ROOT`. See [Documentation/ProjectInfrastructure.md](Documentation/ProjectInfrastructure.md).
 
+`GrammarSemanticWorkspaceSchema` adds language meaning to that neutral index by classifying token kinds under selected productions as definitions or references. Immutable workspace snapshots provide symbol search, definition/reference navigation, unresolved and duplicate diagnostics, dependency edges, and collision-checked revision-guarded rename plans. Project automation uses `project-semantic` and `project-rename`; see [Documentation/SemanticWorkspaceServices.md](Documentation/SemanticWorkspaceServices.md).
+
 For live editors and build services, `GrammarWorkbenchIncrementalCompiler` moves construction off the caller's executor, coalesces concurrent equal requests, and keeps a bounded least-recently-used cache of immutable compilations. Each result includes front-end, LR-construction, total-delivery, state, item, and table-entry metrics; `statistics()` exposes cache hits, misses, shared requests, and evictions.
 
 ```swift

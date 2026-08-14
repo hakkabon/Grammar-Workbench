@@ -31,6 +31,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let incrementalMinimumSemanticReusePercent: Double
         let bootstrapMaximumGenerations: Int
         let bootstrapMinimumCorpusCases: Int
+        let semanticWorkspaceMaximumOccurrences: Int
+        let semanticWorkspaceMaximumDependencies: Int
     }
 
     let schemaVersion: Int
@@ -71,6 +73,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.grammarAnalysisAndTransformation == .stable)
     #expect(GrammarWorkbenchCapabilities.bootstrapLaboratory == .stable)
     #expect(GrammarWorkbenchCapabilities.sharedForestsAndScalableGeneralizedParsing == .stable)
+    #expect(GrammarWorkbenchCapabilities.semanticWorkspaceServices == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -87,6 +90,40 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         #expect(try GrammarProjectCodec.decode(data).kind == GrammarProjectManifest.kindIdentifier)
     }
+}
+
+@Test func semanticWorkspaceServicesStayWithinReleaseBudgets() async throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let grammar = #"""
+    %token LET /let\b/
+    %token USE /use\b/
+    %token ID /[A-Za-z_][A-Za-z0-9_]*/
+    %token SEMI /;/
+    %skip /\s+/
+    %start Program
+    Program : Program Statement | Statement ;
+    Statement : LET ID SEMI | USE ID SEMI ;
+    """#
+    let project = GrammarProjectManifest(
+        name: "Release semantic workspace", grammar: .init(source: grammar),
+        sources: [
+            .init(id: "definitions", path: "Definitions.lang", text: "let alpha;", revision: 1),
+            .init(id: "uses", path: "Uses.lang", text: "use alpha;", revision: 1)
+        ]
+    )
+    let workspace = try GrammarProjectWorkspace(manifest: project)
+    let analysis = try await workspace.analyze()
+    let model = try GrammarSemanticModel(compilation: analysis.compilation)
+    let definition = try #require(model.productions(lhs: "Statement", rhs: ["LET", "ID", "SEMI"]).first)
+    let reference = try #require(model.productions(lhs: "Statement", rhs: ["USE", "ID", "SEMI"]).first)
+    let services = analysis.semanticWorkspace(schema: .init(rules: [
+        .init(tokenKind: "ID", enclosingProduction: definition.id, kind: "variable", role: .definition),
+        .init(tokenKind: "ID", enclosingProduction: reference.id, kind: "variable", role: .reference)
+    ]))
+    #expect(services.diagnostics.isEmpty)
+    #expect(services.occurrences.count <= budget.semanticWorkspaceMaximumOccurrences)
+    #expect(services.dependencies.count <= budget.semanticWorkspaceMaximumDependencies)
+    #expect(services.workspaceSymbols().count == 1)
 }
 
 @Test func bootstrapLaboratoryRemainsBoundedAndDifferentiallyValidated() throws {

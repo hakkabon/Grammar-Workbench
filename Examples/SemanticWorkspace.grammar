@@ -1,0 +1,8 @@
+%token LET /let\b/
+%token USE /use\b/
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%token SEMI /;/
+%skip /\s+/
+%start Program
+Program : Program Statement | Statement ;
+Statement : LET ID SEMI | USE ID SEMI ;

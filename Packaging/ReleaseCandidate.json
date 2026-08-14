@@ -5,11 +5,13 @@
   "requiredConsumerFixtures": [
     "LibraryConsumer",
     "LSPConsumer",
-    "PluginConsumer"
+    "PluginConsumer",
+    "SDKConsumer"
   ],
   "requiredProducts": [
     "GrammarWorkbenchLSP",
-    "grammar-workbench-lsp"
+    "grammar-workbench-lsp",
+    "GrammarWorkbenchSDK"
   ],
   "requiredProjectManifests": [
     "Examples/ExpressionProject.json",

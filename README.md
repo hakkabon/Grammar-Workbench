@@ -20,6 +20,9 @@ swift run grammar-workbench-app
 
 The automation-friendly executable is available with `swift run grammar-workbench --help`. It validates grammar files, runs persisted project test suites with CI-friendly exit codes, and exports versioned artifact JSON.
 
+Language-tooling hosts can use the typed `GrammarWorkbenchSDK` product or its
+versioned JSON process protocol. See [the SDK guide](Documentation/LanguageToolingSDK.md).
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.

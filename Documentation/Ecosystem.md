@@ -5,6 +5,7 @@ Grammar Workbench exposes the same compilation and editor behavior through sever
 ## SwiftPM products
 
 - `GrammarWorkbench` is the stable parser, semantic, generator, and interchange library.
+- `GrammarWorkbenchSDK` is the versioned, transport-neutral language-tooling client and service boundary.
 - `GrammarWorkbenchPlugin` generates standalone parsers during a SwiftPM build.
 - `GrammarWorkbenchLSP` embeds the language server in another Swift process or test harness.
 - `grammar-workbench`, `grammar-workbench-lsp`, and `GrammarWorkbenchApp` are the CLI, stdio server, and native application.
@@ -28,6 +29,13 @@ Portable project manifests group a grammar, multiple source snapshots, regressio
 The advanced parsing platform is available from the library, project workspaces, and `platform-parse` CLI command. These surfaces share the same engine-selection, ambiguity, cancellation, and resource-limit semantics, so CI results can be reproduced in an editor or embedded service.
 
 Structural grammar reports and explainable transformations are similarly shared by the library, Guide workspace, project workspaces, and CLI. Behavioral comparison uses the generalized recognizer so ambiguity does not masquerade as a language difference, while exact bounds and concrete counterexamples remain visible to automation.
+
+## Portable tooling hosts
+
+Swift hosts can embed `GrammarLanguageToolingService`; other runtimes can exchange
+the same JSON envelopes through `grammar-workbench tooling-request`. Capability
+negotiation exposes supported operations and schemas without coupling clients to
+a release. See [LanguageToolingSDK.md](LanguageToolingSDK.md).
 
 ## Validation and distribution
 

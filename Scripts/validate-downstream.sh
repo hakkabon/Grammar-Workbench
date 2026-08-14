@@ -13,6 +13,7 @@ run_consumer() {
         LibraryConsumer:*library-consumer-ok*) ;;
         LSPConsumer:*lsp-consumer-ok*) ;;
         PluginConsumer:*plugin-consumer-ok*) ;;
+        SDKConsumer:*sdk-consumer-ok*) ;;
         *) echo "$name produced unexpected output: $output" >&2; exit 1 ;;
     esac
 }
@@ -20,4 +21,5 @@ run_consumer() {
 run_consumer LibraryConsumer
 run_consumer LSPConsumer
 run_consumer PluginConsumer
+run_consumer SDKConsumer
 echo "Downstream compatibility validation passed."

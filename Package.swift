@@ -8,6 +8,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
+        .library(name: "GrammarWorkbenchSDK", targets: ["GrammarWorkbenchSDK"]),
         .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
@@ -26,14 +27,22 @@ let package = Package(
             dependencies: [.product(name: "Grammar", package: "Grammar")],
             resources: [.process("Resources")]
         ),
+        .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbench"]),
         .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
-        .executableTarget(name: "GrammarWorkbenchCLI", dependencies: ["GrammarWorkbench"]),
+        .executableTarget(
+            name: "GrammarWorkbenchCLI",
+            dependencies: ["GrammarWorkbench", "GrammarWorkbenchSDK"]
+        ),
         .plugin(
             name: "GrammarWorkbenchPlugin",
             capability: .buildTool(),
             dependencies: [.target(name: "GrammarWorkbenchCLI")]
         ),
         .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"]),
+        .testTarget(
+            name: "GrammarWorkbenchSDKTests",
+            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbench"]
+        ),
         .target(
             name: "LanguageServerProtocol", dependencies: ["SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocol"

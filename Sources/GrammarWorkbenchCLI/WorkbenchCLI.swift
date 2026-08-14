@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import GrammarWorkbench
+import GrammarWorkbenchSDK
 
 @main
 struct GrammarWorkbenchCLI {
@@ -23,6 +24,24 @@ struct GrammarWorkbenchCLI {
             print(help)
         case "--version", "-v", "version":
             print("grammar-workbench \(GrammarWorkbenchRelease.version)")
+        case "tooling-request":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("tooling-request requires REQUEST_JSON [RESPONSE_JSON]")
+            }
+            let request = try GrammarToolingCodec.decodeRequest(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let response = await GrammarLanguageToolingService().handle(request)
+            let data = try GrammarToolingCodec.encode(response)
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(response.status.rawValue)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            if response.status == .failure {
+                throw CLIError.toolingRequestFailed(response.error?.message ?? "unknown SDK error")
+            }
         case "validate":
             guard arguments.count == 2 else { throw CLIError.usage("validate requires a grammar file") }
             let source = try read(arguments[1])
@@ -504,6 +523,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench project-generate PROJECT OUTPUT_ROOT
       grammar-workbench project-semantic PROJECT SCHEMA [OUTPUT]
       grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT
+      grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
       grammar-workbench list-generators
@@ -539,6 +559,7 @@ private enum CLIError: LocalizedError {
     case platformParseFailed(String)
     case transformationFailed(String)
     case bootstrapFailed
+    case toolingRequestFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -550,6 +571,7 @@ private enum CLIError: LocalizedError {
         case .platformParseFailed(let status): "platform parse did not select an accepted tree (\(status))"
         case .transformationFailed(let message): "grammar transformation was not applied: \(message)"
         case .bootstrapFailed: "bootstrap laboratory did not reach a validated fixed point"
+        case .toolingRequestFailed(let message): "language-tooling request failed: \(message)"
         }
     }
 }

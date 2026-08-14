@@ -16,6 +16,10 @@ private struct ReleaseCandidatePolicy: Decodable {
         let generalizedMaximumConfigurations: Int
         let generalizedMaximumSteps: Int
         let generalizedMaximumTrees: Int
+        let generalizedMaximumForestNodes: Int
+        let generalizedMaximumPackedFamilies: Int
+        let generalizedScalabilityMaximumNodes: Int
+        let generalizedScalabilityMaximumFamilies: Int
         let platformMaximumConcurrentRequests: Int
         let platformBatchRequestCount: Int
         let transformationMaximumGeneratedInputs: Int
@@ -66,6 +70,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.guidedGrammarEngineering == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarAnalysisAndTransformation == .stable)
     #expect(GrammarWorkbenchCapabilities.bootstrapLaboratory == .stable)
+    #expect(GrammarWorkbenchCapabilities.sharedForestsAndScalableGeneralizedParsing == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -176,7 +181,9 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
         options: .init(
             maximumConfigurations: budget.generalizedMaximumConfigurations,
             maximumSteps: budget.generalizedMaximumSteps,
-            maximumTrees: budget.generalizedMaximumTrees
+            maximumTrees: budget.generalizedMaximumTrees,
+            maximumForestNodes: budget.generalizedMaximumForestNodes,
+            maximumPackedFamilies: budget.generalizedMaximumPackedFamilies
         )
     )
 
@@ -184,6 +191,26 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
     #expect(!result.wasTruncated)
     #expect(result.alternatives.count == 5)
     #expect(result.metrics.exploredConfigurations <= budget.generalizedMaximumSteps)
+}
+
+@Test func sharedForestStaysCompactForHighlyAmbiguousInput() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: "%start S\nS : S S | 'a' ;"))
+    let result = compilation.parseGeneralized(
+        "a a a a a a a",
+        options: .init(
+            maximumConfigurations: budget.generalizedMaximumConfigurations,
+            maximumSteps: budget.generalizedMaximumSteps,
+            maximumTrees: 8,
+            maximumForestNodes: budget.generalizedMaximumForestNodes,
+            maximumPackedFamilies: budget.generalizedMaximumPackedFamilies
+        )
+    )
+    #expect(result.sharedForest.derivationCount(upTo: 1_000) == 132)
+    #expect(result.sharedForest.nodes.count <= budget.generalizedScalabilityMaximumNodes)
+    #expect(result.sharedForest.packedFamilyCount <= budget.generalizedScalabilityMaximumFamilies)
+    #expect(!result.reachedLimits.contains(.configurations))
+    #expect(!result.reachedLimits.contains(.steps))
 }
 
 @Test func advancedParsingPlatformStaysWithinDeclaredReleaseBudgets() async throws {

@@ -332,7 +332,10 @@ public struct GrammarParsingPlatform: Sendable {
         deterministic: GrammarParseResult? = nil,
         decision: String
     ) -> GrammarPlatformParseResult {
-        let selected = select(result.forest.alternatives, policy: request.options.ambiguitySelection)
+        let selected = select(
+            result.forest.alternatives, isAmbiguous: result.isAmbiguous,
+            policy: request.options.ambiguitySelection
+        )
         let status: GrammarPlatformParseStatus = switch result.status {
         case .accepted: .accepted
         case .ambiguous: .ambiguous
@@ -378,9 +381,10 @@ public struct GrammarParsingPlatform: Sendable {
 
     private func select(
         _ alternatives: [GrammarGeneralizedAlternative],
+        isAmbiguous: Bool,
         policy: GrammarAmbiguitySelection
     ) -> GrammarGeneralizedAlternative? {
-        guard alternatives.count > 1 else { return alternatives.first }
+        guard isAmbiguous else { return alternatives.first }
         switch policy {
         case .requireUnique: return nil
         case .firstStable: return alternatives.min { $0.id < $1.id }

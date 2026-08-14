@@ -18,6 +18,8 @@ Older parse-result JSON without `syntaxTree` remains decodable. Consumers should
 
 `grammar-workbench generalized-parse` is the supported spelling of the generalized parser command. `research-parse` remains as a compatibility alias. Existing `parseGeneralized` calls remain source-compatible; results now also expose a structured `forest`, stable alternative IDs, exact `reachedLimits`, rejection `syntaxDiagnostics`, and expanded action metrics. Use `parseGeneralizedCancellable` in task-based integrations that need cooperative cancellation.
 
+Generalized results now also expose `sharedForest`. Existing `forest` alternatives and semantic-evaluation APIs remain source-compatible, but concrete alternatives are bounded views materialized from the SPPF. Consumers that need ambiguity counts or compact structural inspection should use `sharedForest.derivationCount(upTo:)`, `nodes`, and packed `families`. Older result JSON without `sharedForest` decodes with an empty shared forest; the concrete alternatives remain available.
+
 Existing deterministic and generalized entry points remain supported. Applications that previously selected between them manually may adopt `GrammarParsingPlatform` with `.adaptive` mode. The platform preserves an escalated deterministic conflict result and never treats a policy-selected ambiguous tree as uniquely accepted. `GrammarCompilation.evaluate(_:using:)` is now public for callers that maintain their own forest-selection policy.
 
 ## Generated parsers

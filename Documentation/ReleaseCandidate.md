@@ -13,6 +13,7 @@ The release-candidate gate verifies the product from four perspectives:
 9. Guided grammar engineering must remain a stable public capability, prioritize blocking diagnostics and unresolved decisions, and validate source cleanup against samples and tests before application.
 10. Grammar transformation plans must explain every edit, reject stale source, stay within declared corpus-generation bounds, and preserve membership for the release corpus and recorded tests.
 11. The bootstrap laboratory must reach a canonical fixed point within the packaged generation budget and agree with the trusted handwritten BNF reader on the packaged differential corpus. It remains a laboratory and must not silently replace the trusted reader.
+12. A Catalan-ambiguous grammar must retain all represented derivations in a shared-packed forest while staying within declared node and family budgets, independently of concrete-tree enumeration limits.
 
 Run the normal gate:
 

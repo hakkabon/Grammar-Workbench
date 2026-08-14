@@ -10,7 +10,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - `GrammarGenerator`, its registry, built-in generators, standalone Swift generation, and the SwiftPM plugin.
 - `GrammarWorkbenchLSP`, the stdio server, document synchronization, diagnostics, grammar completion/definition/quick fixes, and source completion/hover/outline services.
 - SLR(1), LALR(1), canonical LR(1), lexer modes, EBNF input and production-origin mapping, algorithm comparison, and artifact diffs.
-- Bounded generalized LR parsing, stable alternative identities, per-alternative semantic evaluation, structured rejection and limit diagnostics, search strategies, and cooperative cancellation.
+- Bounded generalized LR parsing with shared-packed forests, stable node and alternative identities, saturating derivation counts, independent exploration/forest/materialization limits, per-alternative semantic evaluation, structured rejection diagnostics, search strategies, and cooperative cancellation.
 - Deterministic/generalized/adaptive platform requests, common result envelopes, reproducible ambiguity selection, semantic evaluation, and bounded ordered batches.
 - UI-neutral grammar-health reports, prioritized guided actions, task destinations, and validated cleanup previews.
 - Structural grammar reports, explainable source-fingerprinted cleanup plans, bounded corpus generation, generalized membership comparison, and project transformation previews.

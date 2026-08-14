@@ -271,6 +271,10 @@ struct GrammarWorkbenchCLI {
                     options.generalized.maximumSteps = value
                 } else if let value = positiveOption(flag, name: "maximum-trees") {
                     options.generalized.maximumTrees = value
+                } else if let value = positiveOption(flag, name: "maximum-forest-nodes") {
+                    options.generalized.maximumForestNodes = value
+                } else if let value = positiveOption(flag, name: "maximum-packed-families") {
+                    options.generalized.maximumPackedFamilies = value
                 } else {
                     throw CLIError.usage("unknown platform parse option ‘\(flag)’")
                 }
@@ -380,6 +384,10 @@ struct GrammarWorkbenchCLI {
                         options.maximumSteps = value
                     } else if let value = positiveOption(flag, name: "maximum-trees") {
                         options.maximumTrees = value
+                    } else if let value = positiveOption(flag, name: "maximum-forest-nodes") {
+                        options.maximumForestNodes = value
+                    } else if let value = positiveOption(flag, name: "maximum-packed-families") {
+                        options.maximumPackedFamilies = value
                     } else {
                         throw CLIError.usage("unknown generalized parse option ‘\(flag)’")
                     }
@@ -469,7 +477,8 @@ struct GrammarWorkbenchCLI {
 
     ALGORITHM is one of SLR(1), LALR(1), or Canonical LR(1).
     Generalized OPTIONS: --include-resolved, --breadth-first,
-      --maximum-configurations=N, --maximum-steps=N, --maximum-trees=N.
+      --maximum-configurations=N, --maximum-steps=N, --maximum-trees=N,
+      --maximum-forest-nodes=N, --maximum-packed-families=N.
     Platform OPTIONS: --mode=adaptive|deterministic|generalized,
       --ambiguity=requireUnique|firstStable|shallowest|deepest, --strict,
       plus all generalized options.

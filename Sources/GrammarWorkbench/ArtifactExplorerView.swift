@@ -1035,7 +1035,7 @@ public struct ArtifactExplorerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("Generalized LR exploration").font(.title2.bold())
-                Text("Forks unresolved ACTION candidates and preserves distinct accepted trees. Limits keep this experimental analysis separate from production parsing.")
+                Text("Merges equivalent parser configurations into a shared-packed forest, then materializes only the requested concrete alternatives. Explicit limits bound exploration and forest growth.")
                     .foregroundStyle(.secondary)
                 Toggle("Explore alternatives suppressed by precedence and associativity", isOn: $exploresResolvedConflicts)
                 HStack {
@@ -1062,6 +1062,10 @@ public struct ArtifactExplorerView: View {
                         GridRow { Text("Duplicate configurations"); Text("\(result.metrics.duplicateConfigurations)") }
                         GridRow { Text("Discarded configurations"); Text("\(result.metrics.discardedConfigurations)") }
                         GridRow { Text("Shift / reduce actions"); Text("\(result.metrics.shiftActions) / \(result.metrics.reductionActions)") }
+                        GridRow { Text("Shared forest nodes"); Text("\(result.sharedForest.nodes.count)") }
+                        GridRow { Text("Packed families"); Text("\(result.sharedForest.packedFamilyCount)") }
+                        GridRow { Text("Ambiguous nodes"); Text("\(result.sharedForest.ambiguousNodeCount)") }
+                        GridRow { Text("Represented derivations"); Text("\(result.sharedForest.derivationCount(upTo: 1_000_000))\(result.sharedForest.derivationCount(upTo: 1_000_001) > 1_000_000 ? "+" : "")") }
                         GridRow { Text("Furthest token"); Text("\(result.metrics.furthestTokenIndex)") }
                     }
                     .font(.caption.monospacedDigit())

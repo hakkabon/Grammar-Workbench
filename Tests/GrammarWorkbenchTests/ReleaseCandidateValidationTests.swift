@@ -37,6 +37,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let integratedProjectNavigatorItems: Int
         let statefulToolingMaximumSessions: Int
         let statefulToolingMaximumDocumentsPerSession: Int
+        let semanticLanguageKitMaximumProductions: Int
+        let semanticLanguageKitMaximumRules: Int
+        let semanticLanguageKitMaximumTests: Int
     }
 
     let schemaVersion: Int
@@ -45,6 +48,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredConsumerFixtures: [String]
     let requiredProducts: [String]
     let requiredProjectManifests: [String]
+    let requiredSemanticLanguageKits: [String]
     let budgets: Budgets
 }
 
@@ -81,6 +85,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.languageToolingSDKAndPortability == .stable)
     #expect(GrammarWorkbenchCapabilities.integratedLanguageProjectExperience == .stable)
     #expect(GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost == .stable)
+    #expect(GrammarWorkbenchCapabilities.semanticLanguageKits == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -97,6 +102,23 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         #expect(try GrammarProjectCodec.decode(data).kind == GrammarProjectManifest.kindIdentifier)
     }
+    for path in policy.requiredSemanticLanguageKits {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        let kit = try GrammarSemanticLanguageKitCodec.decode(data, requirePassingTests: true)
+        #expect(kit.manifest.kind == GrammarSemanticLanguageKitManifest.kindIdentifier)
+    }
+}
+
+@Test func semanticLanguageKitStaysWithinReleaseBudgets() throws {
+    let policy = try releaseCandidatePolicy()
+    let data = try Data(contentsOf: packageRoot().appendingPathComponent(
+        try #require(policy.requiredSemanticLanguageKits.first)
+    ))
+    let kit = try GrammarSemanticLanguageKitCodec.decode(data, requirePassingTests: true)
+    #expect(kit.semanticModel.productions.count <= policy.budgets.semanticLanguageKitMaximumProductions)
+    #expect(kit.manifest.semantics.rules.count <= policy.budgets.semanticLanguageKitMaximumRules)
+    #expect(kit.manifest.tests.count <= policy.budgets.semanticLanguageKitMaximumTests)
+    #expect(kit.isConformant)
 }
 
 @Test func semanticWorkspaceServicesStayWithinReleaseBudgets() async throws {

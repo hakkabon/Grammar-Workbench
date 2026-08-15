@@ -1,5 +1,9 @@
 # Compatibility and migration
 
+## Semantic language kits
+
+Existing project manifests and separate semantic-schema files remain valid. Adopt a kit when the same grammar and semantic policy must be shared by more than one project or tool. The kit format is additive: create a `GrammarSemanticLanguageKitManifest`, move the existing grammar and schema into it, add a namespaced identifier, version, file extensions, and conformance tests, then run `grammar-workbench kit-validate`. Production identities in semantic selectors are checked during kit compilation.
+
 ## Project documents
 
 Schema-1 projects remain readable. They default to workbench grammar notation and an empty test suite where those fields were absent. New exports use schema 2.

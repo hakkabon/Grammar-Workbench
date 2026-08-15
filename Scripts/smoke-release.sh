@@ -33,6 +33,8 @@ done
 "$CLI_PATH" validate "$WORK_DIR/cleaned.grammar" >/dev/null
 "$CLI_PATH" project-check "$ROOT_DIR/Examples/ExpressionProject.json"
 "$CLI_PATH" project-generate "$ROOT_DIR/Examples/ExpressionProject.json" "$WORK_DIR/project-output"
+"$CLI_PATH" kit-validate "$ROOT_DIR/Examples/TinySemanticLanguageKit.json"
+"$CLI_PATH" kit-project "$ROOT_DIR/Examples/TinySemanticLanguageKit.json" "$WORK_DIR/kit-project.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -46,6 +48,7 @@ test -s "$WORK_DIR/platform.json"
 test -s "$WORK_DIR/analysis.json"
 test -s "$WORK_DIR/cleaned.grammar"
 test -s "$WORK_DIR/project-output/Generated/Grammar.semantic.json"
+test -s "$WORK_DIR/kit-project.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

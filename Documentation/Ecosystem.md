@@ -1,5 +1,7 @@
 # Ecosystem expansion
 
+Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
+
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 
 ## SwiftPM products

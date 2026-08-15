@@ -163,6 +163,27 @@ struct GrammarWorkbenchCLI {
                 to: URL(fileURLWithPath: arguments[6]), options: .atomic
             )
             print("Wrote \(arguments[6]): renamed \(plan.affectedOccurrences) occurrence(s) in \(plan.documents.count) document(s)")
+        case "kit-validate":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("kit-validate requires KIT")
+            }
+            let kit = try GrammarSemanticLanguageKitCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+                requirePassingTests: true
+            )
+            print("Valid semantic language kit \(kit.manifest.identifier)@\(kit.manifest.version): \(kit.semanticModel.productions.count) productions, \(kit.manifest.semantics.rules.count) semantic rules, \(kit.conformance.passed) tests passed")
+        case "kit-project":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("kit-project requires KIT OUTPUT_PROJECT")
+            }
+            let kit = try GrammarSemanticLanguageKitCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+                requirePassingTests: true
+            )
+            try GrammarProjectCodec.encode(kit.project()).write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]) from \(kit.manifest.identifier)@\(kit.manifest.version)")
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -523,6 +544,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench project-generate PROJECT OUTPUT_ROOT
       grammar-workbench project-semantic PROJECT SCHEMA [OUTPUT]
       grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT
+      grammar-workbench kit-validate KIT
+      grammar-workbench kit-project KIT OUTPUT_PROJECT
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]

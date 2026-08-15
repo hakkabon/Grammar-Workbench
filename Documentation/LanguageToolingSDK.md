@@ -64,3 +64,5 @@ validation requires both the product and fixture.
 For retained incremental documents, concurrent requests, lifecycle events, and
 the persistent JSON-lines host, see
 [StatefulToolingProtocol.md](StatefulToolingProtocol.md).
+
+`languageKitValidate` compiles and conformance-tests a portable semantic language kit. `languageKitAnalyze` applies that kit to the sources carried by a project envelope and returns the project summary, semantic workspace, and validated kit identity together. Stateful clients may use the same `languageKit` payload in `sessionOpen` instead of supplying a standalone compilation request.

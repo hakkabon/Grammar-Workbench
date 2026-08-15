@@ -59,6 +59,7 @@ public struct GrammarToolingSessionSnapshot: Hashable, Codable, Sendable {
     public let grammarRevision: Int
     public let documents: [GrammarToolingSessionDocument]
     public let nextEventSequence: Int
+    public let languageKitIdentifier: String?
 }
 
 public struct GrammarStatefulToolingLimits: Hashable, Codable, Sendable {
@@ -87,13 +88,16 @@ private actor GrammarToolingSessionState {
     private var operationIsActive = false
     private var operationWaiters: [CheckedContinuation<Void, Never>] = []
     private let limits: GrammarStatefulToolingLimits
+    private var languageKitIdentifier: String?
 
     init(
-        id: String, compilation: GrammarCompilation, limits: GrammarStatefulToolingLimits
+        id: String, compilation: GrammarCompilation, limits: GrammarStatefulToolingLimits,
+        languageKitIdentifier: String? = nil
     ) throws {
         self.id = id
         self.compilation = compilation
         self.limits = limits
+        self.languageKitIdentifier = languageKitIdentifier
         coordinator = try GrammarIncrementalAnalysisCoordinator(compilation: compilation)
     }
 
@@ -176,6 +180,7 @@ private actor GrammarToolingSessionState {
         defer { releaseOperation() }
         let refreshed = try await coordinator.updateCompilation(replacement)
         compilation = replacement
+        languageKitIdentifier = nil
         grammarRevision += 1
         documents = Dictionary(uniqueKeysWithValues: refreshed.map { ($0.documentID, $0) })
         let notification = event(
@@ -197,7 +202,8 @@ private actor GrammarToolingSessionState {
             id: id, apiVersion: GrammarWorkbenchAPIVersion.current,
             grammar: compilation.request, grammarRevision: grammarRevision,
             documents: documents.values.map(GrammarToolingSessionDocument.init).sorted { $0.id < $1.id },
-            nextEventSequence: eventSequence
+            nextEventSequence: eventSequence,
+            languageKitIdentifier: languageKitIdentifier
         )
     }
 
@@ -249,7 +255,17 @@ public actor GrammarStatefulLanguageToolingService {
             case .capabilities:
                 return .init(requestID: request.requestID, capabilities: .current)
             case .sessionOpen:
-                let compilation = GrammarWorkbenchAPI.compile(try required(request.compilation, "compilation"))
+                let kit = try request.languageKit.map {
+                    try GrammarSemanticLanguageKit.compile($0)
+                }
+                let compilation: GrammarCompilation
+                if let kit {
+                    compilation = kit.compilation
+                } else {
+                    compilation = GrammarWorkbenchAPI.compile(
+                        try required(request.compilation, "compilation or languageKit")
+                    )
+                }
                 guard compilation.succeeded else {
                     return failure(
                         request, "compilation-failed",
@@ -262,7 +278,8 @@ public actor GrammarStatefulLanguageToolingService {
                     throw StatefulToolingError.resourceLimit("The tooling session limit was reached.")
                 }
                 let state = try GrammarToolingSessionState(
-                    id: id, compilation: compilation, limits: limits
+                    id: id, compilation: compilation, limits: limits,
+                    languageKitIdentifier: kit?.manifest.identifier
                 )
                 sessions[id] = state
                 let (session, event) = await state.opened()

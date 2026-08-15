@@ -13,6 +13,8 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case generalizedParse
     case projectAnalyze
     case semanticWorkspace
+    case languageKitValidate
+    case languageKitAnalyze
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -40,6 +42,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "generalizedParsing": GrammarWorkbenchCapabilities.generalizedParsing,
             "projectInfrastructure": GrammarWorkbenchCapabilities.projectInfrastructure,
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
+            "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -48,13 +51,17 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
     public static let stateless = Self(
         sdkSchemaVersions: [GrammarToolingSchema.current],
         grammarWorkbenchAPIVersion: GrammarWorkbenchAPIVersion.current,
-        operations: [.capabilities, .compile, .parse, .generalizedParse, .projectAnalyze, .semanticWorkspace],
+        operations: [
+            .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
+            .semanticWorkspace, .languageKitValidate, .languageKitAnalyze
+        ],
         transports: ["in-process", "json"],
         features: [
             "deterministicParsing": GrammarWorkbenchCapabilities.deterministicParsing,
             "generalizedParsing": GrammarWorkbenchCapabilities.generalizedParsing,
             "projectInfrastructure": GrammarWorkbenchCapabilities.projectInfrastructure,
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
+            "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )
@@ -73,6 +80,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var generalizedOptions: GrammarGeneralizedParseOptions?
     public var project: GrammarProjectManifest?
     public var semanticSchema: GrammarSemanticWorkspaceSchema?
+    public var languageKit: GrammarSemanticLanguageKitManifest?
     public var sessionID: String?
     public var documentID: String?
     public var revision: Int?
@@ -88,6 +96,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         generalizedOptions: GrammarGeneralizedParseOptions? = nil,
         project: GrammarProjectManifest? = nil,
         semanticSchema: GrammarSemanticWorkspaceSchema? = nil,
+        languageKit: GrammarSemanticLanguageKitManifest? = nil,
         sessionID: String? = nil,
         documentID: String? = nil,
         revision: Int? = nil,
@@ -106,6 +115,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.generalizedOptions = generalizedOptions
         self.project = project
         self.semanticSchema = semanticSchema
+        self.languageKit = languageKit
         self.sessionID = sessionID
         self.documentID = documentID
         self.revision = revision
@@ -157,6 +167,17 @@ public struct GrammarToolingProjectResult: Hashable, Codable, Sendable {
     public let failedTests: Int
 }
 
+public struct GrammarToolingLanguageKitResult: Hashable, Codable, Sendable {
+    public let identifier: String
+    public let name: String
+    public let version: String
+    public let fileExtensions: [String]
+    public let semanticModel: GrammarSemanticModel
+    public let passedTests: Int
+    public let failedTests: Int
+    public let isConformant: Bool
+}
+
 /// A uniform response envelope. Exactly one operation result is normally set.
 public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let schemaVersion: Int
@@ -170,6 +191,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let generalizedParse: GrammarGeneralizedParseResult?
     public let project: GrammarToolingProjectResult?
     public let semanticWorkspace: GrammarSemanticWorkspaceSnapshot?
+    public let languageKit: GrammarToolingLanguageKitResult?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -184,6 +206,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         generalizedParse: GrammarGeneralizedParseResult? = nil,
         project: GrammarToolingProjectResult? = nil,
         semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil,
+        languageKit: GrammarToolingLanguageKitResult? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil
@@ -199,6 +222,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.generalizedParse = generalizedParse
         self.project = project
         self.semanticWorkspace = semanticWorkspace
+        self.languageKit = languageKit
         self.session = session
         self.document = document
         self.events = events
@@ -252,6 +276,32 @@ public struct GrammarLanguageToolingService: Sendable {
                     )
                 }
                 return .init(requestID: request.requestID, project: project)
+            case .languageKitValidate, .languageKitAnalyze:
+                let kit = try GrammarSemanticLanguageKit.compile(
+                    try required(request.languageKit, "languageKit")
+                )
+                let kitResult = GrammarToolingLanguageKitResult(
+                    identifier: kit.manifest.identifier, name: kit.manifest.name,
+                    version: kit.manifest.version,
+                    fileExtensions: kit.manifest.fileExtensions,
+                    semanticModel: kit.semanticModel,
+                    passedTests: kit.conformance.passed,
+                    failedTests: kit.conformance.failed,
+                    isConformant: kit.isConformant
+                )
+                guard request.operation == .languageKitAnalyze else {
+                    return .init(requestID: request.requestID, languageKit: kitResult)
+                }
+                let suppliedProject = try required(request.project, "project")
+                let analysis = try await kit.analyze(
+                    name: suppliedProject.name, sources: suppliedProject.sources
+                )
+                return .init(
+                    requestID: request.requestID,
+                    project: projectSnapshot(analysis.project),
+                    semanticWorkspace: analysis.semantics,
+                    languageKit: kitResult
+                )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
                  .documentOpen, .documentChange, .documentClose, .cancel:
                 return failure(

@@ -18,6 +18,9 @@
     "Examples/ExpressionProject.json",
     "Examples/SemanticWorkspaceProject.json"
   ],
+  "requiredSemanticLanguageKits": [
+    "Examples/TinySemanticLanguageKit.json"
+  ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,
@@ -49,6 +52,9 @@
     "integratedProjectMaximumProblems": 32,
     "integratedProjectNavigatorItems": 5,
     "statefulToolingMaximumSessions": 4,
-    "statefulToolingMaximumDocumentsPerSession": 16
+    "statefulToolingMaximumDocumentsPerSession": 16,
+    "semanticLanguageKitMaximumProductions": 16,
+    "semanticLanguageKitMaximumRules": 8,
+    "semanticLanguageKitMaximumTests": 8
   }
 }

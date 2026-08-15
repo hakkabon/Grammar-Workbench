@@ -10,6 +10,28 @@ private let expressionGrammar = """
 E : E '+' ID | ID ;
 """
 
+private func sdkLanguageKit() -> GrammarSemanticLanguageKitManifest {
+    let grammar = #"""
+    %token LET /let\b/
+    %token USE /use\b/
+    %token ID /[A-Za-z_][A-Za-z0-9_]*/
+    %token SEMI /;/
+    %skip /\s+/
+    %start Program
+    Program : Program Statement | Statement ;
+    Statement : LET ID SEMI | USE ID SEMI ;
+    """#
+    return .init(
+        identifier: "org.example.sdk-kit", name: "SDK Kit", version: "1.0.0",
+        fileExtensions: ["sdk"], grammar: .init(source: grammar),
+        semantics: .init(rules: [
+            .init(tokenKind: "ID", enclosingProduction: 3, kind: "variable", role: .definition),
+            .init(tokenKind: "ID", enclosingProduction: 4, kind: "variable", role: .reference)
+        ]),
+        tests: [.init(name: "declaration", input: "let alpha;", expectation: .accept)]
+    )
+}
+
 private struct StatefulReleasePolicy: Decodable {
     struct Budgets: Decodable {
         let statefulToolingMaximumSessions: Int
@@ -246,4 +268,41 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.status == .success)
     #expect(response.project?.succeeded == true)
     #expect(response.project?.documents.first?.parseStatus == .accepted)
+}
+
+@Test func toolingValidatesAndAnalyzesSemanticLanguageKits() async {
+    let service = GrammarLanguageToolingService()
+    let validated = await service.handle(.init(
+        requestID: "kit-validate", operation: .languageKitValidate,
+        languageKit: sdkLanguageKit()
+    ))
+    #expect(validated.status == .success)
+    #expect(validated.languageKit?.identifier == "org.example.sdk-kit")
+    #expect(validated.languageKit?.passedTests == 1)
+
+    let project = GrammarProjectManifest(
+        name: "SDK project", grammar: .init(source: "%start S\nS : 'unused' ;"),
+        sources: [
+            .init(id: "definition", path: "Definition.sdk", text: "let alpha;", revision: 1),
+            .init(id: "use", path: "Use.sdk", text: "use alpha;", revision: 1)
+        ]
+    )
+    let analyzed = await service.handle(.init(
+        requestID: "kit-analyze", operation: .languageKitAnalyze,
+        project: project, languageKit: sdkLanguageKit()
+    ))
+    #expect(analyzed.status == .success)
+    #expect(analyzed.project?.succeeded == true)
+    #expect(analyzed.semanticWorkspace?.workspaceSymbols().map(\.name) == ["alpha"])
+}
+
+@Test func statefulSessionCanOpenFromSemanticLanguageKit() async {
+    let service = GrammarStatefulLanguageToolingService()
+    let response = await service.handle(.init(
+        requestID: "kit-session", operation: .sessionOpen,
+        languageKit: sdkLanguageKit(), sessionID: "kit-session"
+    ))
+    #expect(response.status == .success)
+    #expect(response.session?.languageKitIdentifier == "org.example.sdk-kit")
+    #expect(response.compilation?.succeeded == true)
 }

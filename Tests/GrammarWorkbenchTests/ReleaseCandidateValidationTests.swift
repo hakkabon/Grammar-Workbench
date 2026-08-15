@@ -33,6 +33,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let bootstrapMinimumCorpusCases: Int
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
+        let integratedProjectMaximumProblems: Int
+        let integratedProjectNavigatorItems: Int
     }
 
     let schemaVersion: Int
@@ -75,6 +77,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.sharedForestsAndScalableGeneralizedParsing == .stable)
     #expect(GrammarWorkbenchCapabilities.semanticWorkspaceServices == .stable)
     #expect(GrammarWorkbenchCapabilities.languageToolingSDKAndPortability == .stable)
+    #expect(GrammarWorkbenchCapabilities.integratedLanguageProjectExperience == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -125,6 +128,9 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(services.occurrences.count <= budget.semanticWorkspaceMaximumOccurrences)
     #expect(services.dependencies.count <= budget.semanticWorkspaceMaximumDependencies)
     #expect(services.workspaceSymbols().count == 1)
+    let experience = GrammarProjectExperience.snapshot(analysis: analysis, semantics: services)
+    #expect(experience.problems.count <= budget.integratedProjectMaximumProblems)
+    #expect(experience.navigator.count == budget.integratedProjectNavigatorItems)
 }
 
 @Test func bootstrapLaboratoryRemainsBoundedAndDifferentiallyValidated() throws {

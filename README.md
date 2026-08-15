@@ -4,6 +4,12 @@ A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 
 The app opens in a guided grammar-engineering workspace: it summarizes grammar health, identifies one recommended next step, and organizes validation, examples, ambiguity, tests, algorithm choice, and generation around ordinary development tasks. Parser automata, tables, replay, and generalized analysis remain available through **Expert tools**. Safe cleanup previews recompile proposed edits and protect recorded samples and tests before Apply is enabled. See [Documentation/GuidedGrammarEngineering.md](Documentation/GuidedGrammarEngineering.md).
 
+The **Project** workspace unifies grammar, examples or source documents, tests,
+semantics, generation, problems, and background work behind one task-oriented
+navigator. Dedicated Semantics and Generate views use the same stable project
+experience snapshot available to other hosts. See
+[Documentation/IntegratedLanguageProjectExperience.md](Documentation/IntegratedLanguageProjectExperience.md).
+
 The grammar analysis and transformation library publishes reachability, productivity, nullability, dependency components, left recursion, duplicate productions, terminal usage, and FIRST/FOLLOW as immutable reports. Explainable cleanup plans are protected by source fingerprints, artifact diffs, saved tests, and bounded generalized language-membership comparison. The same facilities are available through project workspaces and the `grammar-analyze` and `grammar-transform` CLI commands. See [Documentation/GrammarAnalysisAndTransformation.md](Documentation/GrammarAnalysisAndTransformation.md).
 
 The expert **Bootstrap** laboratory performs a bounded self-hosting experiment for a documented BNF profile. It regenerates and recompiles the meta-grammar until the canonical grammar, generated source, and parser artifact reach a fixed point, then differentially compares a corpus with the existing handwritten `Grammar` reader. The trusted reader is not replaced. Run the same release-gated experiment with `grammar-workbench bootstrap [report.json]`; see [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
@@ -149,7 +155,7 @@ Dependency-free clients are included for VS Code and Neovim under `Clients/`, wi
 
 `Scripts/smoke-release.sh CLI_PATH` validates every corpus grammar through the packaged CLI, exports comparison and artifact JSON, invokes the generic Swift and BNF generators, and asks `swiftc` to parse the generated Swift source. Release packaging runs this smoke test automatically and emits `SHA256SUMS` beside the application and CLI archives. Pull requests and pushes to the primary development branches run the full suite, a release CLI build, corpus smoke tests, and metadata validation.
 
-The release-candidate gate adds two external SwiftPM consumers: one exercises only the stable public library and semantic APIs, while the other consumes generated code through `GrammarWorkbenchPlugin`. Performance, artifact-size, GUI containment, API-maturity, and fixture requirements are declared in `Packaging/ReleaseCandidate.json` and enforced by tests. Run `Scripts/validate-release-candidate.sh`; add `--package` to assemble and validate host-architecture application and CLI archives. See `Documentation/ReleaseCandidate.md`, `Documentation/API-Stability.md`, and `Documentation/Migration.md` for release policy and compatibility guidance.
+The release-candidate gate includes external SwiftPM consumers for the stable library, LSP, build plugin, and language-tooling SDK products. Performance, artifact-size, GUI containment, API-maturity, and fixture requirements are declared in `Packaging/ReleaseCandidate.json` and enforced by tests. Run `Scripts/validate-release-candidate.sh`; add `--package` to assemble and validate host-architecture application and CLI archives. See `Documentation/ReleaseCandidate.md`, `Documentation/API-Stability.md`, and `Documentation/Migration.md` for release policy and compatibility guidance.
 
 ## Production packaging
 

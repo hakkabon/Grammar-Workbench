@@ -44,6 +44,8 @@
     "bootstrapMaximumGenerations": 4,
     "bootstrapMinimumCorpusCases": 4,
     "semanticWorkspaceMaximumOccurrences": 16,
-    "semanticWorkspaceMaximumDependencies": 8
+    "semanticWorkspaceMaximumDependencies": 8,
+    "integratedProjectMaximumProblems": 32,
+    "integratedProjectNavigatorItems": 5
   }
 }

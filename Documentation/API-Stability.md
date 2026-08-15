@@ -18,6 +18,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Versioned UTF-16 text snapshots, incremental edits, checkpoint-based relexing and deterministic reparsing, typed incremental semantic evaluation, source-aware semantic indexes, multi-document language sessions, the shared analysis coordinator, stable token/subtree identities, grammar replacement, and reuse/fallback metrics.
 - Versioned project manifests, project workspaces, aggregate semantic indexes, batch-test orchestration, and configured generator targets.
 - `GrammarWorkbenchSDK` envelopes, capability negotiation, codecs, async client/service APIs, and transport protocol.
+- Integrated project navigator, problem, operation, and snapshot contracts for native documents and multi-document analyses.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

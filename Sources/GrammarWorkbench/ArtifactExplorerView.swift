@@ -9,6 +9,7 @@ public struct ArtifactExplorerView: View {
     @State private var exploresResolvedConflicts = false
     @State private var showsExpertTools = false
     @State private var transformationPreview: GrammarGuidedTransformationPreview?
+    @State private var problemScope = ProblemScope.all
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -30,13 +31,32 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case guide = "Guide", analysis = "Analysis", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", tests = "Tests"
+        case guide = "Guide", project = "Project", analysis = "Analysis", semantics = "Semantics", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", tests = "Tests", generation = "Generate"
         var id: Self { self }
 
         var isExpert: Bool {
             switch self {
             case .automaton, .table, .bootstrap, .research: true
             default: false
+            }
+        }
+    }
+
+    enum ProblemScope: String, CaseIterable, Identifiable {
+        case all = "All"
+        case grammar = "Grammar"
+        case sources = "Sources"
+        case tests = "Tests"
+        case semantics = "Semantics"
+        var id: Self { self }
+
+        func includes(_ problem: GrammarProjectExperienceProblem) -> Bool {
+            switch self {
+            case .all: true
+            case .grammar: problem.area == .grammar
+            case .sources: problem.area == .sources
+            case .tests: problem.area == .tests
+            case .semantics: problem.area == .semantics
             }
         }
     }
@@ -191,7 +211,9 @@ public struct ArtifactExplorerView: View {
     @ViewBuilder private var selectedTab: some View {
         switch tab {
         case .guide: guidedView
+        case .project: projectView
         case .analysis: analysisView
+        case .semantics: semanticsView
         case .comparison: comparisonView
         case .automaton:
             AutomatonView(artifact: store.artifact, selection: store.selection) { store.select(.state($0)) }
@@ -201,7 +223,263 @@ public struct ArtifactExplorerView: View {
         case .bootstrap: bootstrapView
         case .research: researchView
         case .tests: testsView
+        case .generation: generationView
         }
+    }
+
+    private var projectView: some View {
+        let snapshot = store.projectExperience(
+            samples: document?.wrappedValue.samples ?? [
+                .init(name: "Current example", input: store.sampleInput)
+            ],
+            tests: document?.wrappedValue.tests ?? []
+        )
+        let visibleProblems = snapshot.problems.filter(problemScope.includes)
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(alignment: .top, spacing: 18) {
+                    Image(systemName: snapshot.errorCount == 0 ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                        .font(.largeTitle)
+                        .foregroundStyle(snapshot.errorCount == 0 ? .green : .orange)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(snapshot.name).font(.title2.bold())
+                        Text(snapshot.errorCount == 0
+                             ? "The language project is ready for testing and generation."
+                             : "Resolve the project problems below before generating a parser.")
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing) {
+                        Text("\(snapshot.healthScore)").font(.title.bold()).monospacedDigit()
+                        Text("Health").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
+                if !snapshot.operations.isEmpty {
+                    GroupBox("Background work") {
+                        VStack(alignment: .leading, spacing: 10) {
+                            ForEach(snapshot.operations) { operation in
+                                HStack(spacing: 10) {
+                                    ProgressView().controlSize(.small)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(operation.title).font(.subheadline.bold())
+                                        Text(operation.detail).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+
+                Text("Project navigator").font(.headline)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
+                    ForEach(snapshot.navigator) { item in
+                        Button { follow(item.destination) } label: {
+                            HStack(spacing: 12) {
+                                Image(systemName: projectIcon(item.area)).font(.title2).foregroundStyle(.tint)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(item.title).font(.headline)
+                                    Text(item.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                                }
+                                Spacer()
+                                Text("\(item.count)").font(.headline.monospacedDigit()).foregroundStyle(.secondary)
+                            }
+                            .padding().frame(maxWidth: .infinity, minHeight: 84, alignment: .leading)
+                            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+                        }.buttonStyle(.plain)
+                    }
+                }
+
+                HStack {
+                    Text("Problems").font(.headline)
+                    Text("\(snapshot.problems.count)").foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("Problem scope", selection: $problemScope) {
+                        ForEach(ProblemScope.allCases) { Text($0.rawValue).tag($0) }
+                    }.pickerStyle(.segmented).frame(maxWidth: 470)
+                }
+                if visibleProblems.isEmpty {
+                    ContentUnavailableView(
+                        "No problems in this category", systemImage: "checkmark.circle",
+                        description: Text("Grammar, examples, tests, and semantic services share this problem list.")
+                    )
+                    .frame(minHeight: 180)
+                } else {
+                    VStack(spacing: 0) {
+                        ForEach(visibleProblems) { problem in
+                            Button { follow(problem) } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: problemIcon(problem.severity))
+                                        .foregroundStyle(problemColor(problem.severity))
+                                    VStack(alignment: .leading, spacing: 3) {
+                                        Text(problem.title).font(.subheadline.bold())
+                                        Text(problem.detail).font(.caption).foregroundStyle(.secondary)
+                                        if let path = problem.path {
+                                            Text(path).font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                                        }
+                                    }
+                                    Spacer()
+                                    Text(problem.area.rawValue.capitalized).font(.caption).foregroundStyle(.secondary)
+                                    Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+                                }
+                                .padding(12).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            Divider()
+                        }
+                    }
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+                }
+            }
+            .padding(24).frame(maxWidth: 1050, alignment: .leading)
+        }
+    }
+
+    private func projectIcon(_ area: GrammarProjectExperienceArea) -> String {
+        switch area {
+        case .grammar: "text.book.closed"
+        case .sources: "doc.on.doc"
+        case .tests: "checklist"
+        case .semantics: "point.3.connected.trianglepath.dotted"
+        case .generation: "hammer"
+        }
+    }
+
+    private func problemIcon(_ severity: GrammarProjectExperienceSeverity) -> String {
+        switch severity {
+        case .error: "xmark.octagon.fill"
+        case .warning: "exclamationmark.triangle.fill"
+        case .information: "info.circle.fill"
+        }
+    }
+
+    private func problemColor(_ severity: GrammarProjectExperienceSeverity) -> Color {
+        switch severity { case .error: .red; case .warning: .orange; case .information: .blue }
+    }
+
+    private func follow(_ problem: GrammarProjectExperienceProblem) {
+        store.selectProjectProblem(problem)
+        follow(problem.destination)
+    }
+
+    private func follow(_ destination: GrammarProjectExperienceDestination) {
+        switch destination {
+        case .editor: break
+        case .guide: tab = .guide
+        case .analysis: tab = .analysis
+        case .semantics: tab = .semantics
+        case .generation: tab = .generation
+        case .decisions: tab = .decisions
+        case .sample: tab = .sample
+        case .tests: tab = .tests
+        }
+    }
+
+    private var semanticsView: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Semantic model", systemImage: "point.3.connected.trianglepath.dotted")
+                    .font(.title2.bold())
+                Text("Production identities connect syntax trees, generated semantic actions, and workspace services without coupling them to parser internals.")
+                    .foregroundStyle(.secondary)
+                if let model = try? GrammarSemanticModel(compilation: store.currentCompilationSnapshot) {
+                    HStack(spacing: 24) {
+                        semanticMetric("Productions", model.productions.count)
+                        semanticMetric("Nonterminals", model.nonterminals.count)
+                        semanticMetric("Terminals", model.terminals.count)
+                        semanticMetric("Indexed nodes", store.incrementalSampleAnalysis?.semanticIndex.entries.count ?? 0)
+                    }
+                    Divider()
+                    Text("Productions available to semantic actions").font(.headline)
+                    ForEach(model.productions) { production in
+                        Button("\(production.id): \(production.text)") {
+                            store.select(.production(.init(rawValue: production.id)))
+                        }
+                        .buttonStyle(.plain).font(.system(.body, design: .monospaced))
+                    }
+                    if let snapshot = store.incrementalSampleAnalysis {
+                        Divider()
+                        Text("Current example index").font(.headline)
+                        Text("Revision \(snapshot.text.revision) · \(snapshot.semanticIndex.entries.count) entries · \(snapshot.incrementalIndexing.reusedEntries) reused")
+                            .font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    HStack {
+                        Button("Export semantic model…", systemImage: "square.and.arrow.up") {
+                            exportSemanticModel()
+                        }
+                        Button("Generate semantic actions…", systemImage: "swift") {
+                            exportSemanticSwift()
+                        }
+                    }
+                } else {
+                    ContentUnavailableView(
+                        "Semantic model unavailable", systemImage: "exclamationmark.triangle",
+                        description: Text("Correct grammar errors before configuring semantics.")
+                    )
+                }
+            }.padding(24).frame(maxWidth: 1000, alignment: .leading)
+        }
+    }
+
+    private func semanticMetric(_ title: String, _ value: Int) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(value)").font(.title3.bold()).monospacedDigit()
+            Text(title).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var generationView: some View {
+        let unresolved = store.artifact.decisions.filter { $0.disposition == .unresolved }.count
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Label("Generate and share", systemImage: "hammer").font(.title2.bold())
+                Text("All generated outputs use the same validated grammar and stable public snapshots shown throughout the workbench.")
+                    .foregroundStyle(.secondary)
+                if store.frontEnd.hasErrors || unresolved > 0 {
+                    Label(
+                        store.frontEnd.hasErrors
+                            ? "Correct grammar errors before generation"
+                            : "Resolve \(unresolved) parser decision\(unresolved == 1 ? "" : "s") before generation",
+                        systemImage: "exclamationmark.triangle.fill"
+                    ).foregroundStyle(.orange).font(.headline)
+                } else {
+                    Label("Ready to generate", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green).font(.headline)
+                }
+                generationCard(
+                    "Standalone Swift parser", "Lexer, parser tables, recovery, syntax nodes, and no runtime Workbench dependency.",
+                    "swift", enabled: !store.frontEnd.hasErrors && unresolved == 0, action: exportSwiftParser
+                )
+                generationCard(
+                    "Semantic action starter", "Editable production-complete reducer scaffolding for a typed application model.",
+                    "point.3.connected.trianglepath.dotted", enabled: !store.frontEnd.hasErrors, action: exportSemanticSwift
+                )
+                generationCard(
+                    "Portable BNF", "Canonical BNF output for interchange, review, and bootstrap experiments.",
+                    "text.book.closed", enabled: !store.frontEnd.hasErrors, action: exportBNF
+                )
+                generationCard(
+                    "Artifact and HTML reports", "Versioned machine-readable snapshots or a standalone interactive engineering report.",
+                    "square.and.arrow.up", enabled: !store.frontEnd.hasErrors, action: exportHTML
+                )
+            }.padding(24).frame(maxWidth: 900, alignment: .leading)
+        }
+    }
+
+    private func generationCard(
+        _ title: String, _ description: String, _ icon: String,
+        enabled: Bool, action: @escaping () -> Void
+    ) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon).font(.title2).foregroundStyle(.tint).frame(width: 34)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline)
+                Text(description).font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button("Create…", action: action).disabled(!enabled)
+        }
+        .padding().background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var bootstrapView: some View {
@@ -1437,6 +1715,31 @@ public struct ArtifactExplorerView: View {
             exportMessage = "Exported semantic model to \(url.lastPathComponent)."
         } catch {
             exportMessage = "Could not export semantic model: \(error.localizedDescription)"
+        }
+    }
+
+    private func exportSemanticSwift() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.sourceCode]
+        panel.nameFieldStringValue = "GrammarSemantics.swift"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            guard let algorithm = GrammarAlgorithm(rawValue: store.algorithm.rawValue) else {
+                throw GrammarInterchangeError.invalidAlgorithm(store.algorithm.rawValue)
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: sourceBinding.wrappedValue, algorithm: algorithm, notation: store.notation
+            ))
+            let result = try SwiftSemanticActionsGrammarGenerator().generate(
+                from: compilation, options: .init()
+            )
+            guard let file = result.files.first else {
+                throw GrammarGeneratorRegistryError.emptyResult("semantic-swift")
+            }
+            try file.contents.write(to: url, options: .atomic)
+            exportMessage = "Generated semantic actions at \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not generate semantic actions: \(error.localizedDescription)"
         }
     }
 

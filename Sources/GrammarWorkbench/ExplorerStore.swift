@@ -26,6 +26,7 @@ final class ExplorerStore {
     private(set) var isRunningBootstrap = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
+    var currentCompilationSnapshot: GrammarCompilation { currentCompilation }
     var selectedBranch = 0
     var replayIndex = 0
 
@@ -37,6 +38,7 @@ final class ExplorerStore {
     @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
     @ObservationIgnored private var incrementalCoordinator: GrammarIncrementalAnalysisCoordinator?
     @ObservationIgnored private var currentCompilation: GrammarCompilation
+    @ObservationIgnored private var latestCompilation: GrammarCompilation
     @ObservationIgnored private var constructionRevision = 0
 
     init(
@@ -66,6 +68,7 @@ final class ExplorerStore {
         self.bootstrapReport = nil
         self.bootstrapError = nil
         self.currentCompilation = compilation
+        self.latestCompilation = compilation
         self.incrementalCoordinator = try? GrammarIncrementalAnalysisCoordinator(compilation: compilation)
         if let grammar = compilation.frontEndResult.grammar, !grammar.lexerRules.isEmpty {
             let lexed = GrammarLexerRuntime.lex(sampleInput, grammar: grammar)
@@ -99,19 +102,62 @@ final class ExplorerStore {
         sourceSelection = diagnostic.range
     }
 
+    func selectProjectProblem(_ problem: GrammarProjectExperienceProblem) {
+        if let range = problem.range { sourceSelection = range }
+    }
+
     func selectGuidance(_ finding: GrammarGuidanceFinding) {
         if let range = finding.sourceRange { sourceSelection = range }
     }
 
     func guidance(tests: [WorkbenchTestCase]) -> GrammarGuidanceReport {
         GrammarGuidanceEngine.assess(
-            currentCompilation, sampleInput: sampleInput,
+            latestCompilation, sampleInput: sampleInput,
             testReport: testReport, testCount: tests.count
         )
     }
 
+    func projectExperience(
+        samples: [WorkbenchSample], tests: [WorkbenchTestCase]
+    ) -> GrammarProjectExperienceSnapshot {
+        GrammarProjectExperience.snapshot(
+            name: documentName, compilation: latestCompilation,
+            samples: samples, tests: tests, testReport: testReport,
+            operations: activeOperations
+        )
+    }
+
+    var activeOperations: [GrammarProjectOperation] {
+        var values: [GrammarProjectOperation] = []
+        if isRegenerating {
+            values.append(.init(
+                kind: .compiling, title: "Compiling grammar",
+                detail: "Updating diagnostics and parser artifacts"
+            ))
+        }
+        if isComparingAlgorithms {
+            values.append(.init(
+                kind: .comparingAlgorithms, title: "Comparing algorithms",
+                detail: "Constructing SLR, LALR, and canonical LR artifacts"
+            ))
+        }
+        if isExploringGeneralizedParse {
+            values.append(.init(
+                kind: .exploringAmbiguity, title: "Exploring ambiguity",
+                detail: "Building a bounded shared parse forest"
+            ))
+        }
+        if isRunningBootstrap {
+            values.append(.init(
+                kind: .bootstrapping, title: "Running bootstrap laboratory",
+                detail: "Checking fixed-point and differential validation"
+            ))
+        }
+        return values
+    }
+
     func structuralAnalysis() -> GrammarStructuralAnalysis? {
-        try? GrammarEngineering.analyze(currentCompilation)
+        try? GrammarEngineering.analyze(latestCompilation)
     }
 
     func availableGuidedTransformations() -> [GrammarGuidedTransformation] {
@@ -121,7 +167,7 @@ final class ExplorerStore {
             (.removeUnproductiveProductionLines, .removeUnproductiveProductions)
         ]
         return mappings.compactMap { guided, kind in
-            (try? GrammarEngineering.plan(kind, for: currentCompilation).hasChanges) == true ? guided : nil
+            (try? GrammarEngineering.plan(kind, for: latestCompilation).hasChanges) == true ? guided : nil
         }
     }
 
@@ -163,6 +209,7 @@ final class ExplorerStore {
         sourceText = source
         frontEnd = compilation.frontEndResult
         currentCompilation = compilation
+        latestCompilation = compilation
         self.documentName = documentName
         if let compiledArtifact = compilation.compiledArtifact { artifact = compiledArtifact }
         constructionPerformance = compilation.performance
@@ -322,6 +369,7 @@ final class ExplorerStore {
             ))
             guard !Task.isCancelled, revision == self.constructionRevision else { return }
             self.frontEnd = compilation.frontEndResult
+            self.latestCompilation = compilation
             self.constructionPerformance = compilation.performance
             if let compiledArtifact = compilation.compiledArtifact {
                 self.currentCompilation = compilation

@@ -35,6 +35,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
         let integratedProjectNavigatorItems: Int
+        let statefulToolingMaximumSessions: Int
+        let statefulToolingMaximumDocumentsPerSession: Int
     }
 
     let schemaVersion: Int
@@ -78,6 +80,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.semanticWorkspaceServices == .stable)
     #expect(GrammarWorkbenchCapabilities.languageToolingSDKAndPortability == .stable)
     #expect(GrammarWorkbenchCapabilities.integratedLanguageProjectExperience == .stable)
+    #expect(GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

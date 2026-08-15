@@ -19,6 +19,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Versioned project manifests, project workspaces, aggregate semantic indexes, batch-test orchestration, and configured generator targets.
 - `GrammarWorkbenchSDK` envelopes, capability negotiation, codecs, async client/service APIs, and transport protocol.
 - Integrated project navigator, problem, operation, and snapshot contracts for native documents and multi-document analyses.
+- Stateful tooling sessions, incremental document operations, lifecycle events, request registry, and JSON-lines service-host contract.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

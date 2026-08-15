@@ -48,6 +48,13 @@ Successful deterministic parses now retain consumed-prefix checkpoints for subse
 
 Analysis snapshots now include `semanticIndex` and `incrementalIndexing`. Older encoded snapshots rebuild the index from their retained incremental syntax tree and receive compatibility metrics. Applications that repeatedly run a `GrammarSemanticReducer` can adopt `GrammarIncrementalSemanticEvaluator`; call its `updateCompilation` together with the language session's grammar replacement so production metadata and cache invalidation remain synchronized.
 
+## Stateful tooling service
+
+Schema-one stateless SDK requests continue to work unchanged. Stateful clients
+should negotiate `sessionOpen`, retain the returned session identifier, correlate
+responses by `requestID`, and treat event sequence numbers as session-local.
+JSON-lines responses may arrive out of request order.
+
 ## Grammar analysis and transformations
 
 Existing front-end diagnostics and `GrammarAnalysisSnapshot` remain source-compatible. Consumers that need hygiene, dependency cycles, left recursion, duplicate groups, or transformation planning may adopt `GrammarEngineering` incrementally. Transformation plans are source-fingerprinted and do not mutate a compilation or project workspace. Treat `GrammarBehaviorComparison.agreesOnCorpus` as bounded evidence, not a proof of global grammar equivalence.

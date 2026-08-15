@@ -13,6 +13,14 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case generalizedParse
     case projectAnalyze
     case semanticWorkspace
+    case sessionOpen
+    case sessionClose
+    case sessionStatus
+    case sessionReplaceGrammar
+    case documentOpen
+    case documentChange
+    case documentClose
+    case cancel
 }
 
 public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
@@ -26,6 +34,21 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         sdkSchemaVersions: [GrammarToolingSchema.current],
         grammarWorkbenchAPIVersion: GrammarWorkbenchAPIVersion.current,
         operations: GrammarToolingOperation.allCases,
+        transports: ["in-process", "json", "json-lines"],
+        features: [
+            "deterministicParsing": GrammarWorkbenchCapabilities.deterministicParsing,
+            "generalizedParsing": GrammarWorkbenchCapabilities.generalizedParsing,
+            "projectInfrastructure": GrammarWorkbenchCapabilities.projectInfrastructure,
+            "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
+            "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
+            "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
+        ]
+    )
+
+    public static let stateless = Self(
+        sdkSchemaVersions: [GrammarToolingSchema.current],
+        grammarWorkbenchAPIVersion: GrammarWorkbenchAPIVersion.current,
+        operations: [.capabilities, .compile, .parse, .generalizedParse, .projectAnalyze, .semanticWorkspace],
         transports: ["in-process", "json"],
         features: [
             "deterministicParsing": GrammarWorkbenchCapabilities.deterministicParsing,
@@ -50,6 +73,11 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var generalizedOptions: GrammarGeneralizedParseOptions?
     public var project: GrammarProjectManifest?
     public var semanticSchema: GrammarSemanticWorkspaceSchema?
+    public var sessionID: String?
+    public var documentID: String?
+    public var revision: Int?
+    public var edits: [GrammarTextEdit]?
+    public var targetRequestID: String?
 
     public init(
         requestID: String = UUID().uuidString,
@@ -60,6 +88,11 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         generalizedOptions: GrammarGeneralizedParseOptions? = nil,
         project: GrammarProjectManifest? = nil,
         semanticSchema: GrammarSemanticWorkspaceSchema? = nil,
+        sessionID: String? = nil,
+        documentID: String? = nil,
+        revision: Int? = nil,
+        edits: [GrammarTextEdit]? = nil,
+        targetRequestID: String? = nil,
         schemaVersion: Int = GrammarToolingSchema.current,
         apiVersion: Int = GrammarWorkbenchAPIVersion.current
     ) {
@@ -73,6 +106,11 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.generalizedOptions = generalizedOptions
         self.project = project
         self.semanticSchema = semanticSchema
+        self.sessionID = sessionID
+        self.documentID = documentID
+        self.revision = revision
+        self.edits = edits
+        self.targetRequestID = targetRequestID
     }
 }
 
@@ -132,8 +170,11 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let generalizedParse: GrammarGeneralizedParseResult?
     public let project: GrammarToolingProjectResult?
     public let semanticWorkspace: GrammarSemanticWorkspaceSnapshot?
+    public let session: GrammarToolingSessionSnapshot?
+    public let document: GrammarIncrementalAnalysisSnapshot?
+    public let events: [GrammarToolingEvent]?
 
-    fileprivate init(
+    public init(
         requestID: String,
         status: GrammarToolingResponseStatus = .success,
         error: GrammarToolingError? = nil,
@@ -142,7 +183,10 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         parse: GrammarParseResult? = nil,
         generalizedParse: GrammarGeneralizedParseResult? = nil,
         project: GrammarToolingProjectResult? = nil,
-        semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil
+        semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil,
+        session: GrammarToolingSessionSnapshot? = nil,
+        document: GrammarIncrementalAnalysisSnapshot? = nil,
+        events: [GrammarToolingEvent]? = nil
     ) {
         schemaVersion = GrammarToolingSchema.current
         self.requestID = requestID
@@ -155,6 +199,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.generalizedParse = generalizedParse
         self.project = project
         self.semanticWorkspace = semanticWorkspace
+        self.session = session
+        self.document = document
+        self.events = events
     }
 }
 
@@ -171,7 +218,7 @@ public struct GrammarLanguageToolingService: Sendable {
         do {
             switch request.operation {
             case .capabilities:
-                return .init(requestID: request.requestID, capabilities: .current)
+                return .init(requestID: request.requestID, capabilities: .stateless)
             case .compile:
                 let compilation = GrammarWorkbenchAPI.compile(try required(request.compilation, "compilation"))
                 return .init(requestID: request.requestID, compilation: snapshot(compilation))
@@ -205,6 +252,12 @@ public struct GrammarLanguageToolingService: Sendable {
                     )
                 }
                 return .init(requestID: request.requestID, project: project)
+            case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
+                 .documentOpen, .documentChange, .documentClose, .cancel:
+                return failure(
+                    request, code: "stateful-service-required",
+                    message: "This operation requires GrammarStatefulLanguageToolingService."
+                )
             }
         } catch {
             return failure(request, code: "invalid-request", message: error.localizedDescription)
@@ -255,6 +308,8 @@ public enum GrammarToolingCodec {
     public static func decodeRequest(_ data: Data) throws -> GrammarToolingRequest { try decoder().decode(GrammarToolingRequest.self, from: data) }
     public static func encode(_ response: GrammarToolingResponse) throws -> Data { try encoder().encode(response) }
     public static func decodeResponse(_ data: Data) throws -> GrammarToolingResponse { try decoder().decode(GrammarToolingResponse.self, from: data) }
+    public static func encodeLine(_ request: GrammarToolingRequest) throws -> Data { try lineEncoder().encode(request) }
+    public static func encodeLine(_ response: GrammarToolingResponse) throws -> Data { try lineEncoder().encode(response) }
 
     private static func encoder() -> JSONEncoder {
         let value = JSONEncoder()
@@ -263,6 +318,12 @@ public enum GrammarToolingCodec {
     }
 
     private static func decoder() -> JSONDecoder { JSONDecoder() }
+
+    private static func lineEncoder() -> JSONEncoder {
+        let value = JSONEncoder()
+        value.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        return value
+    }
 }
 
 public protocol GrammarToolingTransport: Sendable {

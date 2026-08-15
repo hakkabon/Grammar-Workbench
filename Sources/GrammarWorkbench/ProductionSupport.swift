@@ -43,6 +43,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let semanticWorkspaceServices: GrammarWorkbenchFeatureMaturity = .stable
     public static let languageToolingSDKAndPortability: GrammarWorkbenchFeatureMaturity = .stable
     public static let integratedLanguageProjectExperience: GrammarWorkbenchFeatureMaturity = .stable
+    public static let statefulToolingProtocolAndServiceHost: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 public struct GrammarWorkbenchSettingsView: View {

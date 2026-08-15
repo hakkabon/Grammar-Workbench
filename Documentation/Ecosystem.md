@@ -9,6 +9,7 @@ Grammar Workbench exposes the same compilation and editor behavior through sever
 - `GrammarWorkbenchPlugin` generates standalone parsers during a SwiftPM build.
 - `GrammarWorkbenchLSP` embeds the language server in another Swift process or test harness.
 - `grammar-workbench`, `grammar-workbench-lsp`, and `GrammarWorkbenchApp` are the CLI, stdio server, and native application.
+- `grammar-workbench-service` is the persistent JSON-lines host for stateful SDK sessions.
 
 The LSP protocol and transport implementation is vendored from the Swift project because the upstream package requires a newer toolchain. It is isolated behind the LSP product and can be replaced with the upstream dependency without changing Grammar Workbench APIs.
 
@@ -36,6 +37,10 @@ Swift hosts can embed `GrammarLanguageToolingService`; other runtimes can exchan
 the same JSON envelopes through `grammar-workbench tooling-request`. Capability
 negotiation exposes supported operations and schemas without coupling clients to
 a release. See [LanguageToolingSDK.md](LanguageToolingSDK.md).
+
+Clients that retain documents use `GrammarStatefulLanguageToolingService` or the
+JSON-lines host. Per-session operations are serialized, independent sessions run
+concurrently, and cancellation targets public request identifiers.
 
 ## Validation and distribution
 

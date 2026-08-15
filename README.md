@@ -29,6 +29,11 @@ The automation-friendly executable is available with `swift run grammar-workbenc
 Language-tooling hosts can use the typed `GrammarWorkbenchSDK` product or its
 versioned JSON process protocol. See [the SDK guide](Documentation/LanguageToolingSDK.md).
 
+Long-lived IDE and build integrations can retain incremental state through
+`GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
+concurrent JSON-lines host with lifecycle events and request cancellation. See
+[the stateful tooling guide](Documentation/StatefulToolingProtocol.md).
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.
@@ -159,7 +164,7 @@ The release-candidate gate includes external SwiftPM consumers for the stable li
 
 ## Production packaging
 
-`Scripts/package-release.sh` builds the SwiftUI application, CLI, and LSP server, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate application, CLI, LSP, and editor-client ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
+`Scripts/package-release.sh` builds the SwiftUI application, CLI, LSP server, and stateful tooling service, assembles a macOS 14 application bundle with document declarations, privacy manifest, and sandbox entitlements, and produces separate application, CLI, LSP, service, and editor-client ZIP archives plus SHA-256 checksums. It defaults to the host architecture; set `ARCHS="arm64 x86_64"` for a universal release. The declared source version, bundle metadata, CLI version, and archive name must agree.
 
 For a local Developer ID release, provide `SIGNING_IDENTITY="Developer ID Application: …"`. Add `NOTARY_PROFILE` for an `xcrun notarytool` keychain profile; the script submits, waits, staples, rebuilds the archive, and validates the result. A deterministic default icon is included; `APP_ICON` may point to a replacement `.icns`. Regenerate the default and its inspectable PNG iconset with `swift Scripts/generate-app-icon.swift /tmp/GrammarWorkbench.iconset Packaging/AppIcon.icns`. Signing identities and notarization credentials are intentionally not stored in the repository. Tagged GitHub builds run the full suite and publish unsigned review artifacts; signed distribution can use the same script in a credentialed release environment.
 

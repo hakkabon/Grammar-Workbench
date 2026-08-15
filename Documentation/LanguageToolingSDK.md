@@ -60,3 +60,7 @@ payloads produce failure envelopes with stable error codes.
 
 The `SDKConsumer` fixture compiles strictly through this product, and release
 validation requires both the product and fixture.
+
+For retained incremental documents, concurrent requests, lifecycle events, and
+the persistent JSON-lines host, see
+[StatefulToolingProtocol.md](StatefulToolingProtocol.md).

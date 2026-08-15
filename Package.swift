@@ -11,6 +11,7 @@ let package = Package(
         .library(name: "GrammarWorkbenchSDK", targets: ["GrammarWorkbenchSDK"]),
         .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
+        .executable(name: "grammar-workbench-service", targets: ["GrammarWorkbenchServiceHost"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
         .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
@@ -32,6 +33,10 @@ let package = Package(
         .executableTarget(
             name: "GrammarWorkbenchCLI",
             dependencies: ["GrammarWorkbench", "GrammarWorkbenchSDK"]
+        ),
+        .executableTarget(
+            name: "GrammarWorkbenchServiceHost",
+            dependencies: ["GrammarWorkbenchSDK"]
         ),
         .plugin(
             name: "GrammarWorkbenchPlugin",

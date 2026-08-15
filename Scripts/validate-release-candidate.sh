@@ -16,9 +16,11 @@ plutil -lint "$ROOT_DIR/Packaging/Info.plist" \
 swift test --package-path "$ROOT_DIR"
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench-lsp
+swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench-service
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" -c release --show-bin-path)"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$BIN_DIR/grammar-workbench-lsp"
+"$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$BIN_DIR/grammar-workbench-service"
 if command -v node >/dev/null 2>&1; then
     (cd "$ROOT_DIR" && node Scripts/m4-client-test.js)
 else

@@ -16,6 +16,7 @@ The release-candidate gate verifies the product from four perspectives:
 12. A Catalan-ambiguous grammar must retain all represented derivations in a shared-packed forest while staying within declared node and family budgets, independently of concrete-tree enumeration limits.
 13. Semantic workspace services must resolve the packaged cross-document corpus without diagnostics, stay within symbol and dependency budgets, and reject stale rename plans before applying any document edit.
 14. The integrated project experience must retain its five task destinations, combine project and semantic problems within the declared bound, and remain a stable Codable contract.
+15. The stateful tooling service must preserve incremental document revisions, serialize each session, expose capability-negotiated JSON-lines framing, and keep session/document counts within declared release bounds.
 
 Run the normal gate:
 

@@ -11,7 +11,8 @@
   "requiredProducts": [
     "GrammarWorkbenchLSP",
     "grammar-workbench-lsp",
-    "GrammarWorkbenchSDK"
+    "GrammarWorkbenchSDK",
+    "grammar-workbench-service"
   ],
   "requiredProjectManifests": [
     "Examples/ExpressionProject.json",
@@ -46,6 +47,8 @@
     "semanticWorkspaceMaximumOccurrences": 16,
     "semanticWorkspaceMaximumDependencies": 8,
     "integratedProjectMaximumProblems": 32,
-    "integratedProjectNavigatorItems": 5
+    "integratedProjectNavigatorItems": 5,
+    "statefulToolingMaximumSessions": 4,
+    "statefulToolingMaximumDocumentsPerSession": 16
   }
 }

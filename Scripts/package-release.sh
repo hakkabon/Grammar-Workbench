@@ -32,16 +32,19 @@ trap 'rm -rf "$WORK_DIR"' EXIT
 APP_BINARIES=()
 CLI_BINARIES=()
 LSP_BINARIES=()
+SERVICE_BINARIES=()
 RESOURCE_BUNDLE=""
 for ARCH in $ARCHS; do
     SCRATCH="$WORK_DIR/build-$ARCH"
     swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product GrammarWorkbenchApp
     swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench
     swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-lsp
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-service
     BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --show-bin-path)"
     APP_BINARIES+=("$BIN_DIR/GrammarWorkbenchApp")
     CLI_BINARIES+=("$BIN_DIR/grammar-workbench")
     LSP_BINARIES+=("$BIN_DIR/grammar-workbench-lsp")
+    SERVICE_BINARIES+=("$BIN_DIR/grammar-workbench-service")
     if [ -z "$RESOURCE_BUNDLE" ] && [ -d "$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle" ]; then
         RESOURCE_BUNDLE="$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle"
     fi
@@ -53,12 +56,14 @@ if [ "${#APP_BINARIES[@]}" -eq 1 ]; then
     cp "${APP_BINARIES[0]}" "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp"
     cp "${CLI_BINARIES[0]}" "$OUTPUT_DIR/grammar-workbench"
     cp "${LSP_BINARIES[0]}" "$OUTPUT_DIR/grammar-workbench-lsp"
+    cp "${SERVICE_BINARIES[0]}" "$OUTPUT_DIR/grammar-workbench-service"
 else
     lipo -create "${APP_BINARIES[@]}" -output "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp"
     lipo -create "${CLI_BINARIES[@]}" -output "$OUTPUT_DIR/grammar-workbench"
     lipo -create "${LSP_BINARIES[@]}" -output "$OUTPUT_DIR/grammar-workbench-lsp"
+    lipo -create "${SERVICE_BINARIES[@]}" -output "$OUTPUT_DIR/grammar-workbench-service"
 fi
-chmod 755 "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
+chmod 755 "$APP_PATH/Contents/MacOS/GrammarWorkbenchApp" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp" "$OUTPUT_DIR/grammar-workbench-service"
 
 sed -e "s/@VERSION@/$VERSION/g" \
     -e "s/@BUILD_NUMBER@/$BUILD_NUMBER/g" \
@@ -80,6 +85,7 @@ if [ -n "$SIGNING_IDENTITY" ]; then
     codesign --force --timestamp --options runtime --entitlements "$ROOT_DIR/Packaging/GrammarWorkbench.entitlements" --sign "$SIGNING_IDENTITY" "$APP_PATH"
     codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" "$OUTPUT_DIR/grammar-workbench"
     codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" "$OUTPUT_DIR/grammar-workbench-lsp"
+    codesign --force --timestamp --options runtime --sign "$SIGNING_IDENTITY" "$OUTPUT_DIR/grammar-workbench-service"
 else
     echo "Packaging unsigned build; set SIGNING_IDENTITY for Developer ID distribution."
 fi
@@ -99,6 +105,14 @@ cp "$ROOT_DIR/LICENSE" "$LSP_PACKAGE/LICENSE.txt"
 cp "$ROOT_DIR/LocalDependencies/LICENSE.txt" "$LSP_PACKAGE/THIRD-PARTY-LICENSE.txt"
 cp "$ROOT_DIR/Documentation/Ecosystem.md" "$LSP_PACKAGE/README.md"
 ditto -c -k --keepParent "$LSP_PACKAGE" "$LSP_ZIP"
+SERVICE_ZIP="$OUTPUT_DIR/Grammar-Workbench-Service-$VERSION-macOS.zip"
+rm -f "$SERVICE_ZIP"
+SERVICE_PACKAGE="$WORK_DIR/Grammar-Workbench-Service-$VERSION"
+mkdir -p "$SERVICE_PACKAGE"
+cp "$OUTPUT_DIR/grammar-workbench-service" "$SERVICE_PACKAGE/"
+cp "$ROOT_DIR/LICENSE" "$SERVICE_PACKAGE/LICENSE.txt"
+cp "$ROOT_DIR/Documentation/StatefulToolingProtocol.md" "$SERVICE_PACKAGE/README.md"
+ditto -c -k --keepParent "$SERVICE_PACKAGE" "$SERVICE_ZIP"
 CLIENTS_ZIP="$OUTPUT_DIR/Grammar-Workbench-Editor-Clients-$VERSION.zip"
 rm -f "$CLIENTS_ZIP"
 CLIENTS_PACKAGE="$WORK_DIR/Grammar-Workbench-Editor-Clients-$VERSION"
@@ -117,9 +131,11 @@ fi
 BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
-(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
+"$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$OUTPUT_DIR/grammar-workbench-service"
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$SERVICE_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"
 echo "Created $LSP_ZIP"
+echo "Created $SERVICE_ZIP"
 echo "Created $CLIENTS_ZIP"
 echo "Created $OUTPUT_DIR/SHA256SUMS"

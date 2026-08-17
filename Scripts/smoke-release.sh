@@ -35,6 +35,8 @@ done
 "$CLI_PATH" project-generate "$ROOT_DIR/Examples/ExpressionProject.json" "$WORK_DIR/project-output"
 "$CLI_PATH" kit-validate "$ROOT_DIR/Examples/TinySemanticLanguageKit.json"
 "$CLI_PATH" kit-project "$ROOT_DIR/Examples/TinySemanticLanguageKit.json" "$WORK_DIR/kit-project.json"
+"$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.json"
+"$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.svg"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -49,6 +51,8 @@ test -s "$WORK_DIR/analysis.json"
 test -s "$WORK_DIR/cleaned.grammar"
 test -s "$WORK_DIR/project-output/Generated/Grammar.semantic.json"
 test -s "$WORK_DIR/kit-project.json"
+test -s "$WORK_DIR/graph-layout.json"
+test -s "$WORK_DIR/graph-layout.svg"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

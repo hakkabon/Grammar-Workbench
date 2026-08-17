@@ -40,6 +40,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let semanticLanguageKitMaximumProductions: Int
         let semanticLanguageKitMaximumRules: Int
         let semanticLanguageKitMaximumTests: Int
+        let graphVisualizationMaximumNodes: Int
+        let graphVisualizationMaximumEdges: Int
+        let graphVisualizationMaximumMilliseconds: Double
     }
 
     let schemaVersion: Int
@@ -49,6 +52,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredProducts: [String]
     let requiredProjectManifests: [String]
     let requiredSemanticLanguageKits: [String]
+    let requiredGraphFixtures: [String]
     let budgets: Budgets
 }
 
@@ -86,6 +90,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.integratedLanguageProjectExperience == .stable)
     #expect(GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost == .stable)
     #expect(GrammarWorkbenchCapabilities.semanticLanguageKits == .stable)
+    #expect(GrammarWorkbenchCapabilities.graphVisualizationPlatform == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -107,6 +112,25 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let kit = try GrammarSemanticLanguageKitCodec.decode(data, requirePassingTests: true)
         #expect(kit.manifest.kind == GrammarSemanticLanguageKitManifest.kindIdentifier)
     }
+    for path in policy.requiredGraphFixtures {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        _ = try JSONDecoder().decode(GrammarGraph.self, from: data)
+    }
+}
+
+@Test func graphVisualizationStaysWithinReleaseBudgets() throws {
+    let policy = try releaseCandidatePolicy()
+    let path = try #require(policy.requiredGraphFixtures.first)
+    let graph = try JSONDecoder().decode(
+        GrammarGraph.self,
+        from: Data(contentsOf: packageRoot().appendingPathComponent(path))
+    )
+    let layout = try GrammarGraphLayoutEngine.layout(graph)
+    #expect(layout.nodes.count <= policy.budgets.graphVisualizationMaximumNodes)
+    #expect(layout.routes.count <= policy.budgets.graphVisualizationMaximumEdges)
+    #expect(layout.metrics.durationMilliseconds <= policy.budgets.graphVisualizationMaximumMilliseconds)
+    #expect(layout.nodes.count == graph.nodes.count)
+    #expect(layout.routes.count == graph.edges.count)
 }
 
 @Test func semanticLanguageKitStaysWithinReleaseBudgets() throws {

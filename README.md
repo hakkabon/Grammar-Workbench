@@ -36,6 +36,8 @@ concurrent JSON-lines host with lifecycle events and request cancellation. See
 
 Reusable semantic language definitions can now be distributed as versioned `GrammarSemanticLanguageKitManifest` files. A kit binds its grammar, semantic rules, file extensions, conformance tests, and generator defaults; strict compilation detects stale semantic production selectors before a consumer opens a project. Kits work through the library, CLI, SDK, and stateful service host. See [Documentation/SemanticLanguageKits.md](Documentation/SemanticLanguageKits.md).
 
+Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.

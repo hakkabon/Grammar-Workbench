@@ -306,3 +306,22 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.session?.languageKitIdentifier == "org.example.sdk-kit")
     #expect(response.compilation?.succeeded == true)
 }
+
+@Test func toolingLaysOutPortableGraphs() async {
+    let graph = GrammarGraph(
+        id: "sdk-graph", title: "SDK graph",
+        nodes: [
+            .init(id: "a", label: "A"),
+            .init(id: "b", label: "B")
+        ],
+        edges: [.init(id: "a-b", source: "a", target: "b", label: "next")]
+    )
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "graph-layout", operation: .graphLayout,
+        graph: graph, graphLayoutOptions: .init(direction: .leftToRight)
+    ))
+    #expect(response.status == .success)
+    #expect(response.graphLayout?.nodes.count == 2)
+    #expect(response.graphLayout?.routes.first?.edge.label == "next")
+    #expect(response.graphLayout?.metrics.engine == "rust-sugiyama")
+}

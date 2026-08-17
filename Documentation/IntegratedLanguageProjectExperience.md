@@ -41,6 +41,7 @@ compilation/samples/tests and a complete `GrammarProjectAnalysis` with optional
 semantic workspace services. This keeps presentation decisions outside parser
 and project actors and establishes a bridge toward stateful SDK sessions.
 
-Graph visualization remains behind the existing artifact views. A shared layout
-abstraction should be introduced with the future layout-engine integration, once
-its behavior and coordinate contracts can be validated.
+Graph visualization now uses the shared portable graph contracts and published
+Swift-Layout backend introduced in Phase 16. The integrated project model can
+therefore add dependency and semantic graph destinations without coupling its
+presentation contracts to the Rust engine or generated FFI types.

@@ -6,7 +6,9 @@ struct SDKConsumer {
         let client = GrammarToolingClient(transport: GrammarInProcessToolingTransport())
         let response = try await client.send(.init(operation: .capabilities))
         guard response.status == .success,
-              response.capabilities?.operations.contains(.parse) == true else {
+              response.capabilities?.operations.contains(.parse) == true,
+              response.capabilities?.operations.contains(.graphLayout) == true,
+              response.capabilities?.features["graphVisualizationPlatform"] == .stable else {
             fatalError("Language-tooling SDK capability negotiation failed")
         }
         let stateful = GrammarToolingClient(transport: GrammarStatefulInProcessToolingTransport())

@@ -21,6 +21,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Integrated project navigator, problem, operation, and snapshot contracts for native documents and multi-document analyses.
 - Stateful tooling sessions, incremental document operations, lifecycle events, request registry, and JSON-lines service-host contract.
 - Versioned semantic language-kit manifests, strict grammar/semantic/conformance validation, project factories, and SDK/service-host kit operations.
+- Portable graph, layout-option, positioned-snapshot, metrics, adapter, SVG-export, and tooling-operation contracts backed by Swift-Layout.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

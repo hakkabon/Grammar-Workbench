@@ -35,6 +35,81 @@ enum AutomatonLayoutEngine {
         transitions: [Transition],
         compact: Bool
     ) -> AutomatonLayout {
+        do {
+            let stateIDs = Set(states.map(\.id))
+            let validTransitions = transitions.filter {
+                stateIDs.contains($0.from) && stateIDs.contains($0.to)
+            }
+            let artifact = GrammarArtifact(
+                algorithm: .lalr, grammarSource: "", terminals: [], nonterminals: [],
+                productions: [], states: states,
+                transitions: validTransitions,
+                cells: [], decisions: [], sample: .init(input: "", tree: "", trace: [])
+            )
+            let graph = GrammarGraph.automaton(artifact, compact: compact)
+            let snapshot = try GrammarGraphLayoutEngine.layout(graph, options: .init(
+                horizontalGap: compact ? 80 : 110,
+                verticalGap: compact ? 34 : 46,
+                algorithm: .balancedAlignment, routing: .bezier,
+                direction: .leftToRight, margin: 52
+            ))
+            let positions: [StateID: GrammarGraphPositionedNode] = Dictionary(
+                uniqueKeysWithValues: snapshot.nodes.compactMap { value -> (StateID, GrammarGraphPositionedNode)? in
+                guard let raw = value.node.metadata["state"].flatMap(Int.init) else { return nil }
+                return (StateID(rawValue: raw), value)
+            })
+            let orderedColumns = Array(Set(snapshot.nodes.map { Int(($0.frame.midX * 10).rounded()) })).sorted()
+            let nodes = states.compactMap { state -> AutomatonLayout.Node? in
+                guard let value = positions[state.id] else { return nil }
+                let column = Int((value.frame.midX * 10).rounded())
+                return .init(
+                    id: state.id,
+                    frame: CGRect(
+                        x: value.frame.x, y: value.frame.y,
+                        width: value.frame.width, height: value.frame.height
+                    ),
+                    layer: orderedColumns.firstIndex(of: column) ?? 0
+                )
+            }
+            let transitionByID = Dictionary(uniqueKeysWithValues: graph.edges.compactMap { edge -> (String, Transition)? in
+                guard let components = edge.id.split(separator: ":").dropFirst().first.flatMap({ Int($0) }),
+                      validTransitions.indices.contains(components) else { return nil }
+                return (edge.id, validTransitions[components])
+            })
+            let edges = snapshot.routes.compactMap { route -> AutomatonLayout.Edge? in
+                guard let transition = transitionByID[route.edge.id], let first = route.points.first else { return nil }
+                var path = "M \(number(CGFloat(first.x))) \(number(CGFloat(first.y)))"
+                if route.isSelfLoop || (!route.isReversed && route.points.count >= 4 && (route.points.count - 1).isMultiple(of: 3)) {
+                    var index = 1
+                    while index + 2 < route.points.count {
+                        path += " C \(number(CGFloat(route.points[index].x))) \(number(CGFloat(route.points[index].y))) \(number(CGFloat(route.points[index + 1].x))) \(number(CGFloat(route.points[index + 1].y))) \(number(CGFloat(route.points[index + 2].x))) \(number(CGFloat(route.points[index + 2].y)))"
+                        index += 3
+                    }
+                } else {
+                    for point in route.points.dropFirst() {
+                        path += " L \(number(CGFloat(point.x))) \(number(CGFloat(point.y)))"
+                    }
+                }
+                let label = route.points[route.points.count / 2]
+                return .init(
+                    transition: transition, path: path,
+                    labelPoint: CGPoint(x: label.x, y: label.y - 7)
+                )
+            }
+            return .init(
+                nodes: nodes, edges: edges,
+                width: snapshot.width, height: snapshot.height
+            )
+        } catch {
+            return legacyLayout(states: states, transitions: transitions, compact: compact)
+        }
+    }
+
+    private static func legacyLayout(
+        states: [AutomatonState],
+        transitions: [Transition],
+        compact: Bool
+    ) -> AutomatonLayout {
         guard !states.isEmpty else {
             return AutomatonLayout(nodes: [], edges: [], width: 640, height: 360)
         }

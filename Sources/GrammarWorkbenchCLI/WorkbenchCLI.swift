@@ -184,6 +184,30 @@ struct GrammarWorkbenchCLI {
                 to: URL(fileURLWithPath: arguments[2]), options: .atomic
             )
             print("Wrote \(arguments[2]) from \(kit.manifest.identifier)@\(kit.manifest.version)")
+        case "graph-layout":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("graph-layout requires GRAPH OUTPUT [OPTIONS]")
+            }
+            let graph = try JSONDecoder().decode(
+                GrammarGraph.self,
+                from: Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let options = arguments.count == 4
+                ? try JSONDecoder().decode(
+                    GrammarGraphLayoutOptions.self,
+                    from: Data(contentsOf: URL(fileURLWithPath: arguments[3]))
+                )
+                : GrammarGraphLayoutOptions()
+            let layout = try GrammarGraphLayoutEngine.layout(graph, options: options)
+            let output = URL(fileURLWithPath: arguments[2])
+            if output.pathExtension.lowercased() == "svg" {
+                try Data(GrammarGraphSVGRenderer.render(layout).utf8).write(to: output, options: .atomic)
+            } else {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                try encoder.encode(layout).write(to: output, options: .atomic)
+            }
+            print("Wrote \(arguments[2]): \(layout.nodes.count) nodes, \(layout.routes.count) routes via \(layout.metrics.engine)")
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -546,6 +570,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT
       grammar-workbench kit-validate KIT
       grammar-workbench kit-project KIT OUTPUT_PROJECT
+      grammar-workbench graph-layout GRAPH OUTPUT [OPTIONS]
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]

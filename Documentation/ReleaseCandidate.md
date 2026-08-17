@@ -2,6 +2,8 @@
 
 The release gate requires a strictly validated semantic language-kit fixture and bounds its production, semantic-rule, and conformance-test counts. This exercises the portable kit codec and catches stale selectors or failing language behavior before packaging.
 
+A portable graph fixture is laid out through the shipped Swift-Layout binary during release validation. Node and edge counts and elapsed layout time are bounded, and the CLI smoke workflow exports both JSON and SVG forms.
+
 The release-candidate gate verifies the product from four perspectives:
 
 1. The root test suite validates algorithms, documents, GUI foundations, compatibility, packaging metadata, and performance budgets.

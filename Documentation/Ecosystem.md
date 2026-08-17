@@ -2,6 +2,8 @@
 
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
+Graph layout is consumed through the independently released Swift-Layout package. Tagged Layout releases build the XCFramework and generated Swift bindings, publish the binary, and update Swift-Layout automatically. Grammar Workbench pins a tested Swift-Layout revision and exposes only its own portable graph contracts to downstream consumers.
+
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 
 ## SwiftPM products

@@ -18,6 +18,10 @@ let package = Package(
     ],
     dependencies: [
         .package(
+            url: "https://github.com/hakkabon/Swift-Layout.git",
+            revision: "2cd9af8b1e63b9b4d69288c8ac6cb3edaa8ad2a3"
+        ),
+        .package(
             url: "https://github.com/hakkabon/Grammar.git",
             revision: "940fdb4f857391e7cdecbb016adabd33db2121c8"
         )
@@ -25,7 +29,10 @@ let package = Package(
     targets: [
         .target(
             name: "GrammarWorkbench",
-            dependencies: [.product(name: "Grammar", package: "Grammar")],
+            dependencies: [
+                .product(name: "Grammar", package: "Grammar"),
+                .product(name: "SwiftLayout", package: "Swift-Layout")
+            ],
             resources: [.process("Resources")]
         ),
         .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbench"]),

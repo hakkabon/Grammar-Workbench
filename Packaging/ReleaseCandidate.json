@@ -21,6 +21,9 @@
   "requiredSemanticLanguageKits": [
     "Examples/TinySemanticLanguageKit.json"
   ],
+  "requiredGraphFixtures": [
+    "Examples/GraphVisualization.json"
+  ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,
@@ -55,6 +58,9 @@
     "statefulToolingMaximumDocumentsPerSession": 16,
     "semanticLanguageKitMaximumProductions": 16,
     "semanticLanguageKitMaximumRules": 8,
-    "semanticLanguageKitMaximumTests": 8
+    "semanticLanguageKitMaximumTests": 8,
+    "graphVisualizationMaximumNodes": 128,
+    "graphVisualizationMaximumEdges": 256,
+    "graphVisualizationMaximumMilliseconds": 1000
   }
 }

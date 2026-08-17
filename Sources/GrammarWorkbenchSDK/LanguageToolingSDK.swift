@@ -15,6 +15,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case semanticWorkspace
     case languageKitValidate
     case languageKitAnalyze
+    case graphLayout
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -43,6 +44,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "projectInfrastructure": GrammarWorkbenchCapabilities.projectInfrastructure,
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
+            "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -53,7 +55,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         grammarWorkbenchAPIVersion: GrammarWorkbenchAPIVersion.current,
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
-            .semanticWorkspace, .languageKitValidate, .languageKitAnalyze
+            .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout
         ],
         transports: ["in-process", "json"],
         features: [
@@ -62,6 +64,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "projectInfrastructure": GrammarWorkbenchCapabilities.projectInfrastructure,
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
+            "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )
@@ -81,6 +84,8 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var project: GrammarProjectManifest?
     public var semanticSchema: GrammarSemanticWorkspaceSchema?
     public var languageKit: GrammarSemanticLanguageKitManifest?
+    public var graph: GrammarGraph?
+    public var graphLayoutOptions: GrammarGraphLayoutOptions?
     public var sessionID: String?
     public var documentID: String?
     public var revision: Int?
@@ -97,6 +102,8 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         project: GrammarProjectManifest? = nil,
         semanticSchema: GrammarSemanticWorkspaceSchema? = nil,
         languageKit: GrammarSemanticLanguageKitManifest? = nil,
+        graph: GrammarGraph? = nil,
+        graphLayoutOptions: GrammarGraphLayoutOptions? = nil,
         sessionID: String? = nil,
         documentID: String? = nil,
         revision: Int? = nil,
@@ -116,6 +123,8 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.project = project
         self.semanticSchema = semanticSchema
         self.languageKit = languageKit
+        self.graph = graph
+        self.graphLayoutOptions = graphLayoutOptions
         self.sessionID = sessionID
         self.documentID = documentID
         self.revision = revision
@@ -192,6 +201,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let project: GrammarToolingProjectResult?
     public let semanticWorkspace: GrammarSemanticWorkspaceSnapshot?
     public let languageKit: GrammarToolingLanguageKitResult?
+    public let graphLayout: GrammarGraphLayoutSnapshot?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -207,6 +217,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         project: GrammarToolingProjectResult? = nil,
         semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil,
         languageKit: GrammarToolingLanguageKitResult? = nil,
+        graphLayout: GrammarGraphLayoutSnapshot? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil
@@ -223,6 +234,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.project = project
         self.semanticWorkspace = semanticWorkspace
         self.languageKit = languageKit
+        self.graphLayout = graphLayout
         self.session = session
         self.document = document
         self.events = events
@@ -301,6 +313,14 @@ public struct GrammarLanguageToolingService: Sendable {
                     project: projectSnapshot(analysis.project),
                     semanticWorkspace: analysis.semantics,
                     languageKit: kitResult
+                )
+            case .graphLayout:
+                return .init(
+                    requestID: request.requestID,
+                    graphLayout: try GrammarGraphLayoutEngine.layout(
+                        try required(request.graph, "graph"),
+                        options: request.graphLayoutOptions ?? .init()
+                    )
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
                  .documentOpen, .documentChange, .documentClose, .cancel:

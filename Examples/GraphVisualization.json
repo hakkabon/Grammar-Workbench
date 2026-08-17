@@ -1,0 +1,53 @@
+{
+  "edges": [
+    {
+      "id": "compile-analyze",
+      "label": "artifact",
+      "metadata": {},
+      "source": "compile",
+      "target": "analyze"
+    },
+    {
+      "id": "analyze-generate",
+      "label": "model",
+      "metadata": {},
+      "source": "analyze",
+      "target": "generate"
+    },
+    {
+      "id": "generate-compile",
+      "label": "iterate",
+      "metadata": {},
+      "source": "generate",
+      "target": "compile"
+    }
+  ],
+  "id": "language-toolchain",
+  "nodes": [
+    {
+      "height": 56,
+      "id": "compile",
+      "kind": "generic",
+      "label": "Compile grammar",
+      "metadata": {},
+      "width": 150
+    },
+    {
+      "height": 56,
+      "id": "analyze",
+      "kind": "generic",
+      "label": "Analyze language",
+      "metadata": {},
+      "width": 150
+    },
+    {
+      "height": 56,
+      "id": "generate",
+      "kind": "generic",
+      "label": "Generate tooling",
+      "metadata": {},
+      "width": 150
+    }
+  ],
+  "title": "Language toolchain"
+}

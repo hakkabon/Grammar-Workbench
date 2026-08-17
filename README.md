@@ -29,6 +29,8 @@ The automation-friendly executable is available with `swift run grammar-workbenc
 Language-tooling hosts can use the typed `GrammarWorkbenchSDK` product or its
 versioned JSON process protocol. See [the SDK guide](Documentation/LanguageToolingSDK.md).
 
+Cross-platform hosts can depend on the `GrammarWorkbenchCore` product. It exposes the same stable parser, semantic, project, generator, and interchange contracts while isolating native SwiftUI, AppKit, and WebKit surfaces. Graph interchange remains portable; `GrammarGraphLayoutEngine.availability` distinguishes the Rust-backed Swift-Layout backend from interchange-only platforms. See [cross-platform core separation](Documentation/CrossPlatformCoreSeparation.md).
+
 Long-lived IDE and build integrations can retain incremental state through
 `GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
 concurrent JSON-lines host with lifecycle events and request cancellation. See

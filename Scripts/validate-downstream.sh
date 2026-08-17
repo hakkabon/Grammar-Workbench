@@ -11,6 +11,7 @@ run_consumer() {
     output="$(swift run --package-path "$package" --scratch-path "$SCRATCH_ROOT/$name")"
     case "$name:$output" in
         LibraryConsumer:*library-consumer-ok*) ;;
+        CoreConsumer:*core-consumer-ok*) ;;
         LSPConsumer:*lsp-consumer-ok*) ;;
         PluginConsumer:*plugin-consumer-ok*) ;;
         SDKConsumer:*sdk-consumer-ok*) ;;
@@ -19,6 +20,7 @@ run_consumer() {
 }
 
 run_consumer LibraryConsumer
+run_consumer CoreConsumer
 run_consumer LSPConsumer
 run_consumer PluginConsumer
 run_consumer SDKConsumer

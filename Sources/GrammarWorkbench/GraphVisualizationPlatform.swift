@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(SwiftLayout)
 import SwiftLayout
+#endif
 
 public enum GrammarGraphNodeKind: String, Hashable, Codable, Sendable {
     case state
@@ -229,6 +231,7 @@ public enum GrammarGraphLayoutError: Error, LocalizedError, Sendable {
     case danglingEdge(edge: String, node: String)
     case invalidNodeSize(String)
     case invalidOptions(String)
+    case unavailable(String)
     case engine(String)
     case incompleteResult(String)
 
@@ -239,19 +242,34 @@ public enum GrammarGraphLayoutError: Error, LocalizedError, Sendable {
         case .danglingEdge(let edge, let node): "Graph edge ‘\(edge)’ references unknown node ‘\(node)’."
         case .invalidNodeSize(let id): "Graph node ‘\(id)’ has an invalid size."
         case .invalidOptions(let value): "Graph layout option ‘\(value)’ is invalid."
+        case .unavailable(let platform): "Graph layout is unavailable on \(platform); portable graph interchange remains available."
         case .engine(let message): "The graph layout engine failed: \(message)"
         case .incompleteResult(let id): "The graph layout engine omitted node or edge ‘\(id)’."
         }
     }
 }
 
+public enum GrammarGraphLayoutAvailability: String, Hashable, Codable, Sendable {
+    case swiftLayout
+    case interchangeOnly
+}
+
 /// Rust-backed Sugiyama layout hidden behind stable, Codable Workbench types.
 public enum GrammarGraphLayoutEngine {
+    public static var availability: GrammarGraphLayoutAvailability {
+#if canImport(SwiftLayout)
+        .swiftLayout
+#else
+        .interchangeOnly
+#endif
+    }
+
     public static func layout(
         _ graph: GrammarGraph,
         options: GrammarGraphLayoutOptions = .init()
     ) throws -> GrammarGraphLayoutSnapshot {
         try validate(graph, options: options)
+#if canImport(SwiftLayout)
         guard !graph.nodes.isEmpty else {
             return .init(
                 graphID: graph.id, title: graph.title, nodes: [], routes: [],
@@ -440,6 +458,9 @@ public enum GrammarGraphLayoutEngine {
                 durationMilliseconds: milliseconds
             )
         )
+#else
+        throw GrammarGraphLayoutError.unavailable("this platform")
+#endif
     }
 
     private static func validate(
@@ -475,9 +496,11 @@ public enum GrammarGraphLayoutEngine {
         }
     }
 
+#if canImport(SwiftLayout)
     private static func point(_ value: FfiPoint, margin: Double) -> GrammarGraphPoint {
         .init(x: Double(value.x) + margin, y: Double(value.y) + margin)
     }
+#endif
 
     private static func translated(
         _ point: GrammarGraphPoint, x: Double, y: Double

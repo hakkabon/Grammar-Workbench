@@ -8,6 +8,7 @@ Grammar Workbench exposes the same compilation and editor behavior through sever
 
 ## SwiftPM products
 
+- `GrammarWorkbenchCore` is the platform-neutral façade for parser, semantic, project, generator, and interchange services.
 - `GrammarWorkbench` is the stable parser, semantic, generator, and interchange library.
 - `GrammarWorkbenchSDK` is the versioned, transport-neutral language-tooling client and service boundary.
 - `GrammarWorkbenchPlugin` generates standalone parsers during a SwiftPM build.
@@ -16,6 +17,8 @@ Grammar Workbench exposes the same compilation and editor behavior through sever
 - `grammar-workbench-service` is the persistent JSON-lines host for stateful SDK sessions.
 
 The LSP protocol and transport implementation is vendored from the Swift project because the upstream package requires a newer toolchain. It is isolated behind the LSP product and can be replaced with the upstream dependency without changing Grammar Workbench APIs.
+
+Native SwiftUI, AppKit, and WebKit declarations are compile-time isolated from the core surface. See [CrossPlatformCoreSeparation.md](CrossPlatformCoreSeparation.md) for the portability contract and graph-backend behavior.
 
 ## Editor clients
 

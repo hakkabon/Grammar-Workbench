@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import WebKit
 
@@ -455,6 +456,7 @@ struct AutomatonView: View {
         }
     }
 }
+#endif
 
 private struct AutomatonWebView: NSViewRepresentable {
     let artifact: GrammarArtifact

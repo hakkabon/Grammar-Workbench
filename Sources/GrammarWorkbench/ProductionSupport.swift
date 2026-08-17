@@ -1,5 +1,7 @@
 import Foundation
+#if canImport(SwiftUI)
 import SwiftUI
+#endif
 
 public enum GrammarWorkbenchRelease {
     public static let version = "1.0.0"
@@ -46,8 +48,10 @@ public enum GrammarWorkbenchCapabilities {
     public static let statefulToolingProtocolAndServiceHost: GrammarWorkbenchFeatureMaturity = .stable
     public static let semanticLanguageKits: GrammarWorkbenchFeatureMaturity = .stable
     public static let graphVisualizationPlatform: GrammarWorkbenchFeatureMaturity = .stable
+    public static let crossPlatformCoreSeparation: GrammarWorkbenchFeatureMaturity = .stable
 }
 
+#if canImport(SwiftUI)
 public struct GrammarWorkbenchSettingsView: View {
     @AppStorage("openLastDocument") private var openLastDocument = true
     @AppStorage("confirmArtifactExport") private var confirmArtifactExport = false
@@ -65,3 +69,4 @@ public struct GrammarWorkbenchSettingsView: View {
         .frame(width: 460)
     }
 }
+#endif

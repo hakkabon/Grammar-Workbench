@@ -9,6 +9,13 @@ permissions:
   contents: read
 
 jobs:
+  portable-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test portable core
+        run: Scripts/validate-portable-core.sh
+
   test:
     runs-on: macos-14
     steps:

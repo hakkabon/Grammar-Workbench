@@ -1,6 +1,10 @@
+#if os(macOS)
 import SwiftUI
 import UniformTypeIdentifiers
+#endif
+import Foundation
 
+#if os(macOS)
 public extension UTType {
     static let grammarWorkbenchDocument = UTType(
         exportedAs: "com.grammar-workbench.document",
@@ -11,6 +15,7 @@ public extension UTType {
         conformingTo: .plainText
     )
 }
+#endif
 
 public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
     public var id: UUID
@@ -24,6 +29,7 @@ public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
+#if os(macOS)
 public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     public static let readableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
     public static let writableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
@@ -144,3 +150,4 @@ public struct GrammarWorkbenchView: View {
             .frame(minWidth: 1120, minHeight: 720)
     }
 }
+#endif

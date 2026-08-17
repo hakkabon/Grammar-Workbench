@@ -4,6 +4,8 @@
 test runners, and non-Swift hosts. It keeps engine implementation types behind a
 small request/response protocol while preserving stable public snapshots.
 
+Capability responses advertise `crossPlatformCoreSeparation`. Hosts that only need in-process grammar services can depend on `GrammarWorkbenchCore`; transport hosts may continue to use the SDK and receive the same portable value contracts.
+
 ## Swift integration
 
 ```swift

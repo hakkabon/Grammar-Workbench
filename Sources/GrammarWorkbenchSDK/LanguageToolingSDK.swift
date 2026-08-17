@@ -45,6 +45,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
+            "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -65,6 +66,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "semanticWorkspaceServices": GrammarWorkbenchCapabilities.semanticWorkspaceServices,
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
+            "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )

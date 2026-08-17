@@ -1,5 +1,8 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
+#endif
+import Foundation
 
 public struct GrammarQuickFix: Identifiable, Equatable, Sendable {
     public let id: String
@@ -106,6 +109,7 @@ public enum GrammarEditorIntelligence {
     }
 }
 
+#if os(macOS)
 struct GrammarSourceEditor: NSViewRepresentable {
     @Binding var text: String
     let diagnostics: [GrammarDiagnostic]
@@ -333,3 +337,4 @@ final class GrammarLineNumberRulerView: NSRulerView {
         }
     }
 }
+#endif

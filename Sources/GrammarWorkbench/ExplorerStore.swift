@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 
 @MainActor
@@ -473,3 +474,4 @@ final class ExplorerStore {
         }
     }
 }
+#endif

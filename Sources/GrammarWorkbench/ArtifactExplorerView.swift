@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -1920,6 +1921,7 @@ public struct ArtifactExplorerView: View {
         sourceBinding.wrappedValue = updated
     }
 }
+#endif
 
 private extension Collection {
     subscript(safe index: Index) -> Element? {

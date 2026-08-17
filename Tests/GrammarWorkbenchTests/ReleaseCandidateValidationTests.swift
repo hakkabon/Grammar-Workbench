@@ -91,6 +91,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost == .stable)
     #expect(GrammarWorkbenchCapabilities.semanticLanguageKits == .stable)
     #expect(GrammarWorkbenchCapabilities.graphVisualizationPlatform == .stable)
+    #expect(GrammarWorkbenchCapabilities.crossPlatformCoreSeparation == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

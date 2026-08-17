@@ -7,6 +7,7 @@ let package = Package(
     name: "GrammarWorkbench",
     platforms: [.macOS(.v14)],
     products: [
+        .library(name: "GrammarWorkbenchCore", targets: ["GrammarWorkbenchCore"]),
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
         .library(name: "GrammarWorkbenchSDK", targets: ["GrammarWorkbenchSDK"]),
         .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
@@ -31,10 +32,14 @@ let package = Package(
             name: "GrammarWorkbench",
             dependencies: [
                 .product(name: "Grammar", package: "Grammar"),
-                .product(name: "SwiftLayout", package: "Swift-Layout")
+                .product(
+                    name: "SwiftLayout", package: "Swift-Layout",
+                    condition: .when(platforms: [.macOS])
+                )
             ],
             resources: [.process("Resources")]
         ),
+        .target(name: "GrammarWorkbenchCore", dependencies: ["GrammarWorkbench"]),
         .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbench"]),
         .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
         .executableTarget(
@@ -55,6 +60,7 @@ let package = Package(
             name: "GrammarWorkbenchSDKTests",
             dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbench"]
         ),
+        .testTarget(name: "GrammarWorkbenchCoreTests", dependencies: ["GrammarWorkbenchCore"]),
         .target(
             name: "LanguageServerProtocol", dependencies: ["SKLogging"],
             path: "\(lspVendoredPath)/LanguageServerProtocol"

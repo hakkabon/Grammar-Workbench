@@ -4,12 +4,14 @@
   "minimumMacOSVersion": "14.0",
   "requiredConsumerFixtures": [
     "LibraryConsumer",
+    "CoreConsumer",
     "LSPConsumer",
     "PluginConsumer",
     "SDKConsumer"
   ],
   "requiredProducts": [
     "GrammarWorkbenchLSP",
+    "GrammarWorkbenchCore",
     "grammar-workbench-lsp",
     "GrammarWorkbenchSDK",
     "grammar-workbench-service"

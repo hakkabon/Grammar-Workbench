@@ -25,6 +25,10 @@ final class ExplorerStore {
     private(set) var bootstrapReport: GrammarBootstrapReport?
     private(set) var bootstrapError: String?
     private(set) var isRunningBootstrap = false
+    var selectedResearchStudyID = GrammarSelectedResearchCatalog.studies[0].id
+    private(set) var selectedResearchPreview: GrammarSelectedResearchPreview?
+    private(set) var selectedResearchError: String?
+    private(set) var isRunningSelectedResearch = false
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var currentCompilationSnapshot: GrammarCompilation { currentCompilation }
@@ -36,6 +40,7 @@ final class ExplorerStore {
     @ObservationIgnored private var generalizedTask: Task<Void, Never>?
     @ObservationIgnored private var incrementalAnalysisTask: Task<Void, Never>?
     @ObservationIgnored private var bootstrapTask: Task<Void, Never>?
+    @ObservationIgnored private var selectedResearchTask: Task<Void, Never>?
     @ObservationIgnored private let incrementalCompiler = GrammarWorkbenchIncrementalCompiler()
     @ObservationIgnored private var incrementalCoordinator: GrammarIncrementalAnalysisCoordinator?
     @ObservationIgnored private var currentCompilation: GrammarCompilation
@@ -154,6 +159,12 @@ final class ExplorerStore {
                 detail: "Checking fixed-point and differential validation"
             ))
         }
+        if isRunningSelectedResearch {
+            values.append(.init(
+                kind: .previewingResearch, title: "Running selected research preview",
+                detail: "Repeating declared cases and checking search invariance"
+            ))
+        }
         return values
     }
 
@@ -248,6 +259,37 @@ final class ExplorerStore {
             self.isRunningBootstrap = false
             self.bootstrapTask = nil
         }
+    }
+
+    func runSelectedResearchPreview() {
+        guard !isRunningSelectedResearch,
+              let study = GrammarSelectedResearchCatalog.study(id: selectedResearchStudyID) else { return }
+        selectedResearchTask?.cancel()
+        selectedResearchError = nil
+        isRunningSelectedResearch = true
+        selectedResearchTask = Task { [weak self] in
+            let result = await Task.detached {
+                Result { try GrammarSelectedResearchPreviewEngine.run(study) }
+            }.value
+            guard !Task.isCancelled, let self,
+                  self.selectedResearchStudyID == study.id else { return }
+            switch result {
+            case .success(let preview): self.selectedResearchPreview = preview
+            case .failure(let error): self.selectedResearchError = error.localizedDescription
+            }
+            self.isRunningSelectedResearch = false
+            self.selectedResearchTask = nil
+        }
+    }
+
+    func selectResearchStudy(_ id: String) {
+        guard GrammarSelectedResearchCatalog.study(id: id) != nil else { return }
+        selectedResearchTask?.cancel()
+        selectedResearchTask = nil
+        isRunningSelectedResearch = false
+        selectedResearchStudyID = id
+        selectedResearchPreview = nil
+        selectedResearchError = nil
     }
 
     func compareAlgorithms() {

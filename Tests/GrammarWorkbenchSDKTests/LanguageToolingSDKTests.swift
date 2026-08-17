@@ -372,3 +372,13 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.researchReport?.passed == true)
     #expect(response.researchReport?.cases.first?.timing.samples == 2)
 }
+
+@Test func toolingRunsSelectedResearchPreviews() async {
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "selected-preview", operation: .selectedResearchPreview,
+        researchStudyID: "precedence-hidden-ambiguity"
+    ))
+    #expect(response.status == .success)
+    #expect(response.selectedResearchPreview?.passed == true)
+    #expect(response.selectedResearchPreview?.report.cases.first?.derivationCount == 2)
+}

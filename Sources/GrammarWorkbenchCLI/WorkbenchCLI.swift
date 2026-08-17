@@ -589,6 +589,33 @@ struct GrammarWorkbenchCLI {
             guard comparison.compatibleProgramme, comparison.regressions.isEmpty else {
                 throw CLIError.researchValidationFailed
             }
+        case "research-preview":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("research-preview requires list or STUDY [OUTPUT]")
+            }
+            if arguments[1] == "list" {
+                guard arguments.count == 2 else {
+                    throw CLIError.usage("research-preview list takes no output path")
+                }
+                for study in GrammarSelectedResearchCatalog.studies {
+                    print("\(study.id)\t\(study.title)")
+                }
+                return
+            }
+            guard let study = GrammarSelectedResearchCatalog.study(id: arguments[1]) else {
+                throw CLIError.usage("unknown selected research study ‘\(arguments[1])’")
+            }
+            let preview = try GrammarSelectedResearchPreviewEngine.run(study)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(preview)
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(preview.passed ? "supported" : "falsified"), evidence \(preview.report.evidenceFingerprint)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard preview.passed else { throw CLIError.researchValidationFailed }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -708,6 +735,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench bootstrap-bundle OUTPUT [--maximum-generations=N]
       grammar-workbench research-validate PROGRAMME [OUTPUT]
       grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
+      grammar-workbench research-preview list|STUDY [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version

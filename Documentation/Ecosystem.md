@@ -8,6 +8,8 @@ Canonical grammar interchange is independent of parser-table artifacts and docum
 
 Research programmes package falsifiable parser hypotheses and bounded corpora for local runs, CI, SDK hosts, and cross-version baseline comparison. Deterministic evidence fingerprints remain separate from hardware-sensitive timing summaries.
 
+Selected research previews reuse those programmes to provide guided conclusions in the native Workbench, CLI, and SDK without weakening or duplicating the underlying evidence.
+
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 
 ## SwiftPM products

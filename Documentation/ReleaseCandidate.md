@@ -8,6 +8,8 @@ The canonical BNF fixture must survive an identity-preserving portable-interchan
 
 The packaged research programme must pass every declared hypothesis, preserve repeated and DFS/BFS evidence identities, and remain within its case-count, repetition, report-size, and median-runtime budgets.
 
+Every selected research preview must pass its embedded programme and remain within the catalog-count and encoded-size budgets. Preview conclusions never replace the underlying integrity-checked evidence report.
+
 The release-candidate gate verifies the product from four perspectives:
 
 1. The root test suite validates algorithms, documents, GUI foundations, compatibility, packaging metadata, and performance budgets.
@@ -26,6 +28,7 @@ The release-candidate gate verifies the product from four perspectives:
 14. The integrated project experience must retain its five task destinations, combine project and semantic problems within the declared bound, and remain a stable Codable contract.
 15. The stateful tooling service must preserve incremental document revisions, serialize each session, expose capability-negotiated JSON-lines framing, and keep session/document counts within declared release bounds.
 16. The packaged research programme must pass all hypotheses with stable repeated and DFS/BFS evidence, produce an integrity-checked report, and stay within declared execution and serialization budgets.
+17. The selected research catalog must stay intentionally small, run every embedded programme successfully, and retain the full report beneath each plain-language preview.
 
 Run the normal gate:
 

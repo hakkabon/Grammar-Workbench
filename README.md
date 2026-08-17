@@ -42,6 +42,8 @@ Canonical grammar exchange spans the bootstrap BNF profile, Workbench notation, 
 
 Parser research can be expressed as versioned, falsifiable validation programmes. `research-validate` records stable evidence separately from timing distributions, while `research-compare` detects incompatible baselines and pass-to-fail regressions. See [Documentation/ResearchValidationProgramme.md](Documentation/ResearchValidationProgramme.md).
 
+The Research workspace also offers three selected previews for ambiguity growth, precedence-hidden alternatives, and search reproducibility. Each gives a plain-language conclusion while retaining its complete validation report. See [Documentation/SelectedResearchPreview.md](Documentation/SelectedResearchPreview.md).
+
 Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).
 
 ## Library API

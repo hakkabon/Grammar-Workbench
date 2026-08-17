@@ -61,6 +61,8 @@
     "researchMaximumRepetitions": 10,
     "researchReportMaximumBytes": 250000,
     "researchMedianMaximumNanoseconds": 1000000000,
+    "selectedResearchMaximumStudies": 3,
+    "selectedResearchPreviewMaximumBytes": 100000,
     "semanticWorkspaceMaximumOccurrences": 16,
     "semanticWorkspaceMaximumDependencies": 8,
     "integratedProjectMaximumProblems": 32,

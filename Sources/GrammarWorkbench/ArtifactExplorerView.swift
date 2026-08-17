@@ -1313,6 +1313,42 @@ public struct ArtifactExplorerView: View {
     private var researchView: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
+                Text("Selected research preview").font(.title2.bold())
+                Text("Explore a small research question with declared expectations, repeatable evidence, and a plain-language conclusion.")
+                    .foregroundStyle(.secondary)
+                Picker("Research question", selection: Binding(
+                    get: { store.selectedResearchStudyID },
+                    set: { store.selectResearchStudy($0) }
+                )) {
+                    ForEach(GrammarSelectedResearchCatalog.studies) { study in
+                        Text(study.title).tag(study.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                if let study = GrammarSelectedResearchCatalog.study(id: store.selectedResearchStudyID) {
+                    GroupBox {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(study.question).font(.headline)
+                            Text(study.context).foregroundStyle(.secondary)
+                            HStack {
+                                Button("Run selected preview", systemImage: "checkmark.seal") {
+                                    store.runSelectedResearchPreview()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(store.isRunningSelectedResearch)
+                                if store.isRunningSelectedResearch { ProgressView().controlSize(.small) }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+                if let error = store.selectedResearchError {
+                    Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                }
+                if let preview = store.selectedResearchPreview {
+                    selectedResearchPreviewView(preview)
+                }
+                Divider().padding(.vertical, 4)
                 Text("Generalized LR exploration").font(.title2.bold())
                 Text("Merges equivalent parser configurations into a shared-packed forest, then materializes only the requested concrete alternatives. Explicit limits bound exploration and forest growth.")
                     .foregroundStyle(.secondary)
@@ -1374,6 +1410,49 @@ public struct ArtifactExplorerView: View {
                 }
             }
             .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func selectedResearchPreviewView(_ preview: GrammarSelectedResearchPreview) -> some View {
+        GroupBox {
+            VStack(alignment: .leading, spacing: 12) {
+                Label(
+                    preview.passed ? "Selected evidence supports the hypothesis" : "The hypothesis was falsified",
+                    systemImage: preview.passed ? "checkmark.seal.fill" : "xmark.seal.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(preview.passed ? .green : .red)
+                Text(preview.conclusion)
+                ForEach(preview.observations) { observation in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: observation.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                            .foregroundStyle(observation.passed ? .green : .red)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text(observation.title).font(.headline)
+                                Spacer()
+                                Text(observation.value).foregroundStyle(.secondary)
+                            }
+                            Text(observation.explanation).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                DisclosureGroup("Inspect evidence and limitations") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        LabeledContent("Programme", value: preview.report.programmeFingerprint)
+                        LabeledContent("Evidence", value: preview.report.evidenceFingerprint)
+                        LabeledContent("Cases", value: "\(preview.report.passedCases)/\(preview.report.cases.count) passed")
+                        ForEach(preview.limitations, id: \.self) { limitation in
+                            Label(limitation, systemImage: "info.circle")
+                        }
+                    }
+                    .font(.caption)
+                    .textSelection(.enabled)
+                    .padding(.top, 6)
+                }
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

@@ -51,6 +51,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let crossPlatformCoreSeparation: GrammarWorkbenchFeatureMaturity = .stable
     public static let bootstrapAndInterchangeExpansion: GrammarWorkbenchFeatureMaturity = .stable
     public static let researchValidationProgramme: GrammarWorkbenchFeatureMaturity = .stable
+    public static let selectedResearchPreview: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)

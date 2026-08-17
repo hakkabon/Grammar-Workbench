@@ -37,6 +37,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let researchMaximumRepetitions: Int
         let researchReportMaximumBytes: Int
         let researchMedianMaximumNanoseconds: UInt64
+        let selectedResearchMaximumStudies: Int
+        let selectedResearchPreviewMaximumBytes: Int
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
@@ -101,6 +103,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.crossPlatformCoreSeparation == .stable)
     #expect(GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion == .stable)
     #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
+    #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -242,6 +245,18 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     })
     #expect(try GrammarResearchProgrammeCodec.encode(report).count <=
             policy.budgets.researchReportMaximumBytes)
+}
+
+@Test func selectedResearchPreviewsStayWithinReleaseBudgets() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let studies = GrammarSelectedResearchCatalog.studies
+    #expect(studies.count <= budget.selectedResearchMaximumStudies)
+    let encoder = JSONEncoder()
+    for study in studies {
+        let preview = try GrammarSelectedResearchPreviewEngine.run(study)
+        #expect(preview.passed)
+        #expect(try encoder.encode(preview).count <= budget.selectedResearchPreviewMaximumBytes)
+    }
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

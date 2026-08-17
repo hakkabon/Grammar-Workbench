@@ -9,6 +9,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Immutable public snapshots and schema-versioned project, artifact, and semantic-model interchange.
 - Canonical portable-grammar and bootstrap-evidence envelopes, codecs, fingerprints, and deterministic renderers.
 - Research programme, case, expectation, evidence, timing, report, and baseline-comparison contracts.
+- Selected research catalog, study, observation, plain-language preview, and underlying evidence contracts.
 - `GrammarSyntaxNode`, `GrammarSemanticReducer`, declarative `GrammarSemanticActions`, semantic coverage validation, and semantic evaluation.
 - `GrammarGenerator`, its registry, built-in generators, standalone Swift generation, and the SwiftPM plugin.
 - `GrammarWorkbenchLSP`, the stdio server, document synchronization, diagnostics, grammar completion/definition/quick fixes, and source completion/hover/outline services.

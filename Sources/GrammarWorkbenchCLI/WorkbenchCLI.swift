@@ -550,6 +550,45 @@ struct GrammarWorkbenchCLI {
             )
             print("Wrote \(arguments[1]): bootstrap fixed point \(bundle.report.fixedPointGeneration.map(String.init) ?? "none"), fingerprint \(bundle.metaGrammar.fingerprint)")
             guard bundle.report.succeeded else { throw CLIError.bootstrapFailed }
+        case "research-validate":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("research-validate requires PROGRAMME [OUTPUT]")
+            }
+            let programme = try GrammarResearchProgrammeCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let report = try GrammarResearchValidator.run(programme)
+            let data = try GrammarResearchProgrammeCodec.encode(report)
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(report.passedCases)/\(report.cases.count) hypotheses passed, evidence \(report.evidenceFingerprint)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.passed else { throw CLIError.researchValidationFailed }
+        case "research-compare":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("research-compare requires BASELINE CANDIDATE [OUTPUT]")
+            }
+            let baseline = try GrammarResearchProgrammeCodec.decodeReport(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let candidate = try GrammarResearchProgrammeCodec.decodeReport(
+                Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let comparison = GrammarResearchValidator.compare(baseline: baseline, candidate: candidate)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(comparison)
+            if arguments.count == 4 {
+                try data.write(to: URL(fileURLWithPath: arguments[3]), options: .atomic)
+                print("Wrote \(arguments[3]): \(comparison.regressions.count) regressions, \(comparison.evidenceChanges.count) evidence changes")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard comparison.compatibleProgramme, comparison.regressions.isEmpty else {
+                throw CLIError.researchValidationFailed
+            }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -667,6 +706,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT
       grammar-workbench bootstrap [OUTPUT] [--maximum-generations=N]
       grammar-workbench bootstrap-bundle OUTPUT [--maximum-generations=N]
+      grammar-workbench research-validate PROGRAMME [OUTPUT]
+      grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version
@@ -690,6 +731,7 @@ private enum CLIError: LocalizedError {
     case platformParseFailed(String)
     case transformationFailed(String)
     case bootstrapFailed
+    case researchValidationFailed
     case toolingRequestFailed(String)
 
     var errorDescription: String? {
@@ -702,6 +744,7 @@ private enum CLIError: LocalizedError {
         case .platformParseFailed(let status): "platform parse did not select an accepted tree (\(status))"
         case .transformationFailed(let message): "grammar transformation was not applied: \(message)"
         case .bootstrapFailed: "bootstrap laboratory did not reach a validated fixed point"
+        case .researchValidationFailed: "research validation programme reported a regression or failed hypothesis"
         case .toolingRequestFailed(let message): "language-tooling request failed: \(message)"
         }
     }

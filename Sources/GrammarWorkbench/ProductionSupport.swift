@@ -50,6 +50,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let graphVisualizationPlatform: GrammarWorkbenchFeatureMaturity = .stable
     public static let crossPlatformCoreSeparation: GrammarWorkbenchFeatureMaturity = .stable
     public static let bootstrapAndInterchangeExpansion: GrammarWorkbenchFeatureMaturity = .stable
+    public static let researchValidationProgramme: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)

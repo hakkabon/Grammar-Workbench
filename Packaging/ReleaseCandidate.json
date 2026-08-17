@@ -26,6 +26,9 @@
   "requiredGraphFixtures": [
     "Examples/GraphVisualization.json"
   ],
+  "requiredResearchProgrammes": [
+    "Examples/ResearchValidationProgramme.json"
+  ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,
@@ -54,6 +57,10 @@
     "bootstrapMinimumCorpusCases": 4,
     "bootstrapBundleMaximumBytes": 100000,
     "portableInterchangeMaximumProductions": 16,
+    "researchMaximumCases": 8,
+    "researchMaximumRepetitions": 10,
+    "researchReportMaximumBytes": 250000,
+    "researchMedianMaximumNanoseconds": 1000000000,
     "semanticWorkspaceMaximumOccurrences": 16,
     "semanticWorkspaceMaximumDependencies": 8,
     "integratedProjectMaximumProblems": 32,

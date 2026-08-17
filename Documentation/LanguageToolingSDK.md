@@ -8,6 +8,8 @@ Capability responses advertise `crossPlatformCoreSeparation`. Hosts that only ne
 
 Bootstrap and interchange hosts can negotiate `portableGrammarImport`, `portableGrammarRender`, and `bootstrapBundle`. Their payloads use the same canonical envelopes and verified fingerprints as the CLI, so a service-generated bundle can be decoded directly by an in-process core consumer.
 
+Research hosts can negotiate `researchValidate` and submit a complete `GrammarResearchProgramme`. The returned report preserves the same hypothesis failures, evidence fingerprints, environment metadata, and timing distributions as `research-validate` on the CLI.
+
 ## Swift integration
 
 ```swift

@@ -33,6 +33,10 @@ private struct ReleaseCandidatePolicy: Decodable {
         let bootstrapMinimumCorpusCases: Int
         let bootstrapBundleMaximumBytes: Int
         let portableInterchangeMaximumProductions: Int
+        let researchMaximumCases: Int
+        let researchMaximumRepetitions: Int
+        let researchReportMaximumBytes: Int
+        let researchMedianMaximumNanoseconds: UInt64
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
@@ -55,6 +59,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredProjectManifests: [String]
     let requiredSemanticLanguageKits: [String]
     let requiredGraphFixtures: [String]
+    let requiredResearchProgrammes: [String]
     let budgets: Budgets
 }
 
@@ -95,6 +100,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.graphVisualizationPlatform == .stable)
     #expect(GrammarWorkbenchCapabilities.crossPlatformCoreSeparation == .stable)
     #expect(GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion == .stable)
+    #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -119,6 +125,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     for path in policy.requiredGraphFixtures {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         _ = try JSONDecoder().decode(GrammarGraph.self, from: data)
+    }
+    for path in policy.requiredResearchProgrammes {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        _ = try GrammarResearchProgrammeCodec.decode(data)
     }
 }
 
@@ -215,6 +225,23 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     )
     #expect(grammar.specification.productions.count <= budget.portableInterchangeMaximumProductions)
     #expect(try GrammarPortableInterchangeCodec.verifyRoundTrip(grammar, through: .bnfProfile).matches)
+}
+
+@Test func researchValidationProgrammeStaysWithinReleaseBudgets() throws {
+    let policy = try releaseCandidatePolicy()
+    let path = try #require(policy.requiredResearchProgrammes.first)
+    let programme = try GrammarResearchProgrammeCodec.decode(
+        Data(contentsOf: packageRoot().appendingPathComponent(path))
+    )
+    #expect(programme.cases.count <= policy.budgets.researchMaximumCases)
+    #expect(programme.repetitions <= policy.budgets.researchMaximumRepetitions)
+    let report = try GrammarResearchValidator.run(programme)
+    #expect(report.passed)
+    #expect(report.cases.allSatisfy {
+        $0.timing.medianNanoseconds <= policy.budgets.researchMedianMaximumNanoseconds
+    })
+    #expect(try GrammarResearchProgrammeCodec.encode(report).count <=
+            policy.budgets.researchReportMaximumBytes)
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

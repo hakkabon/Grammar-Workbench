@@ -6,6 +6,8 @@ A portable graph fixture is laid out through the shipped Swift-Layout binary dur
 
 The canonical BNF fixture must survive an identity-preserving portable-interchange round trip. The bootstrap bundle must contain matching meta-grammar and fixed-point fingerprints and remain within its serialized-size budget.
 
+The packaged research programme must pass every declared hypothesis, preserve repeated and DFS/BFS evidence identities, and remain within its case-count, repetition, report-size, and median-runtime budgets.
+
 The release-candidate gate verifies the product from four perspectives:
 
 1. The root test suite validates algorithms, documents, GUI foundations, compatibility, packaging metadata, and performance budgets.
@@ -23,6 +25,7 @@ The release-candidate gate verifies the product from four perspectives:
 13. Semantic workspace services must resolve the packaged cross-document corpus without diagnostics, stay within symbol and dependency budgets, and reject stale rename plans before applying any document edit.
 14. The integrated project experience must retain its five task destinations, combine project and semantic problems within the declared bound, and remain a stable Codable contract.
 15. The stateful tooling service must preserve incremental document revisions, serialize each session, expose capability-negotiated JSON-lines framing, and keep session/document counts within declared release bounds.
+16. The packaged research programme must pass all hypotheses with stable repeated and DFS/BFS evidence, produce an integrity-checked report, and stay within declared execution and serialization budgets.
 
 Run the normal gate:
 

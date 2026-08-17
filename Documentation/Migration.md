@@ -18,6 +18,10 @@ Schema-1 artifact envelopes remain readable and normalize to schema 2. Consumers
 
 Portable grammar and bootstrap bundles use their own schema-1 kind identifiers and do not change document or artifact interchange. Consumers should dispatch on `kind`, then decode with `GrammarPortableInterchangeCodec` or `GrammarBootstrapInterchangeCodec`. A canonical fingerprint mismatch is an integrity failure, not a schema migration opportunity.
 
+## Research validation reports
+
+Research programmes and reports use separate schema-1 kind identifiers. Baseline comparison requires identical programme fingerprints; changing a grammar, expectation, bound, hypothesis, or repetition count creates a new experimental programme rather than a compatible candidate run. Report decoders verify case and aggregate evidence fingerprints before comparison.
+
 ## Parse results
 
 Older parse-result JSON without `syntaxTree` remains decodable. Consumers should continue accepting the rendered `tree` field while adopting structured syntax nodes.

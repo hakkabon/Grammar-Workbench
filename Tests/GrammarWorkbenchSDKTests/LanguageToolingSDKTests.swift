@@ -351,3 +351,24 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(bundled.bootstrapBundle?.metaGrammar.fingerprint ==
             bundled.bootstrapBundle?.report.generations.last?.grammarFingerprint)
 }
+
+@Test func toolingRunsResearchValidationProgrammes() async throws {
+    let programme = GrammarResearchProgramme(
+        id: "sdk-research", title: "SDK research", rationale: "Validate SDK transport.",
+        repetitions: 2,
+        cases: [.init(
+            id: "accepted", name: "Accepted", hypothesis: "Both engines accept.",
+            grammar: .init(source: "%start S\nS : 'ok' ;"), input: "ok",
+            expectation: .init(
+                deterministicStatus: .accepted, generalizedStatus: .accepted,
+                minimumDerivations: 1, maximumDerivations: 1
+            )
+        )]
+    )
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "research", operation: .researchValidate, researchProgramme: programme
+    ))
+    #expect(response.status == .success)
+    #expect(response.researchReport?.passed == true)
+    #expect(response.researchReport?.cases.first?.timing.samples == 2)
+}

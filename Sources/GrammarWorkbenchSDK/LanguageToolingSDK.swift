@@ -19,6 +19,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case portableGrammarImport
     case portableGrammarRender
     case bootstrapBundle
+    case researchValidate
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -50,6 +51,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
             "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
+            "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -61,7 +63,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
-            .portableGrammarImport, .portableGrammarRender, .bootstrapBundle
+            .portableGrammarImport, .portableGrammarRender, .bootstrapBundle, .researchValidate
         ],
         transports: ["in-process", "json"],
         features: [
@@ -73,6 +75,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
             "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
+            "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )
@@ -100,6 +103,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var portableGrammar: GrammarPortableInterchange?
     public var portableRenderFormat: GrammarPortableRenderFormat?
     public var bootstrapOptions: GrammarBootstrapOptions?
+    public var researchProgramme: GrammarResearchProgramme?
     public var sessionID: String?
     public var documentID: String?
     public var revision: Int?
@@ -124,6 +128,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         portableGrammar: GrammarPortableInterchange? = nil,
         portableRenderFormat: GrammarPortableRenderFormat? = nil,
         bootstrapOptions: GrammarBootstrapOptions? = nil,
+        researchProgramme: GrammarResearchProgramme? = nil,
         sessionID: String? = nil,
         documentID: String? = nil,
         revision: Int? = nil,
@@ -151,6 +156,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.portableGrammar = portableGrammar
         self.portableRenderFormat = portableRenderFormat
         self.bootstrapOptions = bootstrapOptions
+        self.researchProgramme = researchProgramme
         self.sessionID = sessionID
         self.documentID = documentID
         self.revision = revision
@@ -231,6 +237,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let portableGrammar: GrammarPortableInterchange?
     public let renderedGrammar: String?
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
+    public let researchReport: GrammarResearchReport?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -250,6 +257,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         portableGrammar: GrammarPortableInterchange? = nil,
         renderedGrammar: String? = nil,
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
+        researchReport: GrammarResearchReport? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil
@@ -270,6 +278,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.portableGrammar = portableGrammar
         self.renderedGrammar = renderedGrammar
         self.bootstrapBundle = bootstrapBundle
+        self.researchReport = researchReport
         self.session = session
         self.document = document
         self.events = events
@@ -379,6 +388,13 @@ public struct GrammarLanguageToolingService: Sendable {
                     requestID: request.requestID,
                     bootstrapBundle: try GrammarBootstrapInterchangeCodec.makeBundle(
                         options: request.bootstrapOptions ?? .init()
+                    )
+                )
+            case .researchValidate:
+                return .init(
+                    requestID: request.requestID,
+                    researchReport: try GrammarResearchValidator.run(
+                        try required(request.researchProgramme, "researchProgramme")
                     )
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,

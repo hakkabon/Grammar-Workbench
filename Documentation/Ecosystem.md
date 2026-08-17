@@ -6,6 +6,8 @@ Graph layout is consumed through the independently released Swift-Layout package
 
 Canonical grammar interchange is independent of parser-table artifacts and document persistence. BNF-profile, Workbench, and EBNF sources normalize into fingerprinted `GrammarPortableInterchange` envelopes; bootstrap bundles add fixed-point and differential-validation evidence for research and CI consumers.
 
+Research programmes package falsifiable parser hypotheses and bounded corpora for local runs, CI, SDK hosts, and cross-version baseline comparison. Deterministic evidence fingerprints remain separate from hardware-sensitive timing summaries.
+
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 
 ## SwiftPM products

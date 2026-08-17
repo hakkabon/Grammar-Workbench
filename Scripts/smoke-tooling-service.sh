@@ -5,7 +5,7 @@ SERVICE_PATH="${1:?usage: smoke-tooling-service.sh SERVICE_PATH}"
 REQUEST='{"apiVersion":1,"operation":"capabilities","requestID":"smoke-capabilities","schemaVersion":1}'
 OUTPUT="$(printf '%s\n' "$REQUEST" | "$SERVICE_PATH")"
 
-for REQUIRED in '"requestID":"smoke-capabilities"' '"status":"success"' '"json-lines"' '"sessionOpen"' '"languageKitValidate"' '"semanticLanguageKits"' '"graphLayout"' '"graphVisualizationPlatform"' '"crossPlatformCoreSeparation"' '"portableGrammarImport"' '"bootstrapBundle"' '"bootstrapAndInterchangeExpansion"'; do
+for REQUIRED in '"requestID":"smoke-capabilities"' '"status":"success"' '"json-lines"' '"sessionOpen"' '"languageKitValidate"' '"semanticLanguageKits"' '"graphLayout"' '"graphVisualizationPlatform"' '"crossPlatformCoreSeparation"' '"portableGrammarImport"' '"bootstrapBundle"' '"bootstrapAndInterchangeExpansion"' '"researchValidate"' '"researchValidationProgramme"'; do
     case "$OUTPUT" in
         *"$REQUIRED"*) ;;
         *) echo "Tooling service returned an unexpected capability response: $OUTPUT" >&2; exit 1 ;;

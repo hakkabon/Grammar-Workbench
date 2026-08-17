@@ -1,0 +1,134 @@
+{
+  "cases" : [
+    {
+      "expectation" : {
+        "compilationSucceeds" : true,
+        "deterministicStatus" : "accepted",
+        "generalizedStatus" : "accepted",
+        "maximumDerivations" : 1,
+        "minimumDerivations" : 1,
+        "reachedLimits" : [
+
+        ],
+        "requiresSearchStrategyInvariance" : true
+      },
+      "generalizedOptions" : {
+        "exploresResolvedConflicts" : false,
+        "maximumConfigurations" : 4096,
+        "maximumForestNodes" : 50000,
+        "maximumPackedFamilies" : 100000,
+        "maximumSteps" : 100000,
+        "maximumTrees" : 16,
+        "searchStrategy" : "depthFirst"
+      },
+      "grammar" : {
+        "algorithm" : "LALR(1)",
+        "notation" : "Workbench",
+        "source" : "%start S\nS : 'ok' ;"
+      },
+      "hypothesis" : "Both engines recognize exactly one derivation.",
+      "id" : "unambiguous-recognition",
+      "input" : "ok",
+      "name" : "Unambiguous recognition"
+    },
+    {
+      "expectation" : {
+        "compilationSucceeds" : true,
+        "deterministicStatus" : "conflict",
+        "generalizedStatus" : "ambiguous",
+        "maximumDerivations" : 2,
+        "minimumDerivations" : 2,
+        "reachedLimits" : [
+
+        ],
+        "requiresSearchStrategyInvariance" : true
+      },
+      "generalizedOptions" : {
+        "exploresResolvedConflicts" : false,
+        "maximumConfigurations" : 4096,
+        "maximumForestNodes" : 50000,
+        "maximumPackedFamilies" : 100000,
+        "maximumSteps" : 100000,
+        "maximumTrees" : 16,
+        "searchStrategy" : "depthFirst"
+      },
+      "grammar" : {
+        "algorithm" : "LALR(1)",
+        "notation" : "Workbench",
+        "source" : "%start E\nE : E '+' E | 'id' ;"
+      },
+      "hypothesis" : "Three operands retain exactly two derivations under both search strategies.",
+      "id" : "catalan-ambiguity",
+      "input" : "id + id + id",
+      "name" : "Catalan ambiguity"
+    },
+    {
+      "expectation" : {
+        "compilationSucceeds" : true,
+        "deterministicStatus" : "accepted",
+        "generalizedStatus" : "ambiguous",
+        "maximumDerivations" : 2,
+        "minimumDerivations" : 2,
+        "reachedLimits" : [
+
+        ],
+        "requiresSearchStrategyInvariance" : true
+      },
+      "generalizedOptions" : {
+        "exploresResolvedConflicts" : true,
+        "maximumConfigurations" : 4096,
+        "maximumForestNodes" : 50000,
+        "maximumPackedFamilies" : 100000,
+        "maximumSteps" : 100000,
+        "maximumTrees" : 16,
+        "searchStrategy" : "depthFirst"
+      },
+      "grammar" : {
+        "algorithm" : "LALR(1)",
+        "notation" : "Workbench",
+        "source" : "%start E\n%left '+'\nE : E '+' E | 'id' ;"
+      },
+      "hypothesis" : "Research mode exposes ambiguity hidden by precedence resolution.",
+      "id" : "resolved-ambiguity",
+      "input" : "id + id + id",
+      "name" : "Resolved ambiguity"
+    },
+    {
+      "expectation" : {
+        "compilationSucceeds" : true,
+        "deterministicStatus" : "rejected",
+        "generalizedStatus" : "rejected",
+        "maximumDerivations" : 0,
+        "minimumDerivations" : 0,
+        "reachedLimits" : [
+
+        ],
+        "requiresSearchStrategyInvariance" : true
+      },
+      "generalizedOptions" : {
+        "exploresResolvedConflicts" : false,
+        "maximumConfigurations" : 4096,
+        "maximumForestNodes" : 50000,
+        "maximumPackedFamilies" : 100000,
+        "maximumSteps" : 100000,
+        "maximumTrees" : 16,
+        "searchStrategy" : "depthFirst"
+      },
+      "grammar" : {
+        "algorithm" : "LALR(1)",
+        "notation" : "Workbench",
+        "source" : "%start S\nS : 'a' 'b' ;"
+      },
+      "hypothesis" : "Both engines reject an incomplete sentence.",
+      "id" : "rejection-agreement",
+      "input" : "a a",
+      "name" : "Rejection agreement"
+    }
+  ],
+  "id" : "org.grammar-workbench.parser-baseline",
+  "kind" : "grammar-workbench-research-programme",
+  "rationale" : "A reproducible baseline for recognition, ambiguity preservation, precedence research, rejection, and search-order invariance.",
+  "repetitions" : 5,
+  "schemaVersion" : 1,
+  "title" : "Grammar Workbench parser validation baseline"
+}

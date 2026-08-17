@@ -40,6 +40,9 @@ done
 "$CLI_PATH" portable-import "$ROOT_DIR/Examples/PortableArithmetic.bnf" "$WORK_DIR/portable-grammar.json" --notation=bnfProfile --start=expression
 "$CLI_PATH" portable-render "$WORK_DIR/portable-grammar.json" "$WORK_DIR/portable-grammar.bnf" --format=bnfProfile --verify
 "$CLI_PATH" bootstrap-bundle "$WORK_DIR/bootstrap-bundle.json"
+"$CLI_PATH" research-validate "$ROOT_DIR/Examples/ResearchValidationProgramme.json" "$WORK_DIR/research-baseline.json"
+"$CLI_PATH" research-validate "$ROOT_DIR/Examples/ResearchValidationProgramme.json" "$WORK_DIR/research-candidate.json"
+"$CLI_PATH" research-compare "$WORK_DIR/research-baseline.json" "$WORK_DIR/research-candidate.json" "$WORK_DIR/research-comparison.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -59,6 +62,9 @@ test -s "$WORK_DIR/graph-layout.svg"
 test -s "$WORK_DIR/portable-grammar.json"
 test -s "$WORK_DIR/portable-grammar.bnf"
 test -s "$WORK_DIR/bootstrap-bundle.json"
+test -s "$WORK_DIR/research-baseline.json"
+test -s "$WORK_DIR/research-candidate.json"
+test -s "$WORK_DIR/research-comparison.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

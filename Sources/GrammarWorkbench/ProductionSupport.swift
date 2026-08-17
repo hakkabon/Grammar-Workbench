@@ -49,6 +49,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let semanticLanguageKits: GrammarWorkbenchFeatureMaturity = .stable
     public static let graphVisualizationPlatform: GrammarWorkbenchFeatureMaturity = .stable
     public static let crossPlatformCoreSeparation: GrammarWorkbenchFeatureMaturity = .stable
+    public static let bootstrapAndInterchangeExpansion: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)

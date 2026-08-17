@@ -16,6 +16,9 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case languageKitValidate
     case languageKitAnalyze
     case graphLayout
+    case portableGrammarImport
+    case portableGrammarRender
+    case bootstrapBundle
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -46,6 +49,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
+            "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -56,7 +60,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         grammarWorkbenchAPIVersion: GrammarWorkbenchAPIVersion.current,
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
-            .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout
+            .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
+            .portableGrammarImport, .portableGrammarRender, .bootstrapBundle
         ],
         transports: ["in-process", "json"],
         features: [
@@ -67,6 +72,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "semanticLanguageKits": GrammarWorkbenchCapabilities.semanticLanguageKits,
             "graphVisualizationPlatform": GrammarWorkbenchCapabilities.graphVisualizationPlatform,
             "crossPlatformCoreSeparation": GrammarWorkbenchCapabilities.crossPlatformCoreSeparation,
+            "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )
@@ -88,6 +94,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var languageKit: GrammarSemanticLanguageKitManifest?
     public var graph: GrammarGraph?
     public var graphLayoutOptions: GrammarGraphLayoutOptions?
+    public var portableSource: String?
+    public var portableNotation: GrammarPortableNotation?
+    public var portableStartSymbol: String?
+    public var portableGrammar: GrammarPortableInterchange?
+    public var portableRenderFormat: GrammarPortableRenderFormat?
+    public var bootstrapOptions: GrammarBootstrapOptions?
     public var sessionID: String?
     public var documentID: String?
     public var revision: Int?
@@ -106,6 +118,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         languageKit: GrammarSemanticLanguageKitManifest? = nil,
         graph: GrammarGraph? = nil,
         graphLayoutOptions: GrammarGraphLayoutOptions? = nil,
+        portableSource: String? = nil,
+        portableNotation: GrammarPortableNotation? = nil,
+        portableStartSymbol: String? = nil,
+        portableGrammar: GrammarPortableInterchange? = nil,
+        portableRenderFormat: GrammarPortableRenderFormat? = nil,
+        bootstrapOptions: GrammarBootstrapOptions? = nil,
         sessionID: String? = nil,
         documentID: String? = nil,
         revision: Int? = nil,
@@ -127,6 +145,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.languageKit = languageKit
         self.graph = graph
         self.graphLayoutOptions = graphLayoutOptions
+        self.portableSource = portableSource
+        self.portableNotation = portableNotation
+        self.portableStartSymbol = portableStartSymbol
+        self.portableGrammar = portableGrammar
+        self.portableRenderFormat = portableRenderFormat
+        self.bootstrapOptions = bootstrapOptions
         self.sessionID = sessionID
         self.documentID = documentID
         self.revision = revision
@@ -204,6 +228,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let semanticWorkspace: GrammarSemanticWorkspaceSnapshot?
     public let languageKit: GrammarToolingLanguageKitResult?
     public let graphLayout: GrammarGraphLayoutSnapshot?
+    public let portableGrammar: GrammarPortableInterchange?
+    public let renderedGrammar: String?
+    public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -220,6 +247,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil,
         languageKit: GrammarToolingLanguageKitResult? = nil,
         graphLayout: GrammarGraphLayoutSnapshot? = nil,
+        portableGrammar: GrammarPortableInterchange? = nil,
+        renderedGrammar: String? = nil,
+        bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil
@@ -237,6 +267,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.semanticWorkspace = semanticWorkspace
         self.languageKit = languageKit
         self.graphLayout = graphLayout
+        self.portableGrammar = portableGrammar
+        self.renderedGrammar = renderedGrammar
+        self.bootstrapBundle = bootstrapBundle
         self.session = session
         self.document = document
         self.events = events
@@ -322,6 +355,30 @@ public struct GrammarLanguageToolingService: Sendable {
                     graphLayout: try GrammarGraphLayoutEngine.layout(
                         try required(request.graph, "graph"),
                         options: request.graphLayoutOptions ?? .init()
+                    )
+                )
+            case .portableGrammarImport:
+                return .init(
+                    requestID: request.requestID,
+                    portableGrammar: try GrammarPortableInterchangeCodec.importGrammar(
+                        try required(request.portableSource, "portableSource"),
+                        notation: try required(request.portableNotation, "portableNotation"),
+                        startSymbol: request.portableStartSymbol
+                    )
+                )
+            case .portableGrammarRender:
+                return .init(
+                    requestID: request.requestID,
+                    renderedGrammar: try GrammarPortableInterchangeCodec.render(
+                        try required(request.portableGrammar, "portableGrammar"),
+                        as: try required(request.portableRenderFormat, "portableRenderFormat")
+                    )
+                )
+            case .bootstrapBundle:
+                return .init(
+                    requestID: request.requestID,
+                    bootstrapBundle: try GrammarBootstrapInterchangeCodec.makeBundle(
+                        options: request.bootstrapOptions ?? .init()
                     )
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,

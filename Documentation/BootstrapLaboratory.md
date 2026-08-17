@@ -18,6 +18,21 @@ Run it from the expert **Bootstrap** workspace or in automation:
 
 ```sh
 grammar-workbench bootstrap [report.json] [--maximum-generations=N]
+grammar-workbench bootstrap-bundle bundle.json [--maximum-generations=N]
 ```
 
 The CLI exits unsuccessfully unless both convergence and all differential comparisons pass. `Packaging/ReleaseCandidate.json` bounds the number of generations and minimum corpus size used by the release gate.
+
+## Portable bootstrap interchange
+
+Phase 18 adds `GrammarPortableInterchange`, a canonical grammar envelope shared by the BNF bootstrap profile, Workbench notation, and EBNF lowering. The envelope records its source notation, normalized productions, start symbol, producer, schema version, and a verified canonical fingerprint. Production order and alternative order therefore do not affect identity.
+
+`portable-import` converts source text into the envelope. `portable-render` emits deterministic BNF-profile or Workbench source, and `--verify` imports that output again and refuses to write a silently changed grammar. Named terminals are preserved across Workbench conversion; BNF literals remain explicitly distinguished in the canonical envelope.
+
+`bootstrap-bundle` combines the canonical meta-grammar envelope with its complete fixed-point and differential-validation report. This gives researchers and build systems reproducible evidence without promoting the generated parser over the trusted reader.
+
+```sh
+grammar-workbench portable-import grammar.bnf grammar.json --start=syntax
+grammar-workbench portable-render grammar.json canonical.bnf --verify
+grammar-workbench bootstrap-bundle bootstrap.json
+```

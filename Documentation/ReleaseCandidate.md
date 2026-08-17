@@ -4,6 +4,8 @@ The release gate requires a strictly validated semantic language-kit fixture and
 
 A portable graph fixture is laid out through the shipped Swift-Layout binary during release validation. Node and edge counts and elapsed layout time are bounded, and the CLI smoke workflow exports both JSON and SVG forms.
 
+The canonical BNF fixture must survive an identity-preserving portable-interchange round trip. The bootstrap bundle must contain matching meta-grammar and fixed-point fingerprints and remain within its serialized-size budget.
+
 The release-candidate gate verifies the product from four perspectives:
 
 1. The root test suite validates algorithms, documents, GUI foundations, compatibility, packaging metadata, and performance budgets.

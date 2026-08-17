@@ -6,6 +6,8 @@ small request/response protocol while preserving stable public snapshots.
 
 Capability responses advertise `crossPlatformCoreSeparation`. Hosts that only need in-process grammar services can depend on `GrammarWorkbenchCore`; transport hosts may continue to use the SDK and receive the same portable value contracts.
 
+Bootstrap and interchange hosts can negotiate `portableGrammarImport`, `portableGrammarRender`, and `bootstrapBundle`. Their payloads use the same canonical envelopes and verified fingerprints as the CLI, so a service-generated bundle can be decoded directly by an in-process core consumer.
+
 ## Swift integration
 
 ```swift

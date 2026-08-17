@@ -221,7 +221,7 @@ public enum GrammarBootstrapLaboratory {
         ("meta grammar", metaGrammar)
     ]
 
-    static func parseProfileBNF(_ source: String, start: String) throws -> GrammarBootstrapSpecification {
+    public static func parseProfileBNF(_ source: String, start: String) throws -> GrammarBootstrapSpecification {
         struct RawProduction { let lhs: String; let alternatives: [[RawSymbol]] }
         var raw: [RawProduction] = []
 

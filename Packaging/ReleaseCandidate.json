@@ -52,6 +52,8 @@
     "incrementalMinimumSemanticReusePercent": 50,
     "bootstrapMaximumGenerations": 4,
     "bootstrapMinimumCorpusCases": 4,
+    "bootstrapBundleMaximumBytes": 100000,
+    "portableInterchangeMaximumProductions": 16,
     "semanticWorkspaceMaximumOccurrences": 16,
     "semanticWorkspaceMaximumDependencies": 8,
     "integratedProjectMaximumProblems": 32,

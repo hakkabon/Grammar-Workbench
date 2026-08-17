@@ -31,6 +31,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let incrementalMinimumSemanticReusePercent: Double
         let bootstrapMaximumGenerations: Int
         let bootstrapMinimumCorpusCases: Int
+        let bootstrapBundleMaximumBytes: Int
+        let portableInterchangeMaximumProductions: Int
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
@@ -92,6 +94,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.semanticLanguageKits == .stable)
     #expect(GrammarWorkbenchCapabilities.graphVisualizationPlatform == .stable)
     #expect(GrammarWorkbenchCapabilities.crossPlatformCoreSeparation == .stable)
+    #expect(GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -192,6 +195,26 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(report.generations.count <= budget.bootstrapMaximumGenerations)
     #expect(report.corpus.count >= budget.bootstrapMinimumCorpusCases)
     #expect(report.corpus.allSatisfy { $0.matches })
+}
+
+@Test func bootstrapAndPortableInterchangeStayWithinReleaseBudgets() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let bundle = try GrammarBootstrapInterchangeCodec.makeBundle(
+        options: .init(maximumGenerations: budget.bootstrapMaximumGenerations)
+    )
+    let encoded = try GrammarBootstrapInterchangeCodec.encode(bundle)
+    #expect(encoded.count <= budget.bootstrapBundleMaximumBytes)
+    #expect(bundle.report.succeeded)
+
+    let source = try String(
+        contentsOf: packageRoot().appendingPathComponent("Examples/PortableArithmetic.bnf"),
+        encoding: .utf8
+    )
+    let grammar = try GrammarPortableInterchangeCodec.importGrammar(
+        source, notation: .bnfProfile, startSymbol: "expression"
+    )
+    #expect(grammar.specification.productions.count <= budget.portableInterchangeMaximumProductions)
+    #expect(try GrammarPortableInterchangeCodec.verifyRoundTrip(grammar, through: .bnfProfile).matches)
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

@@ -325,3 +325,29 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.graphLayout?.routes.first?.edge.label == "next")
     #expect(response.graphLayout?.metrics.engine == "rust-sugiyama")
 }
+
+@Test func toolingImportsRendersAndBundlesBootstrapGrammars() async throws {
+    let service = GrammarLanguageToolingService()
+    let imported = await service.handle(.init(
+        requestID: "portable-import", operation: .portableGrammarImport,
+        portableSource: "<start> ::= 'ok'\n",
+        portableNotation: .bnfProfile, portableStartSymbol: "start"
+    ))
+    let grammar = try #require(imported.portableGrammar)
+    #expect(imported.status == .success)
+
+    let rendered = await service.handle(.init(
+        requestID: "portable-render", operation: .portableGrammarRender,
+        portableGrammar: grammar, portableRenderFormat: .bnfProfile
+    ))
+    #expect(rendered.renderedGrammar == "<start> ::= \"ok\"\n")
+
+    let bundled = await service.handle(.init(
+        requestID: "bootstrap-bundle", operation: .bootstrapBundle,
+        bootstrapOptions: .init(maximumGenerations: 3)
+    ))
+    #expect(bundled.status == .success)
+    #expect(bundled.bootstrapBundle?.report.succeeded == true)
+    #expect(bundled.bootstrapBundle?.metaGrammar.fingerprint ==
+            bundled.bootstrapBundle?.report.generations.last?.grammarFingerprint)
+}

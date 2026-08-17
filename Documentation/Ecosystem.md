@@ -4,6 +4,8 @@ Semantic language kits are the portable distribution unit for language-specific 
 
 Graph layout is consumed through the independently released Swift-Layout package. Tagged Layout releases build the XCFramework and generated Swift bindings, publish the binary, and update Swift-Layout automatically. Grammar Workbench pins a tested Swift-Layout revision and exposes only its own portable graph contracts to downstream consumers.
 
+Canonical grammar interchange is independent of parser-table artifacts and document persistence. BNF-profile, Workbench, and EBNF sources normalize into fingerprinted `GrammarPortableInterchange` envelopes; bootstrap bundles add fixed-point and differential-validation evidence for research and CI consumers.
+
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 
 ## SwiftPM products

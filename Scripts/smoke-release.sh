@@ -37,6 +37,9 @@ done
 "$CLI_PATH" kit-project "$ROOT_DIR/Examples/TinySemanticLanguageKit.json" "$WORK_DIR/kit-project.json"
 "$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.json"
 "$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.svg"
+"$CLI_PATH" portable-import "$ROOT_DIR/Examples/PortableArithmetic.bnf" "$WORK_DIR/portable-grammar.json" --notation=bnfProfile --start=expression
+"$CLI_PATH" portable-render "$WORK_DIR/portable-grammar.json" "$WORK_DIR/portable-grammar.bnf" --format=bnfProfile --verify
+"$CLI_PATH" bootstrap-bundle "$WORK_DIR/bootstrap-bundle.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -53,6 +56,9 @@ test -s "$WORK_DIR/project-output/Generated/Grammar.semantic.json"
 test -s "$WORK_DIR/kit-project.json"
 test -s "$WORK_DIR/graph-layout.json"
 test -s "$WORK_DIR/graph-layout.svg"
+test -s "$WORK_DIR/portable-grammar.json"
+test -s "$WORK_DIR/portable-grammar.bnf"
+test -s "$WORK_DIR/bootstrap-bundle.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

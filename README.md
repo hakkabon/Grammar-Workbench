@@ -38,6 +38,8 @@ concurrent JSON-lines host with lifecycle events and request cancellation. See
 
 Reusable semantic language definitions can now be distributed as versioned `GrammarSemanticLanguageKitManifest` files. A kit binds its grammar, semantic rules, file extensions, conformance tests, and generator defaults; strict compilation detects stale semantic production selectors before a consumer opens a project. Kits work through the library, CLI, SDK, and stateful service host. See [Documentation/SemanticLanguageKits.md](Documentation/SemanticLanguageKits.md).
 
+Canonical grammar exchange spans the bootstrap BNF profile, Workbench notation, and EBNF lowering. `portable-import`, `portable-render --verify`, and `bootstrap-bundle` provide fingerprinted grammar envelopes and reproducible fixed-point evidence. See [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
+
 Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).
 
 ## Library API

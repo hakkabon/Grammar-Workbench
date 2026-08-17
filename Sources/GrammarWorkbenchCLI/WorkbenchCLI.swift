@@ -212,6 +212,63 @@ struct GrammarWorkbenchCLI {
                 try encoder.encode(layout).write(to: output, options: .atomic)
             }
             print("Wrote \(arguments[2]): \(layout.nodes.count) nodes, \(layout.routes.count) routes via \(layout.metrics.engine)")
+        case "portable-import":
+            guard arguments.count >= 3 else {
+                throw CLIError.usage("portable-import requires GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]")
+            }
+            let flags = arguments.dropFirst(3)
+            let inferred: GrammarPortableNotation = switch URL(fileURLWithPath: arguments[1]).pathExtension.lowercased() {
+            case "bnf": .bnfProfile
+            case "ebnf": .ebnf
+            default: .workbench
+            }
+            var selectedNotation = inferred
+            var start: String?
+            for flag in flags {
+                if let value = stringOption(flag, name: "notation"),
+                   let notation = GrammarPortableNotation(rawValue: value) {
+                    selectedNotation = notation
+                } else if let value = stringOption(flag, name: "start"), !value.isEmpty {
+                    start = value
+                } else {
+                    throw CLIError.usage("unknown portable-import option ‘\(flag)’")
+                }
+            }
+            let interchange = try GrammarPortableInterchangeCodec.importGrammar(
+                try read(arguments[1]), notation: selectedNotation, startSymbol: start
+            )
+            try GrammarPortableInterchangeCodec.encode(interchange).write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]): \(interchange.specification.productions.count) productions, fingerprint \(interchange.fingerprint)")
+        case "portable-render":
+            guard arguments.count >= 3 else {
+                throw CLIError.usage("portable-render requires INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]")
+            }
+            var format: GrammarPortableRenderFormat = .bnfProfile
+            var verify = false
+            for flag in arguments.dropFirst(3) {
+                if flag == "--verify" {
+                    verify = true
+                } else if let value = stringOption(flag, name: "format"),
+                          let selected = GrammarPortableRenderFormat(rawValue: value) {
+                    format = selected
+                } else {
+                    throw CLIError.usage("unknown portable-render option ‘\(flag)’")
+                }
+            }
+            let interchange = try GrammarPortableInterchangeCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let rendered = try GrammarPortableInterchangeCodec.render(interchange, as: format)
+            if verify {
+                let report = try GrammarPortableInterchangeCodec.verifyRoundTrip(interchange, through: format)
+                guard report.matches else {
+                    throw CLIError.transformationFailed("portable \(format.rawValue) round trip changed the canonical grammar")
+                }
+            }
+            try Data(rendered.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+            print("Wrote \(arguments[2]) as \(format.rawValue)\(verify ? " (round trip verified)" : "")")
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -474,6 +531,25 @@ struct GrammarWorkbenchCLI {
                 print(String(decoding: data, as: UTF8.self))
             }
             guard report.succeeded else { throw CLIError.bootstrapFailed }
+        case "bootstrap-bundle":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("bootstrap-bundle requires OUTPUT [--maximum-generations=N]")
+            }
+            var maximumGenerations = 4
+            if arguments.count == 3 {
+                guard let value = positiveOption(arguments[2], name: "maximum-generations") else {
+                    throw CLIError.usage("unknown bootstrap-bundle option ‘\(arguments[2])’")
+                }
+                maximumGenerations = value
+            }
+            let bundle = try GrammarBootstrapInterchangeCodec.makeBundle(
+                options: .init(maximumGenerations: maximumGenerations)
+            )
+            try GrammarBootstrapInterchangeCodec.encode(bundle).write(
+                to: URL(fileURLWithPath: arguments[1]), options: .atomic
+            )
+            print("Wrote \(arguments[1]): bootstrap fixed point \(bundle.report.fixedPointGeneration.map(String.init) ?? "none"), fingerprint \(bundle.metaGrammar.fingerprint)")
+            guard bundle.report.succeeded else { throw CLIError.bootstrapFailed }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -575,6 +651,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench kit-validate KIT
       grammar-workbench kit-project KIT OUTPUT_PROJECT
       grammar-workbench graph-layout GRAPH OUTPUT [OPTIONS]
+      grammar-workbench portable-import GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]
+      grammar-workbench portable-render INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]
@@ -588,6 +666,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench grammar-analyze GRAMMAR [OUTPUT]
       grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT
       grammar-workbench bootstrap [OUTPUT] [--maximum-generations=N]
+      grammar-workbench bootstrap-bundle OUTPUT [--maximum-generations=N]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version

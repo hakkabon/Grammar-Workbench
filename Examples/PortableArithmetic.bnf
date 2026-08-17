@@ -1,0 +1,3 @@
+<expression> ::= <expression> "+" <term> | <term>
+<term> ::= <term> "*" <factor> | <factor>
+<factor> ::= "id" | "(" <expression> ")"

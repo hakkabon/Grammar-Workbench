@@ -14,6 +14,10 @@ The native `GrammarWorkbenchInterchange` remains the single-document app format.
 
 Schema-1 artifact envelopes remain readable and normalize to schema 2. Consumers should validate both envelope and public API versions and should not persist state or production identifiers across grammar edits.
 
+## Portable grammar and bootstrap interchange
+
+Portable grammar and bootstrap bundles use their own schema-1 kind identifiers and do not change document or artifact interchange. Consumers should dispatch on `kind`, then decode with `GrammarPortableInterchangeCodec` or `GrammarBootstrapInterchangeCodec`. A canonical fingerprint mismatch is an integrity failure, not a schema migration opportunity.
+
 ## Parse results
 
 Older parse-result JSON without `syntaxTree` remains decodable. Consumers should continue accepting the rendered `tree` field while adopting structured syntax nodes.

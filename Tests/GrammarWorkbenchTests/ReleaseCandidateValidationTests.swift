@@ -42,6 +42,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let editorMinimumViewportWidth: Double
         let editorMinimumViewportHeight: Double
         let visualMinimumWorkspaceWidth: Double
+        let sourceProjectMaximumSources: Int
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
@@ -65,6 +66,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredSemanticLanguageKits: [String]
     let requiredGraphFixtures: [String]
     let requiredResearchProgrammes: [String]
+    let requiredSourceProjects: [String]
     let budgets: Budgets
 }
 
@@ -107,6 +109,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion == .stable)
     #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
     #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
+    #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -135,6 +138,22 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     for path in policy.requiredResearchProgrammes {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         _ = try GrammarResearchProgrammeCodec.decode(data)
+    }
+    for path in policy.requiredSourceProjects {
+        let descriptorURL = packageRoot().appendingPathComponent(path)
+        let loaded = try GrammarSourceProjectLoader.load(at: descriptorURL)
+        #expect(loaded.manifest.sources.count <= policy.budgets.sourceProjectMaximumSources)
+        #expect(loaded.descriptor.kind == GrammarSourceProjectDescriptor.kindIdentifier)
+    }
+}
+
+@Test func packagedSourceProjectsAnalyzeWithinReleaseBounds() async throws {
+    let policy = try releaseCandidatePolicy()
+    for path in policy.requiredSourceProjects {
+        let loaded = try GrammarSourceProjectLoader.load(at: packageRoot().appendingPathComponent(path))
+        let analysis = try await GrammarProjectWorkspace(manifest: loaded.manifest).analyze()
+        #expect(analysis.isSuccessful)
+        #expect(analysis.documents.count <= policy.budgets.sourceProjectMaximumSources)
     }
 }
 

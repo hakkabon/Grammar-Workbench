@@ -82,6 +82,7 @@ public enum GrammarProjectOperationKind: String, Hashable, Codable, Sendable, Ca
     case exploringAmbiguity
     case bootstrapping
     case previewingResearch
+    case loadingSourceProject
 }
 
 public struct GrammarProjectOperation: Identifiable, Hashable, Codable, Sendable {

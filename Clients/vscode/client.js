@@ -16,8 +16,13 @@ function globToRegExp(glob) {
     const c = glob[i];
     if (c === "*") {
       if (glob[i + 1] === "*") {
-        pattern += ".*";
-        i += 1;
+        if (glob[i + 2] === "/") {
+          pattern += "(?:.*/)?";
+          i += 2;
+        } else {
+          pattern += ".*";
+          i += 1;
+        }
       } else {
         pattern += "[^/]*";
       }
@@ -32,6 +37,7 @@ function globToRegExp(glob) {
 
 function startClient(vscode, context, options) {
   const serverPath = options.serverPath;
+  const associationRoot = options.associationRoot ? path.resolve(options.associationRoot) : null;
   const associations = Object.entries(options.associations || {}).map(([glob, languageId]) => ({
     matcher: globToRegExp(glob),
     languageId,
@@ -55,16 +61,22 @@ function startClient(vscode, context, options) {
 
   // Patterns without a slash match the file name (like VS Code's own file
   // associations); patterns with a slash match the full path.
+  const associationPath = (document, target) => {
+    if (target !== "path") return path.basename(document.uri.fsPath);
+    if (associationRoot) return path.relative(associationRoot, document.uri.fsPath).split(path.sep).join("/");
+    return document.uri.fsPath;
+  };
+
   const matchPath = (document) =>
     associations.some(({ matcher, target }) =>
-      matcher.test(target === "path" ? document.uri.fsPath : path.basename(document.uri.fsPath))
+      matcher.test(associationPath(document, target))
     );
 
   const relevant = (document) => isGrammarDocument(document.uri) || matchPath(document);
 
   function languageIdFor(document) {
     const match = associations.find(({ matcher, target }) =>
-      matcher.test(target === "path" ? document.uri.fsPath : path.basename(document.uri.fsPath))
+      matcher.test(associationPath(document, target))
     );
     return match ? match.languageId : document.languageId;
   }
@@ -250,6 +262,9 @@ function startClient(vscode, context, options) {
     request("initialize", {
       processId: process.pid,
       capabilities: {},
+      initializationOptions: {
+        grammarWorkbench: { grammarAssociations: options.grammarAssociations || {} },
+      },
       workspaceFolders: vscode.workspace.workspaceFolders
         ? vscode.workspace.workspaceFolders.map((folder) => ({
             uri: folder.uri.toString(),
@@ -549,4 +564,4 @@ function startClient(vscode, context, options) {
   return { output, diagnostics };
 }
 
-module.exports = { startClient };
+module.exports = { startClient, globToRegExp };

@@ -5,7 +5,7 @@
 // with a stubbed `vscode` API, and drives it like VS Code would.
 const assert = require("assert");
 const fs = require("fs");
-const { startClient } = require("../Clients/vscode/client.js");
+const { startClient, globToRegExp } = require("../Clients/vscode/client.js");
 
 const SERVER = ".build/debug/grammar-workbench-lsp";
 if (!fs.existsSync(SERVER)) {
@@ -206,14 +206,18 @@ function applyLineEdits(text, edits) {
 // MARK: - Scenario
 
 (async () => {
+  assert(globToRegExp("Sources/**/*.prog").test("Sources/main.prog"));
+  assert(globToRegExp("Sources/**/*.prog").test("Sources/nested/main.prog"));
   const harness = makeVscode();
   const { vscode } = harness;
   const client = startClient(vscode, harness.context, {
     serverPath: SERVER,
-    associations: { "*.prog": "prog", "*.blk": "block" },
+    associations: { "Sources/**/*.prog": "prog", "*.blk": "block" },
+    associationRoot: "/tmp/project",
+    grammarAssociations: { prog: "file:///tmp/project/Grammar/Language.grammar" },
   });
   const grammars = [
-    ["/tmp/prog.grammarworkbench", "grammarworkbench", PROG_GRAMMAR],
+    ["/tmp/project/Grammar/Language.grammar", "grammarworkbench", PROG_GRAMMAR],
     ["/tmp/block.grammarworkbench", "grammarworkbench", BLOCK_GRAMMAR],
   ];
   const grammarDoc = new FakeDocument(grammars[0][0], grammars[0][1], grammars[0][2]);
@@ -221,14 +225,14 @@ function applyLineEdits(text, edits) {
   harness.open(grammarDoc); // first relevant document spawns the server
   harness.open(blockGrammarDoc);
 
-  await waitFor(() => harness.diagnosticsByUri.has("file:///tmp/prog.grammarworkbench"));
-  assert.deepStrictEqual(harness.diagnosticsByUri.get("file:///tmp/prog.grammarworkbench"), []);
+  await waitFor(() => harness.diagnosticsByUri.has("file:///tmp/project/Grammar/Language.grammar"));
+  assert.deepStrictEqual(harness.diagnosticsByUri.get("file:///tmp/project/Grammar/Language.grammar"), []);
   console.log("PASS: grammar document compiled, empty diagnostics published");
 
-  const source = new FakeDocument("/tmp/sample.prog", "prog", "print nu");
+  const source = new FakeDocument("/tmp/project/Sources/sample.prog", "plaintext", "print nu");
   harness.open(source);
-  await waitFor(() => harness.diagnosticsByUri.has("file:///tmp/sample.prog"));
-  const sourceDiagnostics = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+  await waitFor(() => harness.diagnosticsByUri.has("file:///tmp/project/Sources/sample.prog"));
+  const sourceDiagnostics = harness.diagnosticsByUri.get("file:///tmp/project/Sources/sample.prog");
   assert.ok(sourceDiagnostics.length >= 1, JSON.stringify(sourceDiagnostics));
   assert.strictEqual(sourceDiagnostics[0].severity, DiagnosticSeverity.Error);
   assert.ok(sourceDiagnostics[0].message.includes("nu"), sourceDiagnostics[0].message);
@@ -254,14 +258,14 @@ function applyLineEdits(text, edits) {
 
   harness.change(source, "print number");
   await waitFor(() => {
-    const items = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+    const items = harness.diagnosticsByUri.get("file:///tmp/project/Sources/sample.prog");
     return items && items.length === 0;
   });
   console.log("PASS: didChange (full sync) reanalyzed the document");
 
   harness.save(source);
   await new Promise((resolve) => setTimeout(resolve, 300));
-  const afterSave = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+  const afterSave = harness.diagnosticsByUri.get("file:///tmp/project/Sources/sample.prog");
   assert.ok(afterSave && afterSave.length === 0, "didSave should leave a valid document clean");
   console.log("PASS: didSave round-trip");
 
@@ -307,7 +311,7 @@ function applyLineEdits(text, edits) {
     source, new Position(0, 7)
   );
   assert.ok(definition && definition.length === 1, JSON.stringify(definition));
-  assert.strictEqual(definition[0].uri.fsPath, "/tmp/prog.grammarworkbench");
+  assert.strictEqual(definition[0].uri.fsPath, "/tmp/project/Grammar/Language.grammar");
   assert.deepStrictEqual(
     [definition[0].range.start.line, definition[0].range.start.character],
     [4, 0]
@@ -334,7 +338,7 @@ function applyLineEdits(text, edits) {
 
   harness.change(source, "print nu");
   await waitFor(() => {
-    const items = harness.diagnosticsByUri.get("file:///tmp/sample.prog");
+    const items = harness.diagnosticsByUri.get("file:///tmp/project/Sources/sample.prog");
     return items && items.length > 0;
   });
   const quickFixes = await harness.providers.codeActions.provider.provideCodeActions(
@@ -345,7 +349,7 @@ function applyLineEdits(text, edits) {
   assert.strictEqual(quickFixes[0].kind, CodeActionKind.QuickFix);
   assert.strictEqual(quickFixes[0].isPreferred, true);
   assert.strictEqual(
-    quickFixes[0].edit.edits.get("file:///tmp/sample.prog")[0].newText,
+    quickFixes[0].edit.edits.get("file:///tmp/project/Sources/sample.prog")[0].newText,
     "number "
   );
   console.log("PASS: recovery code action round-trip:", quickFixes[0].title);

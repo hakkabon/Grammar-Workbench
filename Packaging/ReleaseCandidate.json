@@ -29,6 +29,9 @@
   "requiredResearchProgrammes": [
     "Examples/ResearchValidationProgramme.json"
   ],
+  "requiredSourceProjects": [
+    "Examples/SourceProject/.grammar-workbench-source.json"
+  ],
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,
@@ -66,6 +69,7 @@
     "editorMinimumViewportWidth": 300,
     "editorMinimumViewportHeight": 240,
     "visualMinimumWorkspaceWidth": 1120,
+    "sourceProjectMaximumSources": 32,
     "semanticWorkspaceMaximumOccurrences": 16,
     "semanticWorkspaceMaximumDependencies": 8,
     "integratedProjectMaximumProblems": 32,

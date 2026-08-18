@@ -30,6 +30,7 @@ The release-candidate gate verifies the product from four perspectives:
 16. The packaged research programme must pass all hypotheses with stable repeated and DFS/BFS evidence, produce an integrity-checked report, and stay within declared execution and serialization budgets.
 17. The selected research catalog must stay intentionally small, run every embedded programme successfully, and retain the full report beneath each plain-language preview.
 18. The native editor must start with a non-zero viewport, contain long grammar lines, and preserve simultaneous minimum widths for the source, task, and inspector panes without adaptive overlay behavior.
+19. The packaged source-project descriptor must resolve only safe relative files, match its bounded source set, analyze successfully, and preserve its explicit language-to-grammar association independently of filenames.
 
 Run the normal gate:
 

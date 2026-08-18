@@ -37,3 +37,10 @@ grammar-workbench project-semantic Project.json SemanticSchema.json Report.json
 ```
 
 `project-check` compiles the grammar, analyzes every source, runs tests, validates all generator targets, and returns a failing exit status if project analysis fails. `project-generate` requires successful analysis and writes each validated generated filename beneath its declared output directory. `Examples/ExpressionProject.json` is the release-tested reference manifest.
+
+For live filesystem projects, `GrammarSourceProjectDescriptor` stores safe
+relative grammar/schema paths and rooted source associations rather than
+embedded contents. `GrammarSourceProjectLoader` resolves a bounded UTF-8
+snapshot into this existing portable manifest, keeping workspace filesystem
+authority out of the project actor. See
+[SourceProjectsAndExternalEditors.md](SourceProjectsAndExternalEditors.md).

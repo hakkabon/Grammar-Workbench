@@ -16,6 +16,15 @@ swift build --product grammar-workbench-lsp
 
 ## How documents are associated with grammars
 
+The preferred workflow places `.grammar-workbench-source.json` at the project
+root. It declares the grammar path, language id, and rooted source globs. VS
+Code and Neovim load this descriptor, attach the grammar automatically, and
+send an explicit language-to-grammar URI mapping to the server. See
+[`Documentation/SourceProjectsAndExternalEditors.md`](../Documentation/SourceProjectsAndExternalEditors.md).
+
+The following basename convention remains available for projects without a
+descriptor.
+
 The server treats every document whose URI ends in `.grammarworkbench`,
 `.grammar` (workbench notation) or `.ebnf` (ISO EBNF notation) as a grammar
 document, and compiles it on open. Everything else is a source document, which
@@ -25,7 +34,7 @@ language id:
 - `prog.grammarworkbench` provides the grammar for language id `prog`.
 - `expr.ebnf` provides the grammar for language id `expr`.
 
-Both clients therefore open grammar files with the language id
+Without a descriptor, both clients open grammar files with the language id
 `grammarworkbench` (or `ebnf`), and source documents with the grammar base
 name as the language id:
 
@@ -67,5 +76,6 @@ file-types = ["proto"]
 command = "/path/to/grammar-workbench-lsp"
 ```
 
-Both need `grammar-workbench-lsp` on `PATH` (or an absolute path), and the
-grammar file (e.g. `proto.grammarworkbench`) open in the same session.
+Both need `grammar-workbench-lsp` on `PATH` (or an absolute path). Clients that
+do not implement the source-project descriptor must keep the grammar file (e.g.
+`proto.grammarworkbench`) open in the same session.

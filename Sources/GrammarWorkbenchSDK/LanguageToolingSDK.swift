@@ -54,6 +54,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
             "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
+            "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -80,6 +81,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "bootstrapAndInterchangeExpansion": GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion,
             "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
+            "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
         ]
     )

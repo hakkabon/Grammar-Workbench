@@ -99,6 +99,36 @@ struct GrammarWorkbenchCLI {
             let generated = try await workspace.generate()
             print("Project \(manifest.name): \(analysis.documents.count) sources, \(analysis.index.entries.count) index entries, \(analysis.tests.passed) tests passed, \(generated.count) generator targets valid")
             if !analysis.isSuccessful { throw CLIError.projectFailed }
+        case "source-project-check":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("source-project-check requires a source-project descriptor")
+            }
+            let loaded = try GrammarSourceProjectLoader.load(
+                at: URL(fileURLWithPath: arguments[1])
+            )
+            let analysis = try await GrammarProjectWorkspace(manifest: loaded.manifest).analyze()
+            for document in analysis.documents {
+                let source = loaded.manifest.sources.first { $0.id == document.documentID }
+                let status = document.lexing.diagnostics.isEmpty
+                    ? document.parse.status.rawValue : "lexical-error"
+                print("\(status.uppercased()) \(source?.path ?? document.documentID)")
+            }
+            let semantics = loaded.semanticSchema.map { analysis.semanticWorkspace(schema: $0) }
+            print("Source project \(loaded.descriptor.name): \(analysis.documents.count) files, \(analysis.index.entries.count) index entries, \(semantics?.workspaceSymbols().count ?? 0) workspace symbols")
+            if !analysis.isSuccessful || semantics?.diagnostics.isEmpty == false {
+                throw CLIError.projectFailed
+            }
+        case "source-project-export":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("source-project-export requires DESCRIPTOR OUTPUT_PROJECT")
+            }
+            let loaded = try GrammarSourceProjectLoader.load(
+                at: URL(fileURLWithPath: arguments[1])
+            )
+            try GrammarProjectCodec.encode(loaded.manifest).write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]): \(loaded.manifest.sources.count) embedded source files")
         case "project-generate":
             guard arguments.count == 3 else {
                 throw CLIError.usage("project-generate requires PROJECT OUTPUT_ROOT")
@@ -711,6 +741,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench validate GRAMMAR
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
+      grammar-workbench source-project-check DESCRIPTOR
+      grammar-workbench source-project-export DESCRIPTOR OUTPUT_PROJECT
       grammar-workbench project-generate PROJECT OUTPUT_ROOT
       grammar-workbench project-semantic PROJECT SCHEMA [OUTPUT]
       grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT

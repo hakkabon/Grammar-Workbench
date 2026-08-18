@@ -5,6 +5,11 @@ and inspector are independent panes, so resizing or showing another area does
 not cover the editor. Plain `.txt` and `.grammar` files use Workbench notation;
 `.ebnf` files select EBNF notation.
 
+Use **Open Source Project** to load a `.grammar-workbench-source.json`
+descriptor. Its associated program files appear in the Project workspace with
+lexical, syntax, and optional semantic status. VS Code and Neovim use the same
+descriptor to attach those files to the language server.
+
 Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artifacts from editable grammars.
 
 1. Create or open a `.grammarworkbench` document and begin in **Guide**, which recommends the next useful action.

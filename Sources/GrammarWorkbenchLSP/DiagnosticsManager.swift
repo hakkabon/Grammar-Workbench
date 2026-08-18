@@ -42,9 +42,26 @@ public actor DiagnosticsManager {
 
     private let compiler = GrammarWorkbenchIncrementalCompiler()
     private var grammarDocuments: [DocumentURI: GrammarDocument] = [:]
+    private var explicitGrammarURIs: [String: DocumentURI] = [:]
     private var mostRecentGrammarURI: DocumentURI?
 
     public init() {}
+
+    /// Registers a project-declared language identifier independently of the
+    /// grammar filename. Editor clients provide these mappings during LSP
+    /// initialization from the shared source-project descriptor.
+    public func registerGrammar(languageID: String, uri: DocumentURI) {
+        explicitGrammarURIs[languageID] = uri
+    }
+
+    private func exactGrammarDocument(for languageID: String) -> GrammarDocument? {
+        if let uri = explicitGrammarURIs[languageID], let document = grammarDocuments[uri] {
+            return document
+        }
+        return grammarDocuments.values.first {
+            $0.uri.grammarFileBaseName.caseInsensitiveCompare(languageID) == .orderedSame
+        }
+    }
 
     /// Recompiles the grammar document at `uri` with the given source text and
     /// stores the result for source-document analysis. Identical requests are
@@ -97,9 +114,8 @@ public actor DiagnosticsManager {
         text: String,
         version: Int
     ) async -> GrammarIncrementalAnalysisSnapshot? {
-        let selected = grammarDocuments.values.first {
-            $0.uri.grammarFileBaseName == languageId
-        } ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
+        let selected = exactGrammarDocument(for: languageId)
+            ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
         guard let coordinator = selected?.coordinator else { return nil }
         return try? await coordinator.synchronizeDocument(
             id: uri.stringValue,
@@ -116,9 +132,8 @@ public actor DiagnosticsManager {
         edits: [GrammarTextEdit],
         version: Int
     ) async {
-        let selected = grammarDocuments.values.first {
-            $0.uri.grammarFileBaseName == languageId
-        } ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
+        let selected = exactGrammarDocument(for: languageId)
+            ?? mostRecentGrammarURI.flatMap { grammarDocuments[$0] }
         guard let coordinator = selected?.coordinator else { return }
         _ = try? await coordinator.apply(
             documentID: uri.stringValue,
@@ -129,7 +144,7 @@ public actor DiagnosticsManager {
 
     /// The compilation used for source documents with the given language id.
     public func grammarCompilation(for languageId: String) -> GrammarCompilation? {
-        if let match = grammarDocuments.values.first(where: { $0.uri.grammarFileBaseName == languageId }) {
+        if let match = exactGrammarDocument(for: languageId) {
             return match.compilation
         }
         return mostRecentGrammarURI.flatMap { grammarDocuments[$0]?.compilation }
@@ -141,7 +156,7 @@ public actor DiagnosticsManager {
     /// grammar, so a source document is never completed or hovered with the
     /// wrong grammar.
     public func exactGrammarCompilation(for languageId: String) -> GrammarCompilation? {
-        grammarDocuments.values.first { $0.uri.grammarFileBaseName == languageId }?.compilation
+        exactGrammarDocument(for: languageId)?.compilation
     }
 
     /// The compilation stored for the grammar document at `uri`, if open.
@@ -151,7 +166,7 @@ public actor DiagnosticsManager {
 
     /// The URI of the grammar document that declares the given language id.
     public func grammarDocumentURI(for languageId: String) -> DocumentURI? {
-        grammarDocuments.first { $0.value.uri.grammarFileBaseName == languageId }?.value.uri
+        exactGrammarDocument(for: languageId)?.uri
     }
 
     /// LSP diagnostics for a grammar document compiled from `grammarSource`.

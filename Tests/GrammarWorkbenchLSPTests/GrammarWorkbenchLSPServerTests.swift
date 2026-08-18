@@ -126,6 +126,27 @@ final class GrammarWorkbenchLSPServerTests: XCTestCase {
         XCTAssertGreaterThan(snapshot.incrementalLexing.reusedSuffixTokens, 0)
     }
 
+    func testExplicitProjectAssociationDoesNotDependOnGrammarFilename() async throws {
+        let manager = DiagnosticsManager()
+        let grammarURI = DocumentURI(filePath: "/tmp/project/Grammar/Language.grammar", isDirectory: false)
+        let sourceURI = DocumentURI(filePath: "/tmp/project/Sources/main.expr", isDirectory: false)
+        await manager.registerGrammar(languageID: "expression", uri: grammarURI)
+        _ = await manager.compileGrammar(
+            uri: grammarURI,
+            source: "%start S\nS : 'hello' ;",
+            notation: .workbench
+        )
+
+        let associatedCompilation = await manager.exactGrammarCompilation(for: "expression")
+        let associatedURI = await manager.grammarDocumentURI(for: "expression")
+        XCTAssertNotNil(associatedCompilation)
+        XCTAssertEqual(associatedURI, grammarURI)
+        let analysis = await manager.sourceAnalysis(
+            uri: sourceURI, languageId: "expression", text: "hello", version: 1
+        )
+        XCTAssertEqual(analysis?.parse.status, .accepted)
+    }
+
     func testShutdownRepliesAndSetsExitState() async {
         _ = await send(InitializeRequest(
             processId: nil,

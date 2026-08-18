@@ -47,8 +47,17 @@
           "type": "object",
           "default": {},
           "description": "Maps file globs to grammar names, e.g. {\"*.prog\": \"prog\"}. A matching source document is opened with the grammar base name as its language id, so prog.grammarworkbench analyzes *.prog files."
+        },
+        "grammarWorkbench.projectFile": {
+          "type": "string",
+          "default": ".grammar-workbench-source.json",
+          "description": "Source-project descriptor relative to the first workspace folder. Its grammar and source associations are loaded automatically; explicit associations override descriptor entries."
         }
       }
-    }
+    },
+    "commands": [
+      { "command": "grammarWorkbench.openGrammar", "title": "Grammar Workbench: Open Associated Grammar" },
+      { "command": "grammarWorkbench.openProjectDescriptor", "title": "Grammar Workbench: Open Source Project Descriptor" }
+    ]
   }
 }

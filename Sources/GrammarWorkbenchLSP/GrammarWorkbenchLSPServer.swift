@@ -481,7 +481,16 @@ public actor GrammarWorkbenchLSPServer: MessageHandler {
         }
     }
 
-    private func initialize(_ request: InitializeRequest) -> InitializeResult {
+    private func initialize(_ request: InitializeRequest) async -> InitializeResult {
+        if case .dictionary(let root) = request.initializationOptions,
+           case .dictionary(let workbench)? = root["grammarWorkbench"],
+           case .dictionary(let associations)? = workbench["grammarAssociations"] {
+            for (languageID, value) in associations {
+                guard case .string(let uriString) = value,
+                      let uri = try? DocumentURI(string: uriString) else { continue }
+                await diagnosticsManager.registerGrammar(languageID: languageID, uri: uri)
+            }
+        }
         let syncOptions = TextDocumentSyncOptions(
             openClose: true,
             change: .incremental,

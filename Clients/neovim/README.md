@@ -21,9 +21,11 @@ diagnostic (line 2 is missing its expression): `:lua vim.diagnostic.open_float()
 
 ## Usage
 
+- When `.grammar-workbench-source.json` exists at the workspace root, its
+  source globs, language id, and grammar are loaded and attached automatically.
 - Grammar files (`.grammarworkbench`, `.grammar`, `.ebnf`) attach
   automatically; the server compiles them and reports grammar diagnostics.
-- Source documents attach on demand. Set the buffer filetype to the grammar
+- Without a descriptor, source documents attach on demand. Set the buffer filetype to the grammar
   base name (e.g. `:set filetype=prog` for `prog.grammarworkbench`) and run:
 
   ```vim

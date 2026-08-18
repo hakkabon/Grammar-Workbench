@@ -11,6 +11,11 @@ public struct ArtifactExplorerView: View {
     @State private var showsExpertTools = false
     @State private var transformationPreview: GrammarGuidedTransformationPreview?
     @State private var problemScope = ProblemScope.all
+    @State private var loadedSourceProject: GrammarLoadedSourceProject?
+    @State private var sourceProjectAnalysis: GrammarProjectAnalysis?
+    @State private var sourceProjectSemantics: GrammarSemanticWorkspaceSnapshot?
+    @State private var selectedSourceProjectDocumentID: String?
+    @State private var isLoadingSourceProject = false
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -100,6 +105,10 @@ public struct ArtifactExplorerView: View {
         }
         .navigationTitle("Grammar Workbench")
         .toolbar {
+            ToolbarItem {
+                Button("Open Source Project", systemImage: "folder.badge.gearshape", action: openSourceProject)
+                    .help("Open a .grammar-workbench-source.json project descriptor")
+            }
             if document == nil {
                 ToolbarItem {
                     Button("Open Grammar", systemImage: "folder", action: openGrammar)
@@ -245,10 +254,16 @@ public struct ArtifactExplorerView: View {
     }
 
     private var projectView: some View {
-        let snapshot = store.projectExperience(
-            samples: document?.wrappedValue.samples ?? [
-                .init(name: "Current example", input: store.sampleInput)
-            ],
+        let snapshot = sourceProjectAnalysis.map {
+            GrammarProjectExperience.snapshot(
+                analysis: $0,
+                semantics: sourceProjectSemantics,
+                operations: isLoadingSourceProject
+                    ? [.init(kind: .loadingSourceProject, title: "Loading source project", detail: "Analyzing associated source files")]
+                    : []
+            )
+        } ?? store.projectExperience(
+            samples: document?.wrappedValue.samples ?? [.init(name: "Current example", input: store.sampleInput)],
             tests: document?.wrappedValue.tests ?? []
         )
         let visibleProblems = snapshot.problems.filter(problemScope.includes)
@@ -286,6 +301,10 @@ public struct ArtifactExplorerView: View {
                             }
                         }.frame(maxWidth: .infinity, alignment: .leading)
                     }
+                }
+
+                if let loadedSourceProject, let sourceProjectAnalysis {
+                    sourceProjectSection(loadedSourceProject, analysis: sourceProjectAnalysis)
                 }
 
                 Text("Project navigator").font(.headline)
@@ -352,6 +371,85 @@ public struct ArtifactExplorerView: View {
         }
     }
 
+    private func sourceProjectSection(
+        _ loaded: GrammarLoadedSourceProject,
+        analysis: GrammarProjectAnalysis
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Label("Associated source files", systemImage: "doc.on.doc")
+                    .font(.headline)
+                Spacer()
+                Text(loaded.descriptor.grammar.languageID)
+                    .font(.caption.monospaced()).foregroundStyle(.secondary)
+            }
+            Text(loaded.descriptorURL.path)
+                .font(.caption2.monospaced()).foregroundStyle(.tertiary)
+                .textSelection(.enabled)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(loaded.manifest.sources) { source in
+                        let result = analysis.documents.first { $0.documentID == source.id }
+                        Button {
+                            selectedSourceProjectDocumentID = source.id
+                        } label: {
+                            HStack {
+                                Image(systemName: sourceProjectStatusIcon(result))
+                                    .foregroundStyle(sourceProjectStatusColor(result))
+                                Text(source.path).font(.system(.caption, design: .monospaced))
+                                Spacer()
+                            }
+                            .padding(7)
+                            .background(
+                                selectedSourceProjectDocumentID == source.id
+                                    ? Color.accentColor.opacity(0.14) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 6)
+                            )
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Source file \(source.path)")
+                    }
+                }
+                .frame(minWidth: 220, idealWidth: 280, maxWidth: 340, alignment: .topLeading)
+
+                if let source = selectedSourceProjectSource(in: loaded.manifest) {
+                    ScrollView([.horizontal, .vertical]) {
+                        Text(source.text)
+                            .font(.system(.body, design: .monospaced))
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
+                            .padding(10)
+                    }
+                    .frame(minHeight: 150, maxHeight: 280)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(.separator.opacity(0.7)))
+                    .accessibilityLabel("Source preview for \(source.path)")
+                } else {
+                    ContentUnavailableView("Select a source file", systemImage: "doc.text.magnifyingglass")
+                        .frame(maxWidth: .infinity, minHeight: 150)
+                }
+            }
+        }
+        .padding(14)
+        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func selectedSourceProjectSource(in manifest: GrammarProjectManifest) -> GrammarProjectSource? {
+        let id = selectedSourceProjectDocumentID ?? manifest.sources.first?.id
+        return manifest.sources.first { $0.id == id }
+    }
+
+    private func sourceProjectStatusIcon(_ result: GrammarIncrementalAnalysisSnapshot?) -> String {
+        guard let result else { return "clock" }
+        return result.lexing.diagnostics.isEmpty && result.parse.status == .accepted
+            ? "checkmark.circle.fill" : "xmark.octagon.fill"
+    }
+
+    private func sourceProjectStatusColor(_ result: GrammarIncrementalAnalysisSnapshot?) -> Color {
+        guard let result else { return .secondary }
+        return result.lexing.diagnostics.isEmpty && result.parse.status == .accepted ? .green : .red
+    }
+
     private func projectIcon(_ area: GrammarProjectExperienceArea) -> String {
         switch area {
         case .grammar: "text.book.closed"
@@ -375,6 +473,12 @@ public struct ArtifactExplorerView: View {
     }
 
     private func follow(_ problem: GrammarProjectExperienceProblem) {
+        if let documentID = problem.documentID,
+           loadedSourceProject?.manifest.sources.contains(where: { $0.id == documentID }) == true {
+            selectedSourceProjectDocumentID = documentID
+            tab = .project
+            return
+        }
         store.selectProjectProblem(problem)
         follow(problem.destination)
     }
@@ -1874,6 +1978,49 @@ public struct ArtifactExplorerView: View {
             tab = .analysis
         } catch {
             exportMessage = "Could not open \(url.lastPathComponent): \(error.localizedDescription)"
+        }
+    }
+
+    private func openSourceProject() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a Grammar Workbench source-project descriptor."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        isLoadingSourceProject = true
+        Task {
+            do {
+                let loaded = try await Task.detached {
+                    try GrammarSourceProjectLoader.load(at: url)
+                }.value
+                let workspace = try GrammarProjectWorkspace(manifest: loaded.manifest)
+                let analysis = try await workspace.analyze()
+                let semantics: GrammarSemanticWorkspaceSnapshot? = if let schema = loaded.semanticSchema {
+                    analysis.semanticWorkspace(schema: schema)
+                } else {
+                    nil
+                }
+                loadedSourceProject = loaded
+                sourceProjectAnalysis = analysis
+                sourceProjectSemantics = semantics
+                selectedSourceProjectDocumentID = loaded.manifest.sources.first?.id
+                let grammar = loaded.manifest.grammar
+                if let document {
+                    var updated = document.wrappedValue
+                    updated.source = grammar.source
+                    updated.notation = grammar.notation
+                    updated.algorithm = grammar.algorithm.rawValue
+                    document.wrappedValue = updated
+                }
+                store.notation = grammar.notation
+                store.algorithm = LRAlgorithm(rawValue: grammar.algorithm.rawValue) ?? .lalr
+                store.load(source: grammar.source, documentName: loaded.descriptor.name)
+                tab = .project
+            } catch {
+                exportMessage = "Could not open source project: \(error.localizedDescription)"
+            }
+            isLoadingSourceProject = false
         }
     }
 

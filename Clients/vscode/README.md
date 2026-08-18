@@ -46,6 +46,9 @@ The produced VSIX is also shipped alongside the server binary by
 
 ## Configure
 
+- `grammarWorkbench.projectFile` — source-project descriptor relative to the
+  first workspace folder. The default `.grammar-workbench-source.json` loads
+  rooted source globs and opens the declared grammar in the LSP session.
 - `grammarWorkbench.serverPath` — path to the server binary; the default is
   `${workspaceFolder}/.build/debug/grammar-workbench-lsp`. Set it to a release
   build or an absolute path when needed.
@@ -60,8 +63,12 @@ The produced VSIX is also shipped alongside the server binary by
   }
   ```
 
-  `prog.grammarworkbench` must be open in the workspace for `*.prog` files to
-  be analyzed.
+  Without a source-project descriptor, `prog.grammarworkbench` must be open in
+  the workspace for `*.prog` files to be analyzed.
+
+Use **Grammar Workbench: Open Associated Grammar** and **Grammar Workbench:
+Open Source Project Descriptor** to navigate between the external source and
+its language configuration.
 
 ## Usage
 

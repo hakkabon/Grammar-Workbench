@@ -122,8 +122,9 @@ struct GrammarSourceEditor: NSViewRepresentable {
     }
 
     static func makeTextView(contentSize: NSSize) -> NSTextView {
-        let textView = NSTextView(frame: NSRect(origin: .zero, size: contentSize))
-        textView.minSize = NSSize(width: 0, height: contentSize.height)
+        let initialSize = GrammarEditorScrollView.usableViewportSize(contentSize)
+        let textView = NSTextView(frame: NSRect(origin: .zero, size: initialSize))
+        textView.minSize = NSSize(width: 0, height: initialSize.height)
         textView.maxSize = NSSize(
             width: CGFloat.greatestFiniteMagnitude,
             height: CGFloat.greatestFiniteMagnitude
@@ -141,7 +142,7 @@ struct GrammarSourceEditor: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSScrollView {
-        let scrollView = NSScrollView()
+        let scrollView = GrammarEditorScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
         scrollView.autohidesScrollers = true
@@ -165,6 +166,8 @@ struct GrammarSourceEditor: NSViewRepresentable {
         textView.allowsUndo = true
         textView.usesFindBar = true
         textView.isIncrementalSearchingEnabled = true
+        textView.setAccessibilityIdentifier("grammar-source-editor")
+        textView.setAccessibilityLabel(isEditable ? "Editable grammar source" : "Read-only grammar source")
         scrollView.documentView = textView
 
         let ruler = GrammarLineNumberRulerView(textView: textView, scrollView: scrollView)
@@ -183,11 +186,30 @@ struct GrammarSourceEditor: NSViewRepresentable {
         context.coordinator.parentText = $text
         context.coordinator.completions = completions
         textView.isEditable = isEditable
+        textView.setAccessibilityLabel(isEditable ? "Editable grammar source" : "Read-only grammar source")
         if textView.string != text {
+            let selectedRanges = textView.selectedRanges
+            let visibleRange = textView.layoutManager.flatMap { layoutManager in
+                textView.textContainer.map { textContainer in
+                    let glyphs = layoutManager.glyphRange(forBoundingRect: textView.visibleRect, in: textContainer)
+                    return layoutManager.characterRange(forGlyphRange: glyphs, actualGlyphRange: nil)
+                }
+            }
             context.coordinator.isApplyingUpdate = true
             textView.string = text
             context.coordinator.isApplyingUpdate = false
+            let maximumLocation = (text as NSString).length
+            textView.selectedRanges = selectedRanges.map { value in
+                let range = value.rangeValue
+                let location = min(range.location, maximumLocation)
+                let length = min(range.length, maximumLocation - location)
+                return NSValue(range: NSRange(location: location, length: length))
+            }
+            if let visibleRange, visibleRange.location <= maximumLocation {
+                textView.scrollRangeToVisible(NSRange(location: visibleRange.location, length: 0))
+            }
         }
+        (scrollView as? GrammarEditorScrollView)?.ensureDocumentViewFillsViewport()
         context.coordinator.applyDecorations(diagnostics: diagnostics, selectedRange: selectedRange)
         context.coordinator.ruler?.needsDisplay = true
     }
@@ -290,6 +312,38 @@ struct GrammarSourceEditor: NSViewRepresentable {
             }
             return NSRange(start..<end, in: source)
         }
+    }
+}
+
+/// An AppKit text scroll view can be created before SwiftUI has assigned its
+/// final frame. Keeping the document view at least as large as the viewport
+/// prevents a zero-sized or partially hidden editor while preserving horizontal
+/// growth for long, unwrapped grammar lines.
+final class GrammarEditorScrollView: NSScrollView {
+    static let fallbackViewportSize = NSSize(width: 320, height: 240)
+
+    static func usableViewportSize(_ proposed: NSSize) -> NSSize {
+        NSSize(
+            width: proposed.width > 1 ? proposed.width : fallbackViewportSize.width,
+            height: proposed.height > 1 ? proposed.height : fallbackViewportSize.height
+        )
+    }
+
+    override func layout() {
+        super.layout()
+        ensureDocumentViewFillsViewport()
+    }
+
+    func ensureDocumentViewFillsViewport() {
+        guard let textView = documentView as? NSTextView else { return }
+        let viewport = Self.usableViewportSize(contentSize)
+        var frame = textView.frame
+        frame.size.width = max(frame.width, viewport.width)
+        frame.size.height = max(frame.height, viewport.height)
+        if frame != textView.frame {
+            textView.frame = frame
+        }
+        textView.minSize = NSSize(width: 0, height: viewport.height)
     }
 }
 

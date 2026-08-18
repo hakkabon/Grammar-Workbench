@@ -147,7 +147,10 @@ public struct GrammarWorkbenchView: View {
 
     public var body: some View {
         ArtifactExplorerView(document: $document, documentName: documentName)
-            .frame(minWidth: 1120, minHeight: 720)
+            .frame(
+                minWidth: WorkbenchVisualFoundation.windowMinimumWidth,
+                minHeight: WorkbenchVisualFoundation.windowMinimumHeight
+            )
     }
 }
 #endif

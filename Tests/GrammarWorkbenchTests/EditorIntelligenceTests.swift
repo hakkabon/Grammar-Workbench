@@ -118,3 +118,34 @@ import Testing
     #expect(textView.isVerticallyResizable)
     #expect(textView.textContainer?.heightTracksTextView == false)
 }
+
+@MainActor
+@Test func editorUsesAVisibleFallbackBeforeSwiftUILayout() {
+    let textView = GrammarSourceEditor.makeTextView(contentSize: .zero)
+
+    #expect(textView.frame.width == GrammarEditorScrollView.fallbackViewportSize.width)
+    #expect(textView.frame.height == GrammarEditorScrollView.fallbackViewportSize.height)
+    #expect(textView.minSize.height > 0)
+}
+
+@MainActor
+@Test func editorDocumentViewAlwaysFillsItsViewport() {
+    let scrollView = GrammarEditorScrollView(frame: NSRect(x: 0, y: 0, width: 480, height: 320))
+    let textView = GrammarSourceEditor.makeTextView(contentSize: .zero)
+    textView.frame.size = NSSize(width: 1, height: 1)
+    scrollView.documentView = textView
+
+    scrollView.layoutSubtreeIfNeeded()
+    scrollView.ensureDocumentViewFillsViewport()
+
+    #expect(textView.frame.width >= scrollView.contentSize.width)
+    #expect(textView.frame.height >= scrollView.contentSize.height)
+    #expect(textView.minSize.height == scrollView.contentSize.height)
+}
+
+@Test func primaryVisualFoundationKeepsAllPanesSideBySide() {
+    #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
+    #expect(WorkbenchVisualFoundation.sourceMinimumWidth >= 300)
+    #expect(WorkbenchVisualFoundation.workspaceMinimumWidth > WorkbenchVisualFoundation.sourceMinimumWidth)
+    #expect(WorkbenchVisualFoundation.inspectorMinimumWidth >= 240)
+}

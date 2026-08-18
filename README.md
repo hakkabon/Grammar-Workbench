@@ -4,6 +4,8 @@ A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 
 The app opens in a guided grammar-engineering workspace: it summarizes grammar health, identifies one recommended next step, and organizes validation, examples, ambiguity, tests, algorithm choice, and generation around ordinary development tasks. Parser automata, tables, replay, and generalized analysis remain available through **Expert tools**. Safe cleanup previews recompile proposed edits and protect recorded samples and tests before Apply is enabled. See [Documentation/GuidedGrammarEngineering.md](Documentation/GuidedGrammarEngineering.md).
 
+The native source editor is a permanent, resizable sibling of the task workspace and inspector rather than an adaptive overlay. Its AppKit host guarantees a visible viewport before and after SwiftUI layout, contains long unwrapped grammar lines with horizontal scrolling, preserves selection across model updates, and exposes stable accessibility identities. See [Documentation/EditorAndVisualFoundations.md](Documentation/EditorAndVisualFoundations.md).
+
 The **Project** workspace unifies grammar, examples or source documents, tests,
 semantics, generation, problems, and background work behind one task-oriented
 navigator. Dedicated Semantics and Generate views use the same stable project

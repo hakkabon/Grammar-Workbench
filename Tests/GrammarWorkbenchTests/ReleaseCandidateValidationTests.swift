@@ -39,6 +39,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let researchMedianMaximumNanoseconds: UInt64
         let selectedResearchMaximumStudies: Int
         let selectedResearchPreviewMaximumBytes: Int
+        let editorMinimumViewportWidth: Double
+        let editorMinimumViewportHeight: Double
+        let visualMinimumWorkspaceWidth: Double
         let semanticWorkspaceMaximumOccurrences: Int
         let semanticWorkspaceMaximumDependencies: Int
         let integratedProjectMaximumProblems: Int
@@ -438,4 +441,16 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
     #expect(textView.frame.width > scrollView.contentView.bounds.width)
     #expect(scrollView.hasHorizontalScroller)
     #expect(scrollView.contentView.superview === scrollView)
+}
+
+@MainActor
+@Test func editorAndWorkspaceRespectDeclaredVisualReleaseBudgets() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let fallback = GrammarEditorScrollView.fallbackViewportSize
+
+    #expect(fallback.width >= budget.editorMinimumViewportWidth)
+    #expect(fallback.height >= budget.editorMinimumViewportHeight)
+    #expect(WorkbenchVisualFoundation.sourceMinimumWidth >= budget.editorMinimumViewportWidth)
+    #expect(WorkbenchVisualFoundation.windowMinimumWidth >= budget.visualMinimumWorkspaceWidth)
+    #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
 }

@@ -1,5 +1,10 @@
 # Grammar Workbench
 
+The grammar source remains visible in the left resizable pane. The task workspace
+and inspector are independent panes, so resizing or showing another area does
+not cover the editor. Plain `.txt` and `.grammar` files use Workbench notation;
+`.ebnf` files select EBNF notation.
+
 Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artifacts from editable grammars.
 
 1. Create or open a `.grammarworkbench` document and begin in **Guide**, which recommends the next useful action.

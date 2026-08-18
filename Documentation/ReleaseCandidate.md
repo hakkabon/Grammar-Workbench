@@ -29,6 +29,7 @@ The release-candidate gate verifies the product from four perspectives:
 15. The stateful tooling service must preserve incremental document revisions, serialize each session, expose capability-negotiated JSON-lines framing, and keep session/document counts within declared release bounds.
 16. The packaged research programme must pass all hypotheses with stable repeated and DFS/BFS evidence, produce an integrity-checked report, and stay within declared execution and serialization budgets.
 17. The selected research catalog must stay intentionally small, run every embedded programme successfully, and retain the full report beneath each plain-language preview.
+18. The native editor must start with a non-zero viewport, contain long grammar lines, and preserve simultaneous minimum widths for the source, task, and inspector panes without adaptive overlay behavior.
 
 Run the normal gate:
 

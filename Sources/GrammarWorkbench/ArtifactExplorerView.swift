@@ -63,11 +63,16 @@ public struct ArtifactExplorerView: View {
     }
 
     public var body: some View {
-        NavigationSplitView {
+        HSplitView {
             sourceSidebar
-                .navigationSplitViewColumnWidth(min: 300, ideal: 380, max: 620)
+                .frame(
+                    minWidth: WorkbenchVisualFoundation.sourceMinimumWidth,
+                    idealWidth: WorkbenchVisualFoundation.sourceIdealWidth,
+                    maxWidth: WorkbenchVisualFoundation.sourceMaximumWidth,
+                    maxHeight: .infinity
+                )
                 .clipped()
-        } content: {
+                .accessibilityIdentifier("grammar-source-pane")
             VStack(spacing: 0) {
                 Picker("View", selection: $tab) {
                     ForEach(ExplorerTab.allCases.filter { showsExpertTools || !$0.isExpert }) {
@@ -78,11 +83,22 @@ public struct ArtifactExplorerView: View {
                 Divider()
                 selectedTab
             }
-            .navigationTitle("Artifact Explorer")
-        } detail: {
+            .frame(
+                minWidth: WorkbenchVisualFoundation.workspaceMinimumWidth,
+                maxWidth: .infinity,
+                maxHeight: .infinity
+            )
+            .accessibilityIdentifier("grammar-workspace-pane")
             inspector
-                .navigationTitle("Inspector")
+                .frame(
+                    minWidth: WorkbenchVisualFoundation.inspectorMinimumWidth,
+                    idealWidth: WorkbenchVisualFoundation.inspectorIdealWidth,
+                    maxWidth: WorkbenchVisualFoundation.inspectorMaximumWidth,
+                    maxHeight: .infinity
+                )
+                .accessibilityIdentifier("grammar-inspector-pane")
         }
+        .navigationTitle("Grammar Workbench")
         .toolbar {
             if document == nil {
                 ToolbarItem {

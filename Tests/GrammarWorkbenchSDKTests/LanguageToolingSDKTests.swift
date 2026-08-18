@@ -326,6 +326,30 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.graphLayout?.metrics.engine == "rust-sugiyama")
 }
 
+@Test func toolingValidatesMeasuresAndExportsPortableGraphs() async throws {
+    let graph = GrammarGraph(
+        id: "sdk-correctness", title: "SDK correctness",
+        nodes: [.init(id: "a", label: "A"), .init(id: "b", label: "B")],
+        edges: [.init(id: "a-b", source: "a", target: "b", label: "next")]
+    )
+    let service = GrammarLanguageToolingService()
+    let validated = await service.handle(.init(
+        requestID: "graph-validate", operation: .graphValidate, graph: graph
+    ))
+    #expect(validated.graphCorrectness?.isValid == true)
+
+    let measured = await service.handle(.init(
+        requestID: "graph-measure", operation: .graphMeasure, graph: graph
+    ))
+    #expect(measured.graphMeasuredLayout?.snapshot.nodes.count == 2)
+    #expect(measured.graphMeasuredLayout?.measurement.totalNanoseconds ?? 0 > 0)
+
+    let dot = await service.handle(.init(
+        requestID: "graph-dot", operation: .graphDOT, graph: graph
+    ))
+    #expect(dot.renderedGraph?.contains("\"a\" -> \"b\"") == true)
+}
+
 @Test func toolingImportsRendersAndBundlesBootstrapGrammars() async throws {
     let service = GrammarLanguageToolingService()
     let imported = await service.handle(.init(

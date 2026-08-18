@@ -43,6 +43,24 @@ grammar-workbench graph-layout Examples/GraphVisualization.json Graph.svg
 
 The language-tooling SDK exposes the same operation as `graphLayout`; stateful and JSON-lines hosts inherit it through the stateless operation boundary.
 
+## Correctness and measurement
+
+Phase 23 adds a validation boundary independent of the renderer and layout implementation. `GrammarGraphValidator` reports stable machine-readable issue codes for malformed graph identity, dangling endpoints, invalid geometry, missing layout results, overlapping nodes, and edge paths crossing unrelated nodes. Structural and positioned validation are separate, so malformed interchange can be diagnosed without invoking Swift-Layout. Edge/node crossings are warnings rather than errors because routing policies may intentionally trade clearance for compactness.
+
+`GrammarGraphMeasurementRunner` records input validation, the complete Swift/Layout boundary, the engine-reported layout interval, output validation, and total wall time independently. The boundary measurement intentionally includes Swift encoding, UniFFI transit, Rust execution, and returned-value decoding; the engine-reported interval permits regressions inside that boundary to be distinguished from validation work without claiming precision the current FFI API cannot provide.
+
+The deterministic corpus generator exercises variable node sizes, cycles, self-loops, parallel edges, disconnected components, and labelled edges from a reproducible seed. Release validation runs a bounded corpus, while `GrammarGraphFailureMinimizer` can reduce a failing graph to a compact JSON regression fixture using a caller-supplied failure predicate.
+
+For automation and Graphviz comparison:
+
+```sh
+grammar-workbench graph-validate Examples/GraphVisualization.json GraphValidation.json
+grammar-workbench graph-measure Examples/GraphVisualization.json GraphMeasurement.json
+grammar-workbench graph-dot Examples/GraphVisualization.json Graph.dot
+```
+
+The tooling SDK exposes equivalent `graphValidate`, `graphMeasure`, and `graphDOT` operations. DOT output is deterministically ordered and retains stable node and edge identities, labels, flow direction, routing preference, and approximate dimensions.
+
 ## Evolution boundary
 
 Layout quality will continue improving independently in the Rust repository. Grammar Workbench owns language-domain flattening, stable interchange, caching, interaction, accessibility, and visual styling. Swift-Layout owns binary distribution and the Swift-facing engine interface. This separation allows Layout and the Workbench to progress in parallel without coupling parser APIs to generated FFI types.

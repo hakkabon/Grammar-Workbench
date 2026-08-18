@@ -81,6 +81,9 @@
     "semanticLanguageKitMaximumTests": 8,
     "graphVisualizationMaximumNodes": 128,
     "graphVisualizationMaximumEdges": 256,
-    "graphVisualizationMaximumMilliseconds": 1000
+    "graphVisualizationMaximumMilliseconds": 1000,
+    "graphCorrectnessCorpusCases": 12,
+    "graphCorrectnessMaximumNodes": 20,
+    "graphCorrectnessMaximumWarnings": 64
   }
 }

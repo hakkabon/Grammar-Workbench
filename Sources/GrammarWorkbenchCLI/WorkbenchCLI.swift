@@ -242,6 +242,41 @@ struct GrammarWorkbenchCLI {
                 try encoder.encode(layout).write(to: output, options: .atomic)
             }
             print("Wrote \(arguments[2]): \(layout.nodes.count) nodes, \(layout.routes.count) routes via \(layout.metrics.engine)")
+        case "graph-validate", "graph-measure", "graph-dot":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("\(arguments[0]) requires GRAPH [OUTPUT]")
+            }
+            let graph = try JSONDecoder().decode(
+                GrammarGraph.self,
+                from: Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let data: Data
+            let summary: String
+            if arguments[0] == "graph-dot" {
+                data = Data(GrammarGraphDOTRenderer.render(graph).utf8)
+                summary = "Graphviz DOT for \(graph.nodes.count) nodes and \(graph.edges.count) edges"
+            } else {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                if arguments[0] == "graph-measure" {
+                    let measured = try GrammarGraphMeasurementRunner.layout(graph)
+                    data = try encoder.encode(measured)
+                    summary = "\(measured.correctness.errorCount) errors, \(measured.correctness.warningCount) warnings; \(measured.measurement.totalNanoseconds) ns total"
+                } else {
+                    let structural = GrammarGraphValidator.validate(graph)
+                    let report = structural.isValid
+                        ? GrammarGraphValidator.validate(try GrammarGraphLayoutEngine.layout(graph), against: graph)
+                        : structural
+                    data = try encoder.encode(report)
+                    summary = "\(report.errorCount) errors, \(report.warningCount) warnings"
+                }
+            }
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(summary)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "portable-import":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("portable-import requires GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]")
@@ -749,6 +784,9 @@ struct GrammarWorkbenchCLI {
       grammar-workbench kit-validate KIT
       grammar-workbench kit-project KIT OUTPUT_PROJECT
       grammar-workbench graph-layout GRAPH OUTPUT [OPTIONS]
+      grammar-workbench graph-validate GRAPH [OUTPUT]
+      grammar-workbench graph-measure GRAPH [OUTPUT]
+      grammar-workbench graph-dot GRAPH [OUTPUT]
       grammar-workbench portable-import GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]
       grammar-workbench portable-render INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]

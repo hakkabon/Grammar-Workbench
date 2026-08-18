@@ -50,6 +50,8 @@ The Research workspace also offers three selected previews for ambiguity growth,
 
 Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).
 
+Graph correctness is continuously checked with deterministic pathological corpora, geometry invariants, minimized regression fixtures, phase-separated timing, and stable Graphviz DOT export. These facilities are available through the library, CLI, and language-tooling SDK.
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.

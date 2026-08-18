@@ -16,6 +16,9 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case languageKitValidate
     case languageKitAnalyze
     case graphLayout
+    case graphValidate
+    case graphMeasure
+    case graphDOT
     case portableGrammarImport
     case portableGrammarRender
     case bootstrapBundle
@@ -55,6 +58,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
+            "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -66,6 +70,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
+            .graphValidate, .graphMeasure, .graphDOT,
             .portableGrammarImport, .portableGrammarRender, .bootstrapBundle, .researchValidate,
             .selectedResearchPreview
         ],
@@ -82,7 +87,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "researchValidationProgramme": GrammarWorkbenchCapabilities.researchValidationProgramme,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
-            "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability
+            "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
+            "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement
         ]
     )
 }
@@ -243,6 +249,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let semanticWorkspace: GrammarSemanticWorkspaceSnapshot?
     public let languageKit: GrammarToolingLanguageKitResult?
     public let graphLayout: GrammarGraphLayoutSnapshot?
+    public let graphCorrectness: GrammarGraphCorrectnessReport?
+    public let graphMeasuredLayout: GrammarGraphMeasuredLayout?
+    public let renderedGraph: String?
     public let portableGrammar: GrammarPortableInterchange?
     public let renderedGrammar: String?
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
@@ -264,6 +273,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         semanticWorkspace: GrammarSemanticWorkspaceSnapshot? = nil,
         languageKit: GrammarToolingLanguageKitResult? = nil,
         graphLayout: GrammarGraphLayoutSnapshot? = nil,
+        graphCorrectness: GrammarGraphCorrectnessReport? = nil,
+        graphMeasuredLayout: GrammarGraphMeasuredLayout? = nil,
+        renderedGraph: String? = nil,
         portableGrammar: GrammarPortableInterchange? = nil,
         renderedGrammar: String? = nil,
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
@@ -286,6 +298,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.semanticWorkspace = semanticWorkspace
         self.languageKit = languageKit
         self.graphLayout = graphLayout
+        self.graphCorrectness = graphCorrectness
+        self.graphMeasuredLayout = graphMeasuredLayout
+        self.renderedGraph = renderedGraph
         self.portableGrammar = portableGrammar
         self.renderedGrammar = renderedGrammar
         self.bootstrapBundle = bootstrapBundle
@@ -374,6 +389,35 @@ public struct GrammarLanguageToolingService: Sendable {
                 return .init(
                     requestID: request.requestID,
                     graphLayout: try GrammarGraphLayoutEngine.layout(
+                        try required(request.graph, "graph"),
+                        options: request.graphLayoutOptions ?? .init()
+                    )
+                )
+            case .graphValidate:
+                let graph = try required(request.graph, "graph")
+                let report: GrammarGraphCorrectnessReport
+                let structural = GrammarGraphValidator.validate(graph)
+                if structural.isValid && GrammarGraphLayoutEngine.availability == .swiftLayout {
+                    let snapshot = try GrammarGraphLayoutEngine.layout(
+                        graph, options: request.graphLayoutOptions ?? .init()
+                    )
+                    report = GrammarGraphValidator.validate(snapshot, against: graph)
+                } else {
+                    report = structural
+                }
+                return .init(requestID: request.requestID, graphCorrectness: report)
+            case .graphMeasure:
+                return .init(
+                    requestID: request.requestID,
+                    graphMeasuredLayout: try GrammarGraphMeasurementRunner.layout(
+                        try required(request.graph, "graph"),
+                        options: request.graphLayoutOptions ?? .init()
+                    )
+                )
+            case .graphDOT:
+                return .init(
+                    requestID: request.requestID,
+                    renderedGraph: GrammarGraphDOTRenderer.render(
                         try required(request.graph, "graph"),
                         options: request.graphLayoutOptions ?? .init()
                     )

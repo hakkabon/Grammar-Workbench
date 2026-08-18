@@ -55,6 +55,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let graphVisualizationMaximumNodes: Int
         let graphVisualizationMaximumEdges: Int
         let graphVisualizationMaximumMilliseconds: Double
+        let graphCorrectnessCorpusCases: Int
+        let graphCorrectnessMaximumNodes: Int
+        let graphCorrectnessMaximumWarnings: Int
     }
 
     let schemaVersion: Int
@@ -110,6 +113,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
     #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
     #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
+    #expect(GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -144,6 +148,23 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let loaded = try GrammarSourceProjectLoader.load(at: descriptorURL)
         #expect(loaded.manifest.sources.count <= policy.budgets.sourceProjectMaximumSources)
         #expect(loaded.descriptor.kind == GrammarSourceProjectDescriptor.kindIdentifier)
+    }
+}
+
+@Test func graphCorrectnessCorpusStaysWithinReleaseBounds() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let graphs = GrammarGraphCorpus.generate(.init(
+        seed: 0x52454C45415345,
+        caseCount: budget.graphCorrectnessCorpusCases,
+        maximumNodes: budget.graphCorrectnessMaximumNodes
+    ))
+    #expect(graphs.count == budget.graphCorrectnessCorpusCases)
+    for graph in graphs {
+        let measured = try GrammarGraphMeasurementRunner.layout(graph)
+        #expect(measured.correctness.isValid)
+        #expect(measured.correctness.warningCount <= budget.graphCorrectnessMaximumWarnings)
+        #expect(measured.snapshot.nodes.count == graph.nodes.count)
+        #expect(measured.snapshot.routes.count == graph.edges.count)
     }
 }
 

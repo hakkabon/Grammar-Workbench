@@ -141,7 +141,7 @@ struct GrammarSourceEditor: NSViewRepresentable {
         return textView
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context: Context) -> GrammarEditorContainerView {
         let scrollView = GrammarEditorScrollView()
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
@@ -170,18 +170,17 @@ struct GrammarSourceEditor: NSViewRepresentable {
         textView.setAccessibilityLabel(isEditable ? "Editable grammar source" : "Read-only grammar source")
         scrollView.documentView = textView
 
-        let ruler = GrammarLineNumberRulerView(textView: textView, scrollView: scrollView)
-        scrollView.verticalRulerView = ruler
-        scrollView.hasVerticalRuler = true
-        scrollView.rulersVisible = true
+        let container = GrammarEditorContainerView(scrollView: scrollView, textView: textView)
+        let ruler = container.ruler
         context.coordinator.textView = textView
         context.coordinator.ruler = ruler
         context.coordinator.completions = completions
         context.coordinator.applyDecorations(diagnostics: diagnostics, selectedRange: selectedRange)
-        return scrollView
+        return container
     }
 
-    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+    func updateNSView(_ container: GrammarEditorContainerView, context: Context) {
+        let scrollView = container.scrollView
         guard let textView = context.coordinator.textView else { return }
         context.coordinator.parentText = $text
         context.coordinator.completions = completions
@@ -209,7 +208,7 @@ struct GrammarSourceEditor: NSViewRepresentable {
                 textView.scrollRangeToVisible(NSRange(location: visibleRange.location, length: 0))
             }
         }
-        (scrollView as? GrammarEditorScrollView)?.ensureDocumentViewFillsViewport()
+        scrollView.ensureDocumentViewFillsViewport()
         context.coordinator.applyDecorations(diagnostics: diagnostics, selectedRange: selectedRange)
         context.coordinator.ruler?.needsDisplay = true
     }
@@ -347,6 +346,40 @@ final class GrammarEditorScrollView: NSScrollView {
     }
 }
 
+/// Owns the gutter and editor as explicit siblings. `NSScrollView`'s built-in
+/// ruler installation can extend the scroll view outside its SwiftUI-assigned
+/// frame, causing the ruler and clip view to share an on-screen origin. This
+/// container makes their geometry independent and non-overlapping.
+final class GrammarEditorContainerView: NSView {
+    static let gutterWidth: CGFloat = 42
+
+    let scrollView: GrammarEditorScrollView
+    let ruler: GrammarLineNumberRulerView
+
+    init(scrollView: GrammarEditorScrollView, textView: NSTextView) {
+        self.scrollView = scrollView
+        self.ruler = GrammarLineNumberRulerView(textView: textView, scrollView: scrollView)
+        super.init(frame: .zero)
+        addSubview(ruler)
+        addSubview(scrollView)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    override func layout() {
+        super.layout()
+        let gutter = min(Self.gutterWidth, max(0, bounds.width))
+        ruler.frame = NSRect(x: 0, y: 0, width: gutter, height: bounds.height)
+        scrollView.frame = NSRect(
+            x: gutter, y: 0,
+            width: max(0, bounds.width - gutter), height: bounds.height
+        )
+        scrollView.layoutSubtreeIfNeeded()
+    }
+}
+
 final class GrammarLineNumberRulerView: NSRulerView {
     weak var textView: NSTextView?
 
@@ -354,7 +387,7 @@ final class GrammarLineNumberRulerView: NSRulerView {
         self.textView = textView
         super.init(scrollView: scrollView, orientation: .verticalRuler)
         clientView = textView
-        ruleThickness = 42
+        ruleThickness = GrammarEditorContainerView.gutterWidth
         NotificationCenter.default.addObserver(self, selector: #selector(redraw), name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
         NotificationCenter.default.addObserver(self, selector: #selector(redraw), name: NSText.didChangeNotification, object: textView)
     }

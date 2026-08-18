@@ -8,11 +8,14 @@ the other columns—or place another column over the source.
 
 ## Editor containment
 
-`GrammarSourceEditor` remains an AppKit `NSTextView` hosted by SwiftUI. Its
-dedicated `GrammarEditorScrollView` handles the period before SwiftUI assigns a
-final frame and maintains a non-zero document view at least as large as the
-visible viewport. Long unwrapped grammar lines may grow the document width and
-use the horizontal scroller; they never increase the enclosing pane width.
+`GrammarSourceEditor` remains an AppKit `NSTextView` hosted by SwiftUI. An
+explicit `GrammarEditorContainerView` positions the 42-point line-number gutter
+and the editor scroll view as non-overlapping siblings; it does not rely on
+`NSScrollView`'s ruler placement, which can extend outside a SwiftUI-assigned
+frame. The dedicated `GrammarEditorScrollView` handles the period before SwiftUI
+assigns a final size and maintains a non-zero document view at least as large as
+the visible viewport. Long unwrapped grammar lines may grow the document width
+and use the horizontal scroller; they never increase the enclosing pane width.
 
 Model-driven updates preserve a valid insertion or selection range and the
 visible position. Ordinary edits continue through the native text system, with

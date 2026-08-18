@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import Testing
 @testable import GrammarWorkbench
 
@@ -148,4 +149,58 @@ import Testing
     #expect(WorkbenchVisualFoundation.sourceMinimumWidth >= 300)
     #expect(WorkbenchVisualFoundation.workspaceMinimumWidth > WorkbenchVisualFoundation.sourceMinimumWidth)
     #expect(WorkbenchVisualFoundation.inspectorMinimumWidth >= 240)
+}
+
+@MainActor
+@Test func lineNumberRulerNeverConsumesTheEditorViewport() {
+    let scrollView = GrammarEditorScrollView(frame: NSRect(x: 0, y: 0, width: 380, height: 520))
+    scrollView.hasVerticalScroller = true
+    scrollView.hasHorizontalScroller = true
+    let textView = GrammarSourceEditor.makeTextView(contentSize: scrollView.contentSize)
+    scrollView.documentView = textView
+    let container = GrammarEditorContainerView(scrollView: scrollView, textView: textView)
+    container.frame = NSRect(x: 0, y: 0, width: 380, height: 520)
+    container.layoutSubtreeIfNeeded()
+    let ruler = container.ruler
+
+    #expect(ruler.frame.width <= 48)
+    #expect(scrollView.frame.minX >= ruler.frame.maxX)
+    #expect(scrollView.contentView.frame.width >= 300)
+    #expect(textView.visibleRect.width >= 300)
+}
+
+@MainActor
+@Test func workbenchLayoutKeepsTheEditorBesideItsLineNumbers() throws {
+    struct Host: View {
+        @State var document = GrammarWorkbenchDocument()
+        var body: some View { GrammarWorkbenchView(document: $document) }
+    }
+
+    let hostingView = NSHostingView(rootView: Host())
+    hostingView.frame = NSRect(
+        x: 0, y: 0,
+        width: WorkbenchVisualFoundation.windowMinimumWidth,
+        height: WorkbenchVisualFoundation.windowMinimumHeight
+    )
+    hostingView.layoutSubtreeIfNeeded()
+
+    func descendants<T: NSView>(of type: T.Type, in view: NSView) -> [T] {
+        (view as? T).map { [$0] } ?? view.subviews.flatMap { descendants(of: type, in: $0) }
+    }
+
+    let ruler = try #require(descendants(of: GrammarLineNumberRulerView.self, in: hostingView).first)
+    let textView = try #require(descendants(of: NSTextView.self, in: hostingView).first {
+        $0.accessibilityIdentifier() == "grammar-source-editor"
+    })
+    let rulerFrame = ruler.convert(ruler.bounds, to: hostingView)
+    let editorScrollView = try #require(textView.enclosingScrollView as? GrammarEditorScrollView)
+    editorScrollView.layoutSubtreeIfNeeded()
+    let clipFrame = editorScrollView.contentView.convert(editorScrollView.contentView.bounds, to: hostingView)
+    let editorFrame = textView.convert(textView.visibleRect, to: hostingView)
+
+    #expect(rulerFrame.width <= 48)
+    #expect(editorFrame.width >= WorkbenchVisualFoundation.sourceMinimumWidth - 80)
+    #expect(clipFrame.minX >= rulerFrame.maxX - 1)
+    #expect(editorFrame.minX >= rulerFrame.maxX - 1)
+    #expect(editorFrame.intersects(rulerFrame) == false)
 }

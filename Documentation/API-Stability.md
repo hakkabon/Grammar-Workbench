@@ -29,6 +29,8 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Portable graph, layout-option, positioned-snapshot, metrics, adapter, SVG-export, and tooling-operation contracts backed by Swift-Layout.
 - Browser-runtime decision reports, schema-2 portable LR artifacts, the
   `portable-browser` generator, and the versioned worker runtime contract.
+- Source-fingerprinted grammar rename plans, UTF-16 refactoring edits,
+  validated refactoring results, and project rename previews.
 
 Stable APIs follow semantic versioning. Additive source-compatible changes may occur in a minor release. Removing declarations, changing meaning, or making incompatible Codable changes requires a major version or a new interchange schema.
 

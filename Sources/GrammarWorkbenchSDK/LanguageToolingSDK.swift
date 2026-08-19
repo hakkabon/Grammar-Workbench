@@ -68,6 +68,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "wasmFeasibilityAndPortableDemonstration": GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration,
             "reproduciblePortabilityAndReleaseConsolidation": GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation,
             "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime,
+            "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -104,7 +105,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "linuxDelivery": GrammarWorkbenchCapabilities.linuxDelivery,
             "wasmFeasibilityAndPortableDemonstration": GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration,
             "reproduciblePortabilityAndReleaseConsolidation": GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation,
-            "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime
+            "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime,
+            "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity
         ]
     )
 }

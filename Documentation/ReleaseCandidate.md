@@ -34,6 +34,10 @@ The release-candidate gate verifies the product from four perspectives:
 20. The browser runtime must validate its versioned artifact, accept and reject
     the reference corpus, report located diagnostics, enforce declared input,
     token, step, and stack bounds, and retain worker-termination cancellation.
+21. Grammar rename plans must preserve Workbench and EBNF notation, exclude
+    comments, literals, and patterns, reject stale or colliding edits, and stay
+    within the declared edit and affected-line budgets while preserving the
+    release corpus and saved tests.
 
 Run the normal gate:
 

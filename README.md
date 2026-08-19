@@ -16,6 +16,12 @@ Filesystem source projects use a versioned `.grammar-workbench-source.json` desc
 
 The grammar analysis and transformation library publishes reachability, productivity, nullability, dependency components, left recursion, duplicate productions, terminal usage, and FIRST/FOLLOW as immutable reports. Explainable cleanup plans are protected by source fingerprints, artifact diffs, saved tests, and bounded generalized language-membership comparison. The same facilities are available through project workspaces and the `grammar-analyze` and `grammar-transform` CLI commands. See [Documentation/GrammarAnalysisAndTransformation.md](Documentation/GrammarAnalysisAndTransformation.md).
 
+Preview-first grammar refactoring adds source-preserving symbol rename for both
+Workbench and native EBNF notation. Fingerprinted UTF-16 edit plans protect
+comments, literals, and lexer patterns, reject collisions and stale source, and
+must pass recompilation, artifact-diff, bounded behavior, and saved-test checks
+before CLI application. See [Documentation/GrammarRefactoringAndAuthoringProductivity.md](Documentation/GrammarRefactoringAndAuthoringProductivity.md).
+
 The expert **Bootstrap** laboratory performs a bounded self-hosting experiment for a documented BNF profile. It regenerates and recompiles the meta-grammar until the canonical grammar, generated source, and parser artifact reach a fixed point, then differentially compares a corpus with the existing handwritten `Grammar` reader. The trusted reader is not replaced. Run the same release-gated experiment with `grammar-workbench bootstrap [report.json]`; see [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
 
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)

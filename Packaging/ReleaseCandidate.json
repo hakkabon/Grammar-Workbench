@@ -93,6 +93,8 @@
     "browserRuntimeMaximumInputLength": 10000,
     "browserRuntimeMaximumTokens": 2000,
     "browserRuntimeMaximumSteps": 10000,
-    "browserRuntimeMaximumStackDepth": 2048
+    "browserRuntimeMaximumStackDepth": 2048,
+    "grammarRefactoringMaximumEdits": 64,
+    "grammarRefactoringMaximumAffectedLines": 32
   }
 }

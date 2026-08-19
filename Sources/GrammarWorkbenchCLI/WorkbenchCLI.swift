@@ -660,6 +660,26 @@ struct GrammarWorkbenchCLI {
                 to: URL(fileURLWithPath: arguments[3]), atomically: true, encoding: .utf8
             )
             print("Wrote \(arguments[3]): removed \(plan.affectedLines.count) declaration line(s); checked \(result.behavior.cases.count) inputs")
+        case "grammar-refactor":
+            guard arguments.count == 6, arguments[1] == "rename" else {
+                throw CLIError.usage("grammar-refactor rename GRAMMAR OLD_NAME NEW_NAME OUTPUT")
+            }
+            let request = GrammarCompilationRequest(
+                source: try read(arguments[2]), notation: notation(for: arguments[2])
+            )
+            let compilation = GrammarWorkbenchAPI.compile(request)
+            let plan = try GrammarRefactoring.planRename(
+                from: arguments[3], to: arguments[4], in: compilation
+            )
+            guard plan.hasChanges else { throw CLIError.transformationFailed("the rename has no source changes") }
+            let result = try GrammarRefactoring.execute(plan, request: request)
+            guard result.isSafeToApply else {
+                throw CLIError.transformationFailed(result.behavior.conclusion)
+            }
+            try result.proposedSource.write(
+                to: URL(fileURLWithPath: arguments[5]), atomically: true, encoding: .utf8
+            )
+            print("Wrote \(arguments[5]): renamed \(plan.affectedOccurrences) occurrence(s) on \(plan.affectedLines.count) line(s); checked \(result.behavior.cases.count) inputs")
         case "bootstrap":
             let trailing = Array(arguments.dropFirst())
             let outputs = trailing.filter { !$0.hasPrefix("--") }
@@ -897,6 +917,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench platform-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench grammar-analyze GRAMMAR [OUTPUT]
       grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT
+      grammar-workbench grammar-refactor rename GRAMMAR OLD_NAME NEW_NAME OUTPUT
       grammar-workbench bootstrap [OUTPUT] [--maximum-generations=N]
       grammar-workbench bootstrap-bundle OUTPUT [--maximum-generations=N]
       grammar-workbench research-validate PROGRAMME [OUTPUT]

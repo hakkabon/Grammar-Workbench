@@ -394,6 +394,25 @@ public actor GrammarProjectWorkspace {
         )
     }
 
+    public func previewGrammarRename(
+        from oldName: String,
+        to newName: String,
+        options: GrammarBehaviorComparisonOptions = .init()
+    ) throws -> GrammarRefactoringResult {
+        let request = GrammarCompilationRequest(
+            source: manifest.grammar.source,
+            algorithm: manifest.grammar.algorithm,
+            notation: manifest.grammar.notation
+        )
+        let plan = try GrammarRefactoring.planRename(from: oldName, to: newName, in: compilation)
+        let corpus = manifest.sources.map {
+            GrammarBehaviorCorpusEntry(id: $0.id, input: $0.text, origin: $0.path)
+        }
+        return try GrammarRefactoring.execute(
+            plan, request: request, corpus: corpus, tests: manifest.tests, options: options
+        )
+    }
+
     public func projectManifest() -> GrammarProjectManifest { manifest }
 
     private func currentAnalysis() -> GrammarProjectAnalysis {

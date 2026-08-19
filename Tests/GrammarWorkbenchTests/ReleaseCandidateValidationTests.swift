@@ -66,6 +66,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let browserRuntimeMaximumTokens: Int
         let browserRuntimeMaximumSteps: Int
         let browserRuntimeMaximumStackDepth: Int
+        let grammarRefactoringMaximumEdits: Int
+        let grammarRefactoringMaximumAffectedLines: Int
     }
 
     let schemaVersion: Int
@@ -130,6 +132,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration == .experimental)
     #expect(GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation == .stable)
     #expect(GrammarWorkbenchCapabilities.browserAndPortableRuntime == .stable)
+    #expect(GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -373,6 +376,23 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(plan.operations.allSatisfy { !$0.reason.isEmpty })
     #expect(result.isSafeToApply)
     #expect(result.behavior.generatedInputs <= budget.transformationMaximumGeneratedInputs)
+    #expect(result.testsAfter?.allPassed == true)
+}
+
+@Test func grammarRefactoringRemainsBoundedAndBehaviorChecked() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let source = "%token ID /[a-z]+/\n%skip /[ \\t]+/\n%start Root\nRoot : Root ID | ID ;"
+    let request = GrammarCompilationRequest(source: source)
+    let compilation = GrammarWorkbenchAPI.compile(request)
+    let plan = try GrammarRefactoring.planRename(from: "Root", to: "Sequence", in: compilation)
+    let result = try GrammarRefactoring.execute(
+        plan, request: request,
+        corpus: [.init(input: "one two", origin: "release")],
+        tests: [.init(name: "accept", input: "one two", expectation: .accept)]
+    )
+    #expect(plan.edits.count <= budget.grammarRefactoringMaximumEdits)
+    #expect(plan.affectedLines.count <= budget.grammarRefactoringMaximumAffectedLines)
+    #expect(result.isSafeToApply)
     #expect(result.testsAfter?.allPassed == true)
 }
 

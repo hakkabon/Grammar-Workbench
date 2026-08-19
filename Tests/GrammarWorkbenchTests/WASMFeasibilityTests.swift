@@ -47,6 +47,6 @@ import Testing
     #expect(workflow.contains("wasm-release-contract:"))
     #expect(workflow.contains("validate-tooling-equivalence.sh --require-wasm"))
     #expect(workflow.contains("swiftSDKBundleSHA256"))
-    #expect(try source("Examples/WASM/index.html").contains("Portable parser demonstration"))
+    #expect(try source("Examples/WASM/index.html").contains("Portable parser runtime"))
     #expect(try source("Examples/WASM/parser-core.mjs").contains("export function parse"))
 }

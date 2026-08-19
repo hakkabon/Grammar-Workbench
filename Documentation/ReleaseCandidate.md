@@ -31,6 +31,9 @@ The release-candidate gate verifies the product from four perspectives:
 17. The selected research catalog must stay intentionally small, run every embedded programme successfully, and retain the full report beneath each plain-language preview.
 18. The native editor must start with a non-zero viewport, contain long grammar lines, and preserve simultaneous minimum widths for the source, task, and inspector panes without adaptive overlay behavior.
 19. The packaged source-project descriptor must resolve only safe relative files, match its bounded source set, analyze successfully, and preserve its explicit language-to-grammar association independently of filenames.
+20. The browser runtime must validate its versioned artifact, accept and reject
+    the reference corpus, report located diagnostics, enforce declared input,
+    token, step, and stack bounds, and retain worker-termination cancellation.
 
 Run the normal gate:
 

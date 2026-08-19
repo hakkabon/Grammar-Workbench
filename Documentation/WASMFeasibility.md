@@ -8,6 +8,11 @@ retains that boundary while pinning its release environment:
 
 This distinction matters. WASI provides the system interfaces expected by the Swift runtime, but browsers do not implement WASI directly. A browser wishing to run the Swift module needs an explicit WASI adapter. The included browser demonstration therefore does not misrepresent portable artifact execution as in-browser Swift grammar compilation.
 
+Phase 30 resolves the browser product decision in favor of the portable LR
+artifact worker. A browser WASI adapter is explicitly unsupported; the WASI
+module remains a standalone-runtime and CI portability target. See
+`Documentation/BrowserAndPortableRuntime.md`.
+
 ## Feasibility contract
 
 `GrammarWASMFeasibilityReport.current` and `grammar-workbench wasm-feasibility`

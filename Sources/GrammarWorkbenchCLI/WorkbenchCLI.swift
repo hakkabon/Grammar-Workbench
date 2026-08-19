@@ -54,6 +54,19 @@ struct GrammarWorkbenchCLI {
             } else {
                 print(String(decoding: data, as: UTF8.self))
             }
+        case "browser-runtime":
+            guard arguments.count <= 2 else {
+                throw CLIError.usage("browser-runtime accepts at most one output path")
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(GrammarBrowserRuntimeDecision.current)
+            if let output = arguments.dropFirst().first {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "tooling-request":
             guard arguments.count == 2 || arguments.count == 3 else {
                 throw CLIError.usage("tooling-request requires REQUEST_JSON [RESPONSE_JSON]")
@@ -854,6 +867,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench validate GRAMMAR
       grammar-workbench platform-info [OUTPUT]
       grammar-workbench wasm-feasibility [OUTPUT]
+      grammar-workbench browser-runtime [OUTPUT]
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR

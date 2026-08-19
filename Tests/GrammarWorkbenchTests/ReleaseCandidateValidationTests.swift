@@ -62,6 +62,10 @@ private struct ReleaseCandidatePolicy: Decodable {
         let advancedGeometryMaximumMilliseconds: Double
         let interactiveVisualizationMaximumFrames: Int
         let interactiveVisualizationMaximumHTMLBytes: Int
+        let browserRuntimeMaximumInputLength: Int
+        let browserRuntimeMaximumTokens: Int
+        let browserRuntimeMaximumSteps: Int
+        let browserRuntimeMaximumStackDepth: Int
     }
 
     let schemaVersion: Int
@@ -125,6 +129,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.linuxDelivery == .stable)
     #expect(GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration == .experimental)
     #expect(GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation == .stable)
+    #expect(GrammarWorkbenchCapabilities.browserAndPortableRuntime == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)

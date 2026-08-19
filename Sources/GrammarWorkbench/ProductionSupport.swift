@@ -60,6 +60,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let linuxDelivery: GrammarWorkbenchFeatureMaturity = .stable
     public static let wasmFeasibilityAndPortableDemonstration: GrammarWorkbenchFeatureMaturity = .experimental
     public static let reproduciblePortabilityAndReleaseConsolidation: GrammarWorkbenchFeatureMaturity = .stable
+    public static let browserAndPortableRuntime: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)

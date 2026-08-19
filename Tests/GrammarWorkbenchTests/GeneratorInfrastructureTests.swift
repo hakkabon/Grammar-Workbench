@@ -48,7 +48,7 @@ private struct UnsafeOutputGenerator: GrammarGenerator {
     let registry = GrammarGeneratorRegistry()
     let compilation = GrammarWorkbenchAPI.compile(.init(source: generatorGrammar))
 
-    #expect(await registry.availableGenerators().map(\.id) == ["artifact-json", "bnf", "semantic-model-json", "semantic-swift", "swift"])
+    #expect(await registry.availableGenerators().map(\.id) == ["artifact-json", "bnf", "portable-browser", "semantic-model-json", "semantic-swift", "swift"])
     try await registry.register(SummaryGenerator())
     let result = try await registry.generate(
         identifier: "test-summary", from: compilation, options: .init(["name": "List"])

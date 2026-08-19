@@ -11,7 +11,8 @@ if [ "${1:-}" = "--require-sdk" ]; then REQUIRE_WASM_SDK=true; fi
 mkdir -p "$OUTPUT_DIR/browser"
 cp "$ROOT_DIR/Packaging/PortabilityToolchain.json" "$OUTPUT_DIR/PortabilityToolchain.json"
 cp "$ROOT_DIR"/Examples/WASM/index.html "$ROOT_DIR"/Examples/WASM/app.mjs \
-    "$ROOT_DIR"/Examples/WASM/parser-core.mjs "$ROOT_DIR"/Examples/WASM/styles.css \
+    "$ROOT_DIR"/Examples/WASM/parser-core.mjs "$ROOT_DIR"/Examples/WASM/runtime-worker.mjs \
+    "$ROOT_DIR"/Examples/WASM/runtime-client.mjs "$ROOT_DIR"/Examples/WASM/styles.css \
     "$ROOT_DIR"/Examples/WASM/expression-parser.json "$OUTPUT_DIR/browser/"
 
 if [ -z "$WASM_SDK_ID" ]; then WASM_SDK_ID="$PINNED_SDK_ID"; fi

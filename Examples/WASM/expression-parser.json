@@ -1,6 +1,14 @@
 {
-  "schemaVersion": 1,
+  "kind": "grammar-workbench-portable-lr",
+  "schemaVersion": 2,
+  "minimumRuntimeVersion": 1,
   "name": "Portable expression parser",
+  "limits": {
+    "maximumInputLength": 10000,
+    "maximumTokens": 2000,
+    "maximumSteps": 10000,
+    "maximumStackDepth": 2048
+  },
   "startState": 0,
   "endToken": "$",
   "tokens": [

@@ -1,8 +1,10 @@
-import { parse } from "./parser-core.mjs";
+import { PortableParserClient } from "./runtime-client.mjs";
 
-const specification = await fetch("./expression-parser.json").then(response => response.json());
+const client = new PortableParserClient("./expression-parser.json");
 const input = document.querySelector("#source"), status = document.querySelector("#status");
 const trace = document.querySelector("#trace"), tree = document.querySelector("#tree");
+const runButton = document.querySelector("#run"), cancelButton = document.querySelector("#cancel");
+let activeController = null;
 
 function renderTree(node, depth = 0) {
   if (!node) return "";
@@ -10,21 +12,34 @@ function renderTree(node, depth = 0) {
   return [value, ...node.children.flatMap(child => renderTree(child, depth + 1))].join("\n");
 }
 
-function run() {
+async function run() {
+  activeController?.abort();
+  activeController = new AbortController();
+  runButton.disabled = true; cancelButton.disabled = false;
+  status.textContent = "Parsing in worker…"; status.dataset.kind = "running";
   try {
-    const result = parse(input.value, specification);
-    status.textContent = result.status === "accepted" ? "Accepted" : result.error;
+    const result = await client.parse(input.value, { signal: activeController.signal });
+    status.textContent = result.status === "accepted" ? "Accepted" : result.diagnostics[0].message;
     status.dataset.kind = result.status;
-    trace.innerHTML = result.trace.map(frame =>
-      `<tr><td>${frame.step}</td><td>I${frame.state}</td><td>${frame.lookahead}</td><td>${frame.action}</td></tr>`
-    ).join("");
+    trace.replaceChildren(...result.trace.map(frame => {
+      const row = document.createElement("tr");
+      for (const value of [frame.step, `I${frame.state}`, frame.lookahead, frame.action]) {
+        const cell = document.createElement("td"); cell.textContent = value; row.append(cell);
+      }
+      return row;
+    }));
     tree.textContent = renderTree(result.tree);
   } catch (error) {
-    status.textContent = error.message; status.dataset.kind = "rejected";
-    trace.innerHTML = ""; tree.textContent = "";
+    const cancelled = error.name === "AbortError";
+    status.textContent = cancelled ? "Cancelled" : `${error.code ? `${error.code}: ` : ""}${error.message}`;
+    status.dataset.kind = cancelled ? "cancelled" : "rejected";
+    trace.replaceChildren(); tree.textContent = "";
+  } finally {
+    runButton.disabled = false; cancelButton.disabled = true; activeController = null;
   }
 }
 
-document.querySelector("#run").addEventListener("click", run);
+runButton.addEventListener("click", run);
+cancelButton.addEventListener("click", () => activeController?.abort());
 input.addEventListener("keydown", event => { if (event.key === "Enter") run(); });
 run();

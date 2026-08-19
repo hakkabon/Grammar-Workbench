@@ -89,6 +89,10 @@
     "advancedGeometryMaximumEntries": 512,
     "advancedGeometryMaximumMilliseconds": 1000,
     "interactiveVisualizationMaximumFrames": 256,
-    "interactiveVisualizationMaximumHTMLBytes": 1000000
+    "interactiveVisualizationMaximumHTMLBytes": 1000000,
+    "browserRuntimeMaximumInputLength": 10000,
+    "browserRuntimeMaximumTokens": 2000,
+    "browserRuntimeMaximumSteps": 10000,
+    "browserRuntimeMaximumStackDepth": 2048
   }
 }

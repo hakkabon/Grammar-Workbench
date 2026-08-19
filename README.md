@@ -44,6 +44,12 @@ target, and runtime contract in `Packaging/PortabilityToolchain.json`. Dedicated
 CI builds and executes the real module and compares its SDK responses with the
 native host. See [Documentation/ReproduciblePortabilityAndRelease.md](Documentation/ReproduciblePortabilityAndRelease.md).
 
+The supported browser profile is now a versioned portable LR artifact runtime
+running each parse in a cancellable Web Worker. `portable-browser` generates
+validated schema-2 artifacts, while `grammar-workbench browser-runtime`
+publishes the support decision. Browser WASI adapters are explicitly outside
+the supported profile. See [Documentation/BrowserAndPortableRuntime.md](Documentation/BrowserAndPortableRuntime.md).
+
 Long-lived IDE and build integrations can retain incremental state through
 `GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
 concurrent JSON-lines host with lifecycle events and request cancellation. See
@@ -119,7 +125,7 @@ let result = try await registry.generate(
 )
 ```
 
-Built-ins provide the standalone Swift parser (`swift`), a coverage-complete Swift semantic-action starter (`semantic-swift`), portable production-only BNF (`bnf`), versioned artifact JSON (`artifact-json`), and a tool-neutral semantic model (`semantic-model-json`). The app exposes these outputs in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
+Built-ins provide the standalone Swift parser (`swift`), a coverage-complete Swift semantic-action starter (`semantic-swift`), portable production-only BNF (`bnf`), versioned artifact JSON (`artifact-json`), a tool-neutral semantic model (`semantic-model-json`), and the worker-compatible portable LR artifact (`portable-browser`). The app exposes these outputs in the Interchange menu. Automation can discover and invoke built-ins uniformly with `grammar-workbench list-generators` and `grammar-workbench generate GENERATOR GRAMMAR OUTPUT [ALGORITHM] [KEY=VALUE ...]`; the existing `generate-swift` command remains compatible.
 
 Artifact interchange schema 2 uses the public engine-independent `GrammarArtifactSnapshot` and adds producer metadata. `GrammarInterchangeCodec.decodeArtifact` validates the envelope kind, schema version, and public API version before returning it. It also reads legacy schema-1 artifact exports and normalizes them to the public envelope. Project interchange is schema 2 and records the source notation; schema-1 projects remain readable and default to the native workbench notation.
 

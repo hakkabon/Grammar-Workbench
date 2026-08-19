@@ -1,0 +1,5 @@
+.build
+.git
+dist
+dist-linux
+*.xcuserstate

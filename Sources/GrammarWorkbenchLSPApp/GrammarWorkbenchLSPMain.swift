@@ -1,5 +1,9 @@
 import Dispatch
+#if canImport(Darwin)
 import Darwin
+#elseif canImport(Glibc)
+import Glibc
+#endif
 import Foundation
 import GrammarWorkbenchLSP
 import LanguageServerProtocol

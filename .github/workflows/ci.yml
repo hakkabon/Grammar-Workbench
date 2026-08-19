@@ -9,12 +9,16 @@ permissions:
   contents: read
 
 jobs:
-  portable-core:
+  linux-delivery:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build and test portable core
-        run: Scripts/validate-portable-core.sh
+      - name: Build, package, and smoke-test Linux delivery
+        run: Scripts/validate-linux-delivery.sh
+      - name: Build Linux container
+        run: docker build --tag grammar-workbench:ci .
+      - name: Smoke-test Linux container
+        run: docker run --rm grammar-workbench:ci platform-info
 
   test:
     runs-on: macos-14

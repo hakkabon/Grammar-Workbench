@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  build:
+  macos:
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -35,4 +35,27 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.zip
             ${{ runner.temp }}/release/SHA256SUMS
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify tag matches source version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          SOURCE_VERSION=$(sed -n 's/.*public static let version = "\([0-9.]*\)".*/\1/p' Sources/GrammarWorkbench/ProductionSupport.swift)
+          test "v$SOURCE_VERSION" = "${{ github.ref_name }}"
+      - name: Validate Linux delivery
+        run: Scripts/validate-linux-delivery.sh
+      - name: Package Linux release
+        env:
+          OUTPUT_DIR: ${{ runner.temp }}/release
+        run: Scripts/package-linux.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Grammar-Workbench-Linux-x86_64
+          path: |
+            ${{ runner.temp }}/release/*.tar.gz
+            ${{ runner.temp }}/release/*.sha256
           if-no-files-found: error

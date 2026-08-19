@@ -28,6 +28,19 @@ struct GrammarWorkbenchCLI {
             print(help)
         case "--version", "-v", "version":
             print("grammar-workbench \(GrammarWorkbenchRelease.version)")
+        case "platform-info":
+            guard arguments.count <= 2 else {
+                throw CLIError.usage("platform-info accepts at most one output path")
+            }
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(GrammarRuntimePlatformReport.current)
+            if let output = arguments.dropFirst().first {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "tooling-request":
             guard arguments.count == 2 || arguments.count == 3 else {
                 throw CLIError.usage("tooling-request requires REQUEST_JSON [RESPONSE_JSON]")
@@ -826,6 +839,7 @@ struct GrammarWorkbenchCLI {
 
     Usage:
       grammar-workbench validate GRAMMAR
+      grammar-workbench platform-info [OUTPUT]
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR

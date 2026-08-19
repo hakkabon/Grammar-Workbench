@@ -11,7 +11,7 @@ let compilation = GrammarWorkbenchAPI.compile(.init(
 let result = compilation.parse("hello")
 ```
 
-The native document, SwiftUI, AppKit, and WebKit surfaces are compile-time isolated to macOS. The CLI selects Darwin or Glibc explicitly, and Linux CI builds and tests the core product independently from the application and LSP executables.
+The native document, SwiftUI, AppKit, and WebKit surfaces are compile-time isolated to macOS. The CLI and LSP entry points select Darwin or Glibc explicitly. Linux CI builds and tests the core, CLI, LSP, and stateful service, then validates their distributable archive. See [Linux delivery](LinuxDelivery.md) for installation and release details.
 
 ## Graph portability
 

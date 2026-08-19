@@ -35,6 +35,8 @@ versioned JSON process protocol. See [the SDK guide](Documentation/LanguageTooli
 
 Cross-platform hosts can depend on the `GrammarWorkbenchCore` product. It exposes the same stable parser, semantic, project, generator, and interchange contracts while isolating native SwiftUI, AppKit, and WebKit surfaces. Graph interchange remains portable; `GrammarGraphLayoutEngine.availability` distinguishes the Rust-backed Swift-Layout backend from interchange-only platforms. See [cross-platform core separation](Documentation/CrossPlatformCoreSeparation.md).
 
+Linux delivery includes release archives for the CLI, LSP server, and stateful tooling service, plus a container build and machine-readable `platform-info` report. Ubuntu CI builds, packages, and smoke-tests the complete headless toolchain; the macOS-only SwiftUI application remains a separate product. See [Documentation/LinuxDelivery.md](Documentation/LinuxDelivery.md).
+
 Long-lived IDE and build integrations can retain incremental state through
 `GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
 concurrent JSON-lines host with lifecycle events and request cancellation. See

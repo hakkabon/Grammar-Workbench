@@ -64,6 +64,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
             "interactiveParserVisualization": GrammarWorkbenchCapabilities.interactiveParserVisualization,
             "visualProductConsolidation": GrammarWorkbenchCapabilities.visualProductConsolidation,
+            "linuxDelivery": GrammarWorkbenchCapabilities.linuxDelivery,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -96,7 +97,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
             "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
             "interactiveParserVisualization": GrammarWorkbenchCapabilities.interactiveParserVisualization,
-            "visualProductConsolidation": GrammarWorkbenchCapabilities.visualProductConsolidation
+            "visualProductConsolidation": GrammarWorkbenchCapabilities.visualProductConsolidation,
+            "linuxDelivery": GrammarWorkbenchCapabilities.linuxDelivery
         ]
     )
 }

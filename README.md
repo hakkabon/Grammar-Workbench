@@ -52,6 +52,8 @@ Graph visualization now uses a shared, portable platform backed by the published
 
 Graph correctness is continuously checked with deterministic pathological corpora, geometry invariants, minimized regression fixtures, phase-separated timing, and stable Graphviz DOT export. These facilities are available through the library, CLI, and language-tooling SDK.
 
+Advanced graph geometry adds two-pass native text measurement, shape-aware edge boundaries, configurable arrowheads, rotated labels, same-rank constraints, compound clusters, an STR-packed spatial index, and portable advanced SVG/DOT output.
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.

@@ -19,6 +19,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case graphValidate
     case graphMeasure
     case graphDOT
+    case graphGeometry
     case portableGrammarImport
     case portableGrammarRender
     case bootstrapBundle
@@ -59,6 +60,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
+            "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -70,7 +72,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
-            .graphValidate, .graphMeasure, .graphDOT,
+            .graphValidate, .graphMeasure, .graphDOT, .graphGeometry,
             .portableGrammarImport, .portableGrammarRender, .bootstrapBundle, .researchValidate,
             .selectedResearchPreview
         ],
@@ -88,7 +90,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
-            "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement
+            "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
+            "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry
         ]
     )
 }
@@ -109,6 +112,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var languageKit: GrammarSemanticLanguageKitManifest?
     public var graph: GrammarGraph?
     public var graphLayoutOptions: GrammarGraphLayoutOptions?
+    public var graphGeometrySpecification: GrammarGraphGeometrySpecification?
     public var portableSource: String?
     public var portableNotation: GrammarPortableNotation?
     public var portableStartSymbol: String?
@@ -135,6 +139,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         languageKit: GrammarSemanticLanguageKitManifest? = nil,
         graph: GrammarGraph? = nil,
         graphLayoutOptions: GrammarGraphLayoutOptions? = nil,
+        graphGeometrySpecification: GrammarGraphGeometrySpecification? = nil,
         portableSource: String? = nil,
         portableNotation: GrammarPortableNotation? = nil,
         portableStartSymbol: String? = nil,
@@ -164,6 +169,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.languageKit = languageKit
         self.graph = graph
         self.graphLayoutOptions = graphLayoutOptions
+        self.graphGeometrySpecification = graphGeometrySpecification
         self.portableSource = portableSource
         self.portableNotation = portableNotation
         self.portableStartSymbol = portableStartSymbol
@@ -252,6 +258,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let graphCorrectness: GrammarGraphCorrectnessReport?
     public let graphMeasuredLayout: GrammarGraphMeasuredLayout?
     public let renderedGraph: String?
+    public let advancedGraphLayout: GrammarGraphAdvancedLayoutSnapshot?
     public let portableGrammar: GrammarPortableInterchange?
     public let renderedGrammar: String?
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
@@ -276,6 +283,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         graphCorrectness: GrammarGraphCorrectnessReport? = nil,
         graphMeasuredLayout: GrammarGraphMeasuredLayout? = nil,
         renderedGraph: String? = nil,
+        advancedGraphLayout: GrammarGraphAdvancedLayoutSnapshot? = nil,
         portableGrammar: GrammarPortableInterchange? = nil,
         renderedGrammar: String? = nil,
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
@@ -301,6 +309,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.graphCorrectness = graphCorrectness
         self.graphMeasuredLayout = graphMeasuredLayout
         self.renderedGraph = renderedGraph
+        self.advancedGraphLayout = advancedGraphLayout
         self.portableGrammar = portableGrammar
         self.renderedGrammar = renderedGrammar
         self.bootstrapBundle = bootstrapBundle
@@ -419,6 +428,15 @@ public struct GrammarLanguageToolingService: Sendable {
                     requestID: request.requestID,
                     renderedGraph: GrammarGraphDOTRenderer.render(
                         try required(request.graph, "graph"),
+                        options: request.graphLayoutOptions ?? .init()
+                    )
+                )
+            case .graphGeometry:
+                return .init(
+                    requestID: request.requestID,
+                    advancedGraphLayout: try GrammarGraphGeometryEngine.layout(
+                        try required(request.graph, "graph"),
+                        specification: request.graphGeometrySpecification ?? .init(),
                         options: request.graphLayoutOptions ?? .init()
                     )
                 )

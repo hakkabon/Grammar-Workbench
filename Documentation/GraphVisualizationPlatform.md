@@ -61,6 +61,23 @@ grammar-workbench graph-dot Examples/GraphVisualization.json Graph.dot
 
 The tooling SDK exposes equivalent `graphValidate`, `graphMeasure`, and `graphDOT` operations. DOT output is deterministically ordered and retains stable node and edge identities, labels, flow direction, routing preference, and approximate dimensions.
 
+## Advanced geometry
+
+Phase 24 adds a portable geometry specification above the stable graph contract. It supports rectangle, rounded-rectangle, ellipse, and diamond boundaries; filled, open, swept-back, or suppressed arrowheads; tangent-aligned edge labels; same-rank groups; and compound clusters. The advanced SVG renderer preserves these choices, while advanced DOT export emits compatible `rank=same`, cluster, node-shape, and arrowhead declarations for Graphviz comparison.
+
+`GrammarGraphGeometryEngine` uses a two-pass architecture. The first pass asks a platform-provided `GrammarGraphTextMeasurer` for actual node and edge-label dimensions and sends those pixel dimensions through the existing single batched Swift-Layout call. The second pass computes shape-aware boundary intersections, terminal tangents, arrowhead geometry, rotated-label bounds, same-rank placement, and cluster bounds entirely in Swift. The default heuristic measurer keeps headless CLI and Linux interchange workflows deterministic; AppKit, SwiftUI, or browser hosts can supply their native font measurer.
+
+`GrammarGraphSpatialIndex` bulk-loads nodes, edge labels, and clusters into an immutable STR-packed R-tree. Point and rectangle queries therefore avoid linear scans during hit testing, selection, label collision inspection, and future interactive forest exploration.
+
+```sh
+grammar-workbench graph-geometry \
+  Examples/GraphVisualization.json \
+  Examples/GraphGeometry.json \
+  AdvancedGraph.svg
+```
+
+The output suffix may be `.json`, `.svg`, or `.dot`. The SDK exposes the same pipeline as `graphGeometry` and returns a fully portable `GrammarGraphAdvancedLayoutSnapshot`.
+
 ## Evolution boundary
 
 Layout quality will continue improving independently in the Rust repository. Grammar Workbench owns language-domain flattening, stable interchange, caching, interaction, accessibility, and visual styling. Swift-Layout owns binary distribution and the Swift-facing engine interface. This separation allows Layout and the Workbench to progress in parallel without coupling parser APIs to generated FFI types.

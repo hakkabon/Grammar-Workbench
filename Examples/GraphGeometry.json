@@ -1,0 +1,21 @@
+{
+  "clusterPadding" : 24,
+  "clusters" : [
+    {
+      "id" : "pipeline",
+      "label" : "Language pipeline",
+      "nodeIDs" : [ "compile", "analyze", "generate" ]
+    }
+  ],
+  "edgeArrowheads" : {
+    "analyze-generate" : "sweptBack",
+    "compile-analyze" : "open"
+  },
+  "labelOrientation" : "tangentAligned",
+  "nodeShapes" : {
+    "analyze" : "ellipse",
+    "compile" : "roundedRectangle",
+    "generate" : "diamond"
+  },
+  "rankConstraints" : []
+}

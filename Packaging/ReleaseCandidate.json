@@ -84,6 +84,8 @@
     "graphVisualizationMaximumMilliseconds": 1000,
     "graphCorrectnessCorpusCases": 12,
     "graphCorrectnessMaximumNodes": 20,
-    "graphCorrectnessMaximumWarnings": 64
+    "graphCorrectnessMaximumWarnings": 64,
+    "advancedGeometryMaximumEntries": 512,
+    "advancedGeometryMaximumMilliseconds": 1000
   }
 }

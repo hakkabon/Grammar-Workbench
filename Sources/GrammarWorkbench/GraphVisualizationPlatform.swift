@@ -300,11 +300,13 @@ public enum GrammarGraphLayoutEngine {
                         id: externalID[$0.id]!, width: Float($0.width), height: Float($0.height)
                     )
                 },
-                edges: graph.edges.map {
-                    FfiEdge(
-                        from: externalID[$0.source]!, to: externalID[$0.target]!,
-                        labelWidth: $0.label.map { Float(max(24, $0.count * 7)) },
-                        labelHeight: $0.label == nil ? nil : 18
+                edges: graph.edges.map { edge in
+                    let measuredWidth = edge.metadata["geometry.labelWidth"].flatMap(Float.init)
+                    let measuredHeight = edge.metadata["geometry.labelHeight"].flatMap(Float.init)
+                    return FfiEdge(
+                        from: externalID[edge.source]!, to: externalID[edge.target]!,
+                        labelWidth: edge.label.map { measuredWidth ?? Float(max(24, $0.count * 7)) },
+                        labelHeight: edge.label == nil ? nil : measuredHeight ?? 18
                     )
                 },
                 config: FfiConfig(
@@ -478,6 +480,12 @@ public enum GrammarGraphLayoutEngine {
             guard edges.insert(edge.id).inserted else { throw GrammarGraphLayoutError.duplicateEdge(edge.id) }
             guard nodes.contains(edge.source) else { throw GrammarGraphLayoutError.danglingEdge(edge: edge.id, node: edge.source) }
             guard nodes.contains(edge.target) else { throw GrammarGraphLayoutError.danglingEdge(edge: edge.id, node: edge.target) }
+            for key in ["geometry.labelWidth", "geometry.labelHeight"] {
+                if let raw = edge.metadata[key],
+                   (Double(raw).map { !$0.isFinite || $0 <= 0 } ?? true) {
+                    throw GrammarGraphLayoutError.invalidOptions("\(key):\(edge.id)")
+                }
+            }
         }
         guard options.horizontalGap.isFinite, options.horizontalGap >= 0 else {
             throw GrammarGraphLayoutError.invalidOptions("horizontalGap")

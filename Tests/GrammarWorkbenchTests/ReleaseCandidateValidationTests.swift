@@ -58,6 +58,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let graphCorrectnessCorpusCases: Int
         let graphCorrectnessMaximumNodes: Int
         let graphCorrectnessMaximumWarnings: Int
+        let advancedGeometryMaximumEntries: Int
+        let advancedGeometryMaximumMilliseconds: Double
     }
 
     let schemaVersion: Int
@@ -114,6 +116,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
     #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
     #expect(GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement == .stable)
+    #expect(GrammarWorkbenchCapabilities.advancedGraphGeometry == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -149,6 +152,24 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         #expect(loaded.manifest.sources.count <= policy.budgets.sourceProjectMaximumSources)
         #expect(loaded.descriptor.kind == GrammarSourceProjectDescriptor.kindIdentifier)
     }
+}
+
+@Test func advancedGraphGeometryStaysWithinReleaseBounds() throws {
+    let policy = try releaseCandidatePolicy()
+    let path = try #require(policy.requiredGraphFixtures.first)
+    let graph = try JSONDecoder().decode(
+        GrammarGraph.self,
+        from: Data(contentsOf: packageRoot().appendingPathComponent(path))
+    )
+    let started = ContinuousClock.now
+    let layout = try GrammarGraphGeometryEngine.layout(graph)
+    let elapsed = started.duration(to: .now)
+    let milliseconds = Double(elapsed.components.seconds) * 1_000
+        + Double(elapsed.components.attoseconds) / 1_000_000_000_000_000
+    let entries = layout.nodes.count + layout.routes.compactMap(\.label).count + layout.clusters.count
+    #expect(entries <= policy.budgets.advancedGeometryMaximumEntries)
+    #expect(milliseconds <= policy.budgets.advancedGeometryMaximumMilliseconds)
+    #expect(layout.routes.allSatisfy { $0.arrowhead != nil })
 }
 
 @Test func graphCorrectnessCorpusStaysWithinReleaseBounds() throws {

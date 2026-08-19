@@ -277,6 +277,34 @@ struct GrammarWorkbenchCLI {
             } else {
                 print(String(decoding: data, as: UTF8.self))
             }
+        case "graph-geometry":
+            guard arguments.count == 4 else {
+                throw CLIError.usage("graph-geometry requires GRAPH SPECIFICATION OUTPUT")
+            }
+            let decoder = JSONDecoder()
+            let graph = try decoder.decode(
+                GrammarGraph.self, from: Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let specification = try decoder.decode(
+                GrammarGraphGeometrySpecification.self,
+                from: Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let output = URL(fileURLWithPath: arguments[3])
+            if output.pathExtension.lowercased() == "dot" {
+                let dot = GrammarGraphAdvancedDOTRenderer.render(graph, specification: specification)
+                try Data(dot.utf8).write(to: output, options: .atomic)
+            } else {
+                let layout = try GrammarGraphGeometryEngine.layout(graph, specification: specification)
+                if output.pathExtension.lowercased() == "svg" {
+                    try Data(GrammarGraphAdvancedSVGRenderer.render(layout).utf8)
+                        .write(to: output, options: .atomic)
+                } else {
+                    let encoder = JSONEncoder()
+                    encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                    try encoder.encode(layout).write(to: output, options: .atomic)
+                }
+            }
+            print("Wrote \(arguments[3]): advanced geometry for \(graph.nodes.count) nodes and \(graph.edges.count) edges")
         case "portable-import":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("portable-import requires GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]")
@@ -787,6 +815,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench graph-validate GRAPH [OUTPUT]
       grammar-workbench graph-measure GRAPH [OUTPUT]
       grammar-workbench graph-dot GRAPH [OUTPUT]
+      grammar-workbench graph-geometry GRAPH SPECIFICATION OUTPUT
       grammar-workbench portable-import GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]
       grammar-workbench portable-render INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]

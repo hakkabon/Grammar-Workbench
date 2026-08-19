@@ -350,6 +350,23 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(dot.renderedGraph?.contains("\"a\" -> \"b\"") == true)
 }
 
+@Test func toolingProducesAdvancedGraphGeometry() async {
+    let graph = GrammarGraph(
+        id: "sdk-geometry", title: "SDK geometry",
+        nodes: [.init(id: "a", label: "A"), .init(id: "b", label: "B")],
+        edges: [.init(id: "a-b", source: "a", target: "b", label: "next")]
+    )
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "graph-geometry", operation: .graphGeometry, graph: graph,
+        graphGeometrySpecification: .init(
+            nodeShapes: ["b": .ellipse], edgeArrowheads: ["a-b": .open]
+        )
+    ))
+    #expect(response.status == .success)
+    #expect(response.advancedGraphLayout?.nodes.first { $0.id == "b" }?.shape == .ellipse)
+    #expect(response.advancedGraphLayout?.routes.first?.arrowheadStyle == .open)
+}
+
 @Test func toolingImportsRendersAndBundlesBootstrapGrammars() async throws {
     let service = GrammarLanguageToolingService()
     let imported = await service.handle(.init(

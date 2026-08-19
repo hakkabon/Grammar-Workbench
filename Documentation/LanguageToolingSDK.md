@@ -78,3 +78,5 @@ the persistent JSON-lines host, see
 `graphLayout` accepts a portable `GrammarGraph` and optional `GrammarGraphLayoutOptions`, returning the complete positioned snapshot. The operation is available through in-process, JSON, and JSON-lines transports and does not expose Swift-Layout or UniFFI implementation types.
 
 `graphValidate` returns structural and positioned correctness diagnostics, `graphMeasure` returns the snapshot with phase-separated timing and correctness data, and `graphDOT` returns deterministic Graphviz DOT for visual comparison. All four operations share the portable graph contract.
+
+`graphGeometry` accepts an optional `GrammarGraphGeometrySpecification` and returns the two-pass advanced snapshot containing measured nodes, shape-aware endpoints, arrowheads, tangent-aligned labels, rank constraints, and compound-cluster bounds. The result remains free of SwiftUI and UniFFI types.

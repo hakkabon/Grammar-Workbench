@@ -17,5 +17,7 @@ Package.resolved
 *.pyc
 .xcodesamplecode.plist
 /dist
+/dist-wasm
+/.build-wasm
 *.xcarchive
 *.vsix

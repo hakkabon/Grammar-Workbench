@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "name": "Portable expression parser",
+  "startState": 0,
+  "endToken": "$",
+  "tokens": [
+    { "kind": "PLUS", "literal": "+" },
+    { "kind": "ID", "pattern": "^[A-Za-z_][A-Za-z0-9_]*" }
+  ],
+  "productions": [
+    { "id": 1, "lhs": "E", "rhs": ["E", "PLUS", "ID"] },
+    { "id": 2, "lhs": "E", "rhs": ["ID"] }
+  ],
+  "actions": {
+    "0|ID": { "kind": "shift", "state": 1 },
+    "1|PLUS": { "kind": "reduce", "production": 2 },
+    "1|$": { "kind": "reduce", "production": 2 },
+    "2|PLUS": { "kind": "shift", "state": 3 },
+    "2|$": { "kind": "accept" },
+    "3|ID": { "kind": "shift", "state": 4 },
+    "4|PLUS": { "kind": "reduce", "production": 1 },
+    "4|$": { "kind": "reduce", "production": 1 }
+  },
+  "gotos": {
+    "0|E": 2
+  }
+}

@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<title>Grammar Workbench portable parser</title><link rel="stylesheet" href="styles.css"></head>
+<body><main>
+  <header><p class="eyebrow">Grammar Workbench · Phase 28</p><h1>Portable parser demonstration</h1>
+    <p>This browser uses an exported LR table and the same shift/reduce model as the Workbench. No server or framework is required.</p></header>
+  <section class="controls" aria-label="Parser input"><label for="source">Expression</label>
+    <input id="source" value="left + middle + right"><button id="run">Parse</button><strong id="status" role="status" aria-live="polite"></strong></section>
+  <div class="grid"><section><h2>Parser trace</h2><div class="table-scroll"><table><thead><tr><th>Step</th><th>State</th><th>Lookahead</th><th>Action</th></tr></thead><tbody id="trace"></tbody></table></div></section>
+  <section><h2>Syntax tree</h2><pre id="tree"></pre></section></div>
+  <footer>The browser profile demonstrates portable artifact execution. Full grammar compilation runs in the optional <code>grammar-workbench-wasi</code> module under a WASI runtime.</footer>
+</main><script type="module" src="app.mjs"></script></body></html>

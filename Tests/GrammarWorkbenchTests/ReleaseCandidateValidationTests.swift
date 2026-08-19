@@ -122,6 +122,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.interactiveParserVisualization == .stable)
     #expect(GrammarWorkbenchCapabilities.visualProductConsolidation == .stable)
     #expect(GrammarWorkbenchCapabilities.linuxDelivery == .stable)
+    #expect(GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration == .experimental)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

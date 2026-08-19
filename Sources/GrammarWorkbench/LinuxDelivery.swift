@@ -1,11 +1,11 @@
 import Foundation
 
 public enum GrammarRuntimeOperatingSystem: String, Hashable, Codable, Sendable {
-    case macOS, linux, windows, unknown
+    case macOS, linux, wasi, windows, unknown
 }
 
 public enum GrammarRuntimeArchitecture: String, Hashable, Codable, Sendable {
-    case arm64, x86_64, unknown
+    case arm64, x86_64, wasm32, unknown
 }
 
 /// Machine-readable deployment information for launchers, editor clients, and
@@ -37,7 +37,9 @@ public struct GrammarRuntimePlatformReport: Hashable, Codable, Sendable {
     }
 
     private static var operatingSystem: GrammarRuntimeOperatingSystem {
-#if os(macOS)
+#if os(WASI)
+        .wasi
+#elseif os(macOS)
         .macOS
 #elseif os(Linux)
         .linux
@@ -49,7 +51,9 @@ public struct GrammarRuntimePlatformReport: Hashable, Codable, Sendable {
     }
 
     private static var architecture: GrammarRuntimeArchitecture {
-#if arch(arm64)
+#if arch(wasm32)
+        .wasm32
+#elseif arch(arm64)
         .arm64
 #elseif arch(x86_64)
         .x86_64

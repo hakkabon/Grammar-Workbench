@@ -13,6 +13,7 @@ let package = Package(
         .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .executable(name: "grammar-workbench-service", targets: ["GrammarWorkbenchServiceHost"]),
+        .executable(name: "grammar-workbench-wasi", targets: ["GrammarWorkbenchWASIDemo"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
         .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
@@ -48,6 +49,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "GrammarWorkbenchServiceHost",
+            dependencies: ["GrammarWorkbenchSDK"]
+        ),
+        .executableTarget(
+            name: "GrammarWorkbenchWASIDemo",
             dependencies: ["GrammarWorkbenchSDK"]
         ),
         .plugin(

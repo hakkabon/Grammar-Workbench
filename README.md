@@ -37,6 +37,8 @@ Cross-platform hosts can depend on the `GrammarWorkbenchCore` product. It expose
 
 Linux delivery includes release archives for the CLI, LSP server, and stateful tooling service, plus a container build and machine-readable `platform-info` report. Ubuntu CI builds, packages, and smoke-tests the complete headless toolchain; the macOS-only SwiftUI application remains a separate product. See [Documentation/LinuxDelivery.md](Documentation/LinuxDelivery.md).
 
+WASM feasibility is available through an experimental WASI stateless-tooling host and a zero-dependency browser demonstration over portable LR tables. The build gate distinguishes a real Swift WASM module from the browser interchange profile and reports when no compatible WASM SDK is installed. See [Documentation/WASMFeasibility.md](Documentation/WASMFeasibility.md).
+
 Long-lived IDE and build integrations can retain incremental state through
 `GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
 concurrent JSON-lines host with lifecycle events and request cancellation. See

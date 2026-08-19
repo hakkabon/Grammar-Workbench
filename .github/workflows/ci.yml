@@ -20,6 +20,21 @@ jobs:
       - name: Smoke-test Linux container
         run: docker run --rm grammar-workbench:ci platform-info
 
+  wasm-feasibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate WASI host contract and browser demonstration
+        run: Scripts/validate-wasm-feasibility.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Grammar-Workbench-WASM-Portable-Demo
+          path: dist-wasm/browser
+          if-no-files-found: error
+
   test:
     runs-on: macos-14
     steps:

@@ -12,6 +12,8 @@ fi
 
 plutil -lint "$ROOT_DIR/Packaging/Info.plist" \
     "$ROOT_DIR/Packaging/GrammarWorkbench.entitlements"
+node -e 'const m=require(process.argv[1]); if (m.schemaVersion !== 1 || !m.wasi.swiftSDKID || !m.wasi.swiftSDKBundleSHA256) process.exit(1)' \
+    "$ROOT_DIR/Packaging/PortabilityToolchain.json"
 
 swift test --package-path "$ROOT_DIR"
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench

@@ -35,6 +35,38 @@ jobs:
           path: dist-wasm/browser
           if-no-files-found: error
 
+  wasm-release-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.3"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: bytecodealliance/actions/wasmtime/setup@v1
+      - name: Install the pinned Swift WASM SDK
+        run: |
+          swift sdk install \
+            "$(node -e 'process.stdout.write(require("./Packaging/PortabilityToolchain.json").wasi.swiftSDKBundleURL)')" \
+            --checksum "$(node -e 'process.stdout.write(require("./Packaging/PortabilityToolchain.json").wasi.swiftSDKBundleSHA256)')"
+      - name: Validate the pinned toolchain
+        run: Scripts/validate-portability-toolchain.sh --require-wasm
+      - name: Build the real WASI module
+        run: Scripts/build-wasm-demo.sh --require-sdk
+      - name: Compare native and WASI SDK behavior
+        run: |
+          swift build --product grammar-workbench-wasi
+          Scripts/validate-tooling-equivalence.sh --require-wasm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Grammar-Workbench-WASI
+          path: |
+            dist-wasm/grammar-workbench-wasi.wasm
+            dist-wasm/PortabilityToolchain.json
+          if-no-files-found: error
+
   test:
     runs-on: macos-14
     steps:

@@ -6,7 +6,7 @@ public enum GrammarWASMExecutionProfile: String, Hashable, Codable, Sendable {
 }
 
 public struct GrammarWASMFeasibilityReport: Hashable, Codable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
     public let schemaVersion: Int
     public let maturity: GrammarWorkbenchFeatureMaturity
     public let profiles: [GrammarWASMExecutionProfile]
@@ -14,6 +14,11 @@ public struct GrammarWASMFeasibilityReport: Hashable, Codable, Sendable {
     public let transport: String
     public let browserDemoUsesPrecomputedArtifact: Bool
     public let nativeGraphLayoutAvailable: Bool
+    public let pinnedSwiftVersion: String
+    public let pinnedSwiftSDKID: String
+    public let wasiTargetTriple: String
+    public let browserExecutionModel: String
+    public let nativeWASIEquivalenceContract: Bool
     public let constraints: [String]
 
     public static let current = Self(
@@ -24,8 +29,13 @@ public struct GrammarWASMFeasibilityReport: Hashable, Codable, Sendable {
         transport: "newline-delimited-json",
         browserDemoUsesPrecomputedArtifact: true,
         nativeGraphLayoutAvailable: false,
+        pinnedSwiftVersion: "6.3",
+        pinnedSwiftSDKID: "swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1",
+        wasiTargetTriple: "wasm32-unknown-wasip1",
+        browserExecutionModel: "precomputed-lr-artifact",
+        nativeWASIEquivalenceContract: true,
         constraints: [
-            "A separately installed Swift WASM SDK is required to build the WASI executable.",
+            "The pinned Swift WASM SDK is required to build a release WASI executable.",
             "WASI modules require a WASI runtime and do not run directly in a browser.",
             "The browser demonstration consumes portable parser data and does not compile grammars.",
             "The Swift-Layout binary backend is unavailable in WASM builds."

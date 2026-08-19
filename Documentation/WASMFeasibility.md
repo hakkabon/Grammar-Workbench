@@ -1,6 +1,7 @@
 # WASM feasibility and portable demonstration
 
-Phase 28 establishes two deliberately separate WebAssembly paths:
+Phase 28 established two deliberately separate WebAssembly paths. Phase 29
+retains that boundary while pinning its release environment:
 
 1. **WASI command module** — `grammar-workbench-wasi` hosts the existing stateless `GrammarWorkbenchSDK` JSON contract. It accepts one `GrammarToolingRequest` per input line and writes one correlated response per line.
 2. **Browser interchange demonstration** — `Examples/WASM` executes a precomputed LR table in ordinary JavaScript and presents the trace and syntax tree. It proves that generated parser data can travel to a browser without requiring the Workbench implementation or a server.
@@ -9,7 +10,11 @@ This distinction matters. WASI provides the system interfaces expected by the Sw
 
 ## Feasibility contract
 
-`GrammarWASMFeasibilityReport.current` and `grammar-workbench wasm-feasibility` publish the current status in machine-readable form. Phase 28 remains **experimental** because reproducible WASM delivery still depends on an external Swift WASM SDK and runtime. The report records these constraints rather than silently degrading capabilities.
+`GrammarWASMFeasibilityReport.current` and `grammar-workbench wasm-feasibility`
+publish the current status in machine-readable form. WASM remains
+**experimental**, but `Packaging/PortabilityToolchain.json` now pins Swift
+6.3, Node 22, the `swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1` SDK, the WASI target, and the
+Wasmtime runtime family.
 
 The viable surface is:
 
@@ -28,10 +33,10 @@ Current exclusions are:
 
 ## Build the WASI module
 
-Install a Swift WASM SDK compatible with the repository's Swift toolchain, then either let the script discover it or provide its identifier explicitly:
+Install the SDK declared by `Packaging/PortabilityToolchain.json`:
 
 ```sh
-export WASM_SDK_ID=YOUR_INSTALLED_WASM_SDK_ID
+swift sdk install https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.3-RELEASE/swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1.artifactbundle.zip --checksum 6704d137e532f1ac31eafedd80658f9ee61239f2b6291216a02da32361ea9dcb
 Scripts/build-wasm-demo.sh --require-sdk
 ```
 
@@ -40,7 +45,9 @@ The output directory defaults to `dist-wasm` and contains:
 - `grammar-workbench-wasi.wasm`
 - `browser/index.html` and its zero-dependency demonstration assets
 
-Without a WASM SDK, the script still produces the browser demonstration and clearly reports that the Swift module was not built. It never substitutes a native executable with a `.wasm` filename.
+Without the pinned SDK, the script still produces the browser demonstration
+and toolchain manifest and clearly reports that the Swift module was not built.
+It never substitutes a native executable with a `.wasm` filename.
 
 Run the module using a WASI runtime by piping a tooling request to standard input. For example:
 
@@ -67,12 +74,16 @@ node Scripts/test-wasm-demo.mjs
 
 ## Validation
 
-`Scripts/validate-wasm-feasibility.sh` performs four levels of validation:
+`Scripts/validate-wasm-feasibility.sh` and the release-contract CI job perform
+five levels of validation:
 
 1. Builds the WASI host as a native executable, checking the complete SDK contract and target boundaries.
-2. Sends a real capabilities request through its newline-delimited transport.
+2. Sends capability and compile/parse requests through its newline-delimited transport.
 3. Runs accepted, rejected, and lexical-error browser parser cases under Node.
-4. Builds the actual `.wasm` module when a compatible SDK is installed.
+4. Builds the actual `.wasm` module using the pinned SDK.
+5. Executes the same golden requests with Wasmtime and requires native/WASI
+   JSON equivalence.
 
-CI always runs the first three. The fourth is capability-sensitive until a WASM SDK version becomes part of the pinned release toolchain.
-
+CI always runs the first three. Its dedicated `wasm-release-contract` job
+installs the pinned SDK and runtime and requires all five. See
+`Documentation/ReproduciblePortabilityAndRelease.md` for the release policy.

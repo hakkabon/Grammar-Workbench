@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "swiftToolsVersion": "6.0",
+  "requiredSwiftVersion": "6.3",
+  "nodeMajorVersion": 22,
+  "wasi": {
+    "swiftSDKID": "swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1",
+    "swiftSDKBundleURL": "https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.3-RELEASE/swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1.artifactbundle.zip",
+    "swiftSDKBundleSHA256": "6704d137e532f1ac31eafedd80658f9ee61239f2b6291216a02da32361ea9dcb",
+    "targetTriple": "wasm32-unknown-wasip1",
+    "runtime": "wasmtime",
+    "minimumRuntimeVersion": "30.0.0"
+  },
+  "browser": {
+    "executionModel": "precomputed-lr-artifact",
+    "requiresServer": false
+  }
+}

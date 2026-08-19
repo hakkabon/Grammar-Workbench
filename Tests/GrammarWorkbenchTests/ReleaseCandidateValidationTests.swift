@@ -67,6 +67,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let schemaVersion: Int
     let publicAPIVersion: Int
     let minimumMacOSVersion: String
+    let portabilityToolchainManifest: String
     let requiredConsumerFixtures: [String]
     let requiredProducts: [String]
     let requiredProjectManifests: [String]
@@ -123,6 +124,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.visualProductConsolidation == .stable)
     #expect(GrammarWorkbenchCapabilities.linuxDelivery == .stable)
     #expect(GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration == .experimental)
+    #expect(GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation == .stable)
+    let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
+    let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
+    #expect(portability?["schemaVersion"] as? Int == 1)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

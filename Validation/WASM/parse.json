@@ -1,0 +1,1 @@
+{"schemaVersion":1,"requestID":"portable-parse","apiVersion":1,"operation":"parse","compilation":{"source":"%token ID /[A-Za-z]+/\n%token PLUS /\\+/\n%start expression\nexpression: expression PLUS ID | ID ;","algorithm":"LALR(1)","notation":"Workbench"},"input":"left + right"}

@@ -6,9 +6,7 @@ cd "$ROOT_DIR"
 
 swift build --product grammar-workbench-wasi
 swift test --filter WASMFeasibilityTests
-printf '%s\n' '{"schemaVersion":1,"requestID":"wasm-smoke","apiVersion":1,"operation":"capabilities"}' \
-    | .build/debug/grammar-workbench-wasi \
-    | grep -q '"requestID":"wasm-smoke"'
+Scripts/validate-tooling-equivalence.sh
 node Scripts/test-wasm-demo.mjs
 Scripts/build-wasm-demo.sh
 

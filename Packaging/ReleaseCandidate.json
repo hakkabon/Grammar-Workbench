@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "publicAPIVersion": 1,
+  "portabilityToolchainManifest": "Packaging/PortabilityToolchain.json",
   "minimumMacOSVersion": "14.0",
   "requiredConsumerFixtures": [
     "LibraryConsumer",

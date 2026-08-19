@@ -39,6 +39,11 @@ Linux delivery includes release archives for the CLI, LSP server, and stateful t
 
 WASM feasibility is available through an experimental WASI stateless-tooling host and a zero-dependency browser demonstration over portable LR tables. The build gate distinguishes a real Swift WASM module from the browser interchange profile and reports when no compatible WASM SDK is installed. See [Documentation/WASMFeasibility.md](Documentation/WASMFeasibility.md).
 
+Reproducible portability pins the validated Swift, Node, Swift WASM SDK, WASI
+target, and runtime contract in `Packaging/PortabilityToolchain.json`. Dedicated
+CI builds and executes the real module and compares its SDK responses with the
+native host. See [Documentation/ReproduciblePortabilityAndRelease.md](Documentation/ReproduciblePortabilityAndRelease.md).
+
 Long-lived IDE and build integrations can retain incremental state through
 `GrammarStatefulLanguageToolingService` or `grammar-workbench-service`, a
 concurrent JSON-lines host with lifecycle events and request cancellation. See

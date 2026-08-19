@@ -22,6 +22,7 @@ final class ExplorerStore {
     private(set) var generalizedResult: GrammarGeneralizedParseResult?
     private(set) var isExploringGeneralizedParse = false
     private(set) var incrementalSampleAnalysis: GrammarIncrementalAnalysisSnapshot?
+    private(set) var parserVisualizationTimeline: GrammarParserVisualizationTimeline?
     private(set) var bootstrapReport: GrammarBootstrapReport?
     private(set) var bootstrapError: String?
     private(set) var isRunningBootstrap = false
@@ -71,6 +72,7 @@ final class ExplorerStore {
         self.latestArtifactDiff = nil
         self.generalizedResult = nil
         self.incrementalSampleAnalysis = nil
+        self.parserVisualizationTimeline = nil
         self.bootstrapReport = nil
         self.bootstrapError = nil
         self.currentCompilation = compilation
@@ -87,6 +89,7 @@ final class ExplorerStore {
         }
         self.testReport = nil
         self.algorithmComparison = nil
+        refreshParserVisualization()
         scheduleIncrementalSampleAnalysis()
     }
 
@@ -328,6 +331,7 @@ final class ExplorerStore {
             lexerResult = result
             runtimeResult = Self.runtimeResult(for: result, artifact: artifact)
             replayIndex = 0
+            refreshParserVisualization()
             return
         }
         lexerResult = nil
@@ -343,6 +347,17 @@ final class ExplorerStore {
             )
         }
         replayIndex = 0
+        refreshParserVisualization()
+    }
+
+    private func refreshParserVisualization() {
+        guard let snapshot = currentCompilation.artifact else {
+            parserVisualizationTimeline = nil
+            return
+        }
+        parserVisualizationTimeline = try? GrammarParserVisualizationBuilder.make(
+            artifact: snapshot, parse: currentCompilation.parse(sampleInput)
+        )
     }
 
     func exploreAmbiguity(includingResolvedConflicts: Bool) {

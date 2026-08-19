@@ -60,6 +60,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let graphCorrectnessMaximumWarnings: Int
         let advancedGeometryMaximumEntries: Int
         let advancedGeometryMaximumMilliseconds: Double
+        let interactiveVisualizationMaximumFrames: Int
+        let interactiveVisualizationMaximumHTMLBytes: Int
     }
 
     let schemaVersion: Int
@@ -117,6 +119,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
     #expect(GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement == .stable)
     #expect(GrammarWorkbenchCapabilities.advancedGraphGeometry == .stable)
+    #expect(GrammarWorkbenchCapabilities.interactiveParserVisualization == .stable)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()
@@ -152,6 +155,19 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         #expect(loaded.manifest.sources.count <= policy.budgets.sourceProjectMaximumSources)
         #expect(loaded.descriptor.kind == GrammarSourceProjectDescriptor.kindIdentifier)
     }
+}
+
+@Test func interactiveParserVisualizationStaysWithinReleaseBounds() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let source = "%token ID /[a-z]+/\n%skip /\\s+/\n%start List\nList : List ',' ID | ID ;"
+    let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
+    let timeline = try GrammarParserVisualizationBuilder.make(
+        artifact: #require(compilation.artifact), parse: compilation.parse("a, b, c")
+    )
+    let html = try GrammarParserVisualizationHTMLRenderer.render(timeline)
+    #expect(timeline.frames.count <= budget.interactiveVisualizationMaximumFrames)
+    #expect(Data(html.utf8).count <= budget.interactiveVisualizationMaximumHTMLBytes)
+    #expect(timeline.transitions.count == max(0, timeline.frames.count - 1))
 }
 
 @Test func advancedGraphGeometryStaysWithinReleaseBounds() throws {

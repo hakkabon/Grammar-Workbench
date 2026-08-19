@@ -503,6 +503,30 @@ struct GrammarWorkbenchCLI {
             guard result.status == .accepted || result.status == .acceptedWithRecovery else {
                 throw CLIError.parseFailed(result.status.rawValue)
             }
+        case "parser-visualize":
+            guard arguments.count == 4 else {
+                throw CLIError.usage("parser-visualize requires GRAMMAR INPUT OUTPUT")
+            }
+            let compilation = GrammarWorkbenchAPI.compile(.init(
+                source: try read(arguments[1]), notation: notation(for: arguments[1])
+            ))
+            guard let artifact = compilation.artifact else {
+                throw CLIError.parseFailed("invalidGrammar")
+            }
+            let parsed = compilation.parse(arguments[2])
+            let timeline = try GrammarParserVisualizationBuilder.make(
+                artifact: artifact, parse: parsed
+            )
+            let output = URL(fileURLWithPath: arguments[3])
+            if output.pathExtension.lowercased() == "html" {
+                try Data(GrammarParserVisualizationHTMLRenderer.render(timeline).utf8)
+                    .write(to: output, options: .atomic)
+            } else {
+                let encoder = JSONEncoder()
+                encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+                try encoder.encode(timeline).write(to: output, options: .atomic)
+            }
+            print("Wrote \(arguments[3]): \(timeline.frames.count) parser visualization frames")
         case "platform-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("platform-parse requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -827,6 +851,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench lower-ebnf EBNF OUTPUT
       grammar-workbench diff OLD NEW [OUTPUT]
       grammar-workbench parse GRAMMAR INPUT [OUTPUT]
+      grammar-workbench parser-visualize GRAMMAR INPUT OUTPUT
       grammar-workbench platform-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench grammar-analyze GRAMMAR [OUTPUT]
       grammar-workbench grammar-transform duplicate|unreachable|unproductive GRAMMAR OUTPUT

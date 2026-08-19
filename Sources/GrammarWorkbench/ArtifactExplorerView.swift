@@ -16,6 +16,7 @@ public struct ArtifactExplorerView: View {
     @State private var sourceProjectSemantics: GrammarSemanticWorkspaceSnapshot?
     @State private var selectedSourceProjectDocumentID: String?
     @State private var isLoadingSourceProject = false
+    @State private var sampleVisualization = SampleVisualization.trace
     private var document: Binding<GrammarWorkbenchDocument>?
 
     public init() {
@@ -65,6 +66,12 @@ public struct ArtifactExplorerView: View {
             case .semantics: problem.area == .semantics
             }
         }
+    }
+
+    enum SampleVisualization: String, CaseIterable, Identifiable {
+        case trace = "Trace"
+        case animated = "Animated graph"
+        var id: Self { self }
     }
 
     public var body: some View {
@@ -1353,7 +1360,20 @@ public struct ArtifactExplorerView: View {
                 }
                 Spacer()
             }.padding()
-            replayView(frames: store.runtimeResult.frames)
+            VStack(spacing: 0) {
+                Picker("Parser visualization", selection: $sampleVisualization) {
+                    ForEach(SampleVisualization.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .padding(8)
+                Divider()
+                if sampleVisualization == .animated, let timeline = store.parserVisualizationTimeline {
+                    GrammarParserVisualizationView(timeline: timeline)
+                        .accessibilityIdentifier("interactive-parser-visualization")
+                } else {
+                    replayView(frames: store.runtimeResult.frames)
+                }
+            }
         }
     }
 

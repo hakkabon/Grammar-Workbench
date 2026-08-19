@@ -20,6 +20,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case graphMeasure
     case graphDOT
     case graphGeometry
+    case parserVisualization
     case portableGrammarImport
     case portableGrammarRender
     case bootstrapBundle
@@ -61,6 +62,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
             "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
+            "interactiveParserVisualization": GrammarWorkbenchCapabilities.interactiveParserVisualization,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
         ]
@@ -72,7 +74,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
         operations: [
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
-            .graphValidate, .graphMeasure, .graphDOT, .graphGeometry,
+            .graphValidate, .graphMeasure, .graphDOT, .graphGeometry, .parserVisualization,
             .portableGrammarImport, .portableGrammarRender, .bootstrapBundle, .researchValidate,
             .selectedResearchPreview
         ],
@@ -91,7 +93,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
-            "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry
+            "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
+            "interactiveParserVisualization": GrammarWorkbenchCapabilities.interactiveParserVisualization
         ]
     )
 }
@@ -259,6 +262,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let graphMeasuredLayout: GrammarGraphMeasuredLayout?
     public let renderedGraph: String?
     public let advancedGraphLayout: GrammarGraphAdvancedLayoutSnapshot?
+    public let parserVisualization: GrammarParserVisualizationTimeline?
     public let portableGrammar: GrammarPortableInterchange?
     public let renderedGrammar: String?
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
@@ -284,6 +288,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         graphMeasuredLayout: GrammarGraphMeasuredLayout? = nil,
         renderedGraph: String? = nil,
         advancedGraphLayout: GrammarGraphAdvancedLayoutSnapshot? = nil,
+        parserVisualization: GrammarParserVisualizationTimeline? = nil,
         portableGrammar: GrammarPortableInterchange? = nil,
         renderedGrammar: String? = nil,
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
@@ -310,6 +315,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.graphMeasuredLayout = graphMeasuredLayout
         self.renderedGraph = renderedGraph
         self.advancedGraphLayout = advancedGraphLayout
+        self.parserVisualization = parserVisualization
         self.portableGrammar = portableGrammar
         self.renderedGrammar = renderedGrammar
         self.bootstrapBundle = bootstrapBundle
@@ -438,6 +444,22 @@ public struct GrammarLanguageToolingService: Sendable {
                         try required(request.graph, "graph"),
                         specification: request.graphGeometrySpecification ?? .init(),
                         options: request.graphLayoutOptions ?? .init()
+                    )
+                )
+            case .parserVisualization:
+                let compilation = GrammarWorkbenchAPI.compile(
+                    try required(request.compilation, "compilation")
+                )
+                let artifact = try required(compilation.artifact, "compiled artifact")
+                let parsed = compilation.parse(
+                    try required(request.input, "input"), options: request.parseOptions ?? .init()
+                )
+                return .init(
+                    requestID: request.requestID,
+                    compilation: snapshot(compilation), parse: parsed,
+                    parserVisualization: try GrammarParserVisualizationBuilder.make(
+                        artifact: artifact, parse: parsed,
+                        layoutOptions: request.graphLayoutOptions ?? .init(direction: .leftToRight)
                     )
                 )
             case .portableGrammarImport:

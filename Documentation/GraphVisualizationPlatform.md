@@ -78,6 +78,22 @@ grammar-workbench graph-geometry \
 
 The output suffix may be `.json`, `.svg`, or `.dot`. The SDK exposes the same pipeline as `graphGeometry` and returns a fully portable `GrammarGraphAdvancedLayoutSnapshot`.
 
+## Interactive parser visualization
+
+Phase 25 turns deterministic parse traces into a portable `GrammarParserVisualizationTimeline`. The LR automaton is measured and laid out once; each trace frame contains only the active state, traversed edge, stack, remaining input, consumed-token count, action classification, and production identity. Frame transitions explicitly describe entered and exited graph identities, allowing native or browser clients to animate parser execution without recomputing layout or causing nodes to jump.
+
+`GrammarGraphViewport` provides host-independent pan, anchored zoom, fit-to-content, and screen-to-world conversion. `GrammarGraphSpatialIndex` from Phase 24 supplies scalable hit testing. `GrammarParserVisualizationState` carries playback position, rate, selection, collapsed nodes, and viewport state as a Codable value suitable for restoration or stateful tooling sessions.
+
+Syntax trees and shared packed parse forests use stable collapsible projections. Collapsing a node removes its descendants and incident edges while retaining the selected node, hidden-descendant count, and original identity. This supports progressive SPPF exploration without materializing alternate trees.
+
+The standalone HTML renderer includes step-back, play/pause, step-forward, timeline scrubbing, pan, zoom, automatic framing, a minimap, and active state/edge highlighting:
+
+```sh
+grammar-workbench parser-visualize Grammar.txt "id + id" ParserWalkthrough.html
+```
+
+Use a `.json` output suffix for the portable timeline. The language-tooling SDK exposes the same operation as `parserVisualization`.
+
 ## Evolution boundary
 
 Layout quality will continue improving independently in the Rust repository. Grammar Workbench owns language-domain flattening, stable interchange, caching, interaction, accessibility, and visual styling. Swift-Layout owns binary distribution and the Swift-facing engine interface. This separation allows Layout and the Workbench to progress in parallel without coupling parser APIs to generated FFI types.

@@ -80,3 +80,5 @@ the persistent JSON-lines host, see
 `graphValidate` returns structural and positioned correctness diagnostics, `graphMeasure` returns the snapshot with phase-separated timing and correctness data, and `graphDOT` returns deterministic Graphviz DOT for visual comparison. All four operations share the portable graph contract.
 
 `graphGeometry` accepts an optional `GrammarGraphGeometrySpecification` and returns the two-pass advanced snapshot containing measured nodes, shape-aware endpoints, arrowheads, tangent-aligned labels, rank constraints, and compound-cluster bounds. The result remains free of SwiftUI and UniFFI types.
+
+`parserVisualization` compiles and parses the supplied request, then returns a stable-layout parser timeline alongside the ordinary compilation and parse results. Clients can drive step-through animation, playback controls, selection, viewport restoration, and collapsible syntax/SPPF views without depending on the macOS UI.

@@ -54,6 +54,8 @@ Graph correctness is continuously checked with deterministic pathological corpor
 
 Advanced graph geometry adds two-pass native text measurement, shape-aware edge boundaries, configurable arrowheads, rotated labels, same-rank constraints, compound clusters, an STR-packed spatial index, and portable advanced SVG/DOT output.
 
+Interactive parser visualization builds stable-layout step-through timelines with active state and transition highlighting, playback controls, pan/zoom/fit viewport state, minimaps, and collapsible syntax-tree or shared-forest projections. Timelines are available through the library, CLI, SDK, JSON, and standalone HTML.
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.

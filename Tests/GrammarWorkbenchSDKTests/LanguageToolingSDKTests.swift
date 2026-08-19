@@ -367,6 +367,18 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.advancedGraphLayout?.routes.first?.arrowheadStyle == .open)
 }
 
+@Test func toolingProducesInteractiveParserTimeline() async {
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "parser-visualization", operation: .parserVisualization,
+        compilation: .init(source: "%token ID /[a-z]+/\n%skip /\\s+/\n%start S\nS : ID ;"),
+        input: "hello"
+    ))
+    #expect(response.status == .success)
+    #expect(response.parse?.status == .accepted)
+    #expect(response.parserVisualization?.frames.last?.action == .accept)
+    #expect(response.parserVisualization?.layout.nodes.isEmpty == false)
+}
+
 @Test func toolingImportsRendersAndBundlesBootstrapGrammars() async throws {
     let service = GrammarLanguageToolingService()
     let imported = await service.handle(.init(

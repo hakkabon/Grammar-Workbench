@@ -363,7 +363,10 @@ public enum GrammarGraphGeometryEngine {
 }
 
 public enum GrammarGraphAdvancedSVGRenderer {
-    public static func render(_ snapshot: GrammarGraphAdvancedLayoutSnapshot) -> String {
+    public static func render(
+        _ snapshot: GrammarGraphAdvancedLayoutSnapshot,
+        preferences: GrammarVisualPreferences = .init()
+    ) -> String {
         let clusterMarkup = snapshot.clusters.map { cluster in
             let f = cluster.frame
             return "<g class='cluster'><rect x='\(n(f.x))' y='\(n(f.y))' width='\(n(f.width))' height='\(n(f.height))' rx='14'/><text x='\(n(f.x + 10))' y='\(n(f.y + 17))'>\(escape(cluster.cluster.label))</text></g>"
@@ -388,7 +391,9 @@ public enum GrammarGraphAdvancedSVGRenderer {
                     return "<text class='edge-label' x='\(n(geometry.position.x))' y='\(n(geometry.position.y - 6))' transform='rotate(\(n(degrees)) \(n(geometry.position.x)) \(n(geometry.position.y)))'>\(escape(text))</text>"
                 }
             } ?? ""
-            return "<g class='edge' data-edge='\(escape(route.id))'><path d='\(pathData(route, snapshot: snapshot, fallbackStart: a, fallbackEnd: b))'/>\(arrow)\(label)</g>"
+            let accessibleLabel = route.route.edge.label.map { "Edge \($0)" }
+                ?? "Edge from \(route.route.edge.source) to \(route.route.edge.target)"
+            return "<g class='edge' role='listitem' aria-label='\(escape(accessibleLabel))' data-edge='\(escape(route.id))'><path d='\(pathData(route, snapshot: snapshot, fallbackStart: a, fallbackEnd: b))'/>\(arrow)\(label)</g>"
         }.joined()
         let nodeMarkup = snapshot.nodes.map { node in
             let f = node.frame
@@ -403,11 +408,11 @@ public enum GrammarGraphAdvancedSVGRenderer {
             case .diamond:
                 shape = "<polygon points='\(n(f.midX)),\(n(f.minY)) \(n(f.maxX)),\(n(f.midY)) \(n(f.midX)),\(n(f.maxY)) \(n(f.minX)),\(n(f.midY))'/>"
             }
-            return "<g class='node shape-\(node.shape.rawValue)' data-node='\(escape(node.id))'>\(shape)<text x='\(n(f.midX))' y='\(n(f.midY + 5))'>\(escape(node.positionedNode.node.label))</text></g>"
+            return "<g class='node shape-\(node.shape.rawValue)' role='listitem' aria-label='\(escape(node.positionedNode.node.label))' data-node='\(escape(node.id))'>\(shape)<text x='\(n(f.midX))' y='\(n(f.midY + 5))'>\(escape(node.positionedNode.node.label))</text></g>"
         }.joined()
         return """
         <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 \(n(snapshot.width)) \(n(snapshot.height))' role='img' aria-label='\(escape(snapshot.layout.title))'>
-        <style>.cluster rect{fill:#f8fafc;stroke:#9aa6b2;stroke-dasharray:5 3}.cluster text{font:600 11px system-ui;fill:#536171}.edge path,.arrow.open{fill:none;stroke:#718096;stroke-width:1.6}.arrow.filled,.arrow.swept{fill:#718096}.node rect,.node ellipse,.node polygon{fill:#f5f7fb;stroke:#52667d;stroke-width:1.5}.node text,.edge-label{text-anchor:middle;font:12px system-ui;fill:#172033}.edge-label{paint-order:stroke;stroke:white;stroke-width:5}</style>
+        <style>\(GrammarVisualDesignSystem.graphCSS(preferences)).cluster rect{fill:var(--gw-surface);stroke:var(--gw-border);stroke-dasharray:5 3}.cluster text{font:600 11px system-ui;fill:var(--gw-secondary)}.edge path,.arrow.open{fill:none;stroke:var(--gw-edge);stroke-width:1.6}.arrow.filled,.arrow.swept{fill:var(--gw-edge)}.node rect,.node ellipse,.node polygon{fill:var(--gw-surface);stroke:var(--gw-border);stroke-width:1.5}.node text,.edge-label{text-anchor:middle;font:12px system-ui;fill:var(--gw-text)}.edge-label{paint-order:stroke;stroke:var(--gw-canvas);stroke-width:5}\(preferences.showsEdgeLabels ? "" : ".edge-label{display:none}")</style>
         <g id='clusters'>\(clusterMarkup)</g><g id='edges'>\(edgeMarkup)</g><g id='nodes'>\(nodeMarkup)</g></svg>
         """
     }

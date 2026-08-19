@@ -4,6 +4,10 @@ import WebKit
 
 public struct GrammarParserVisualizationView: NSViewRepresentable {
     public let timeline: GrammarParserVisualizationTimeline
+    @AppStorage("visualAppearance") private var visualAppearance = GrammarVisualAppearance.system.rawValue
+    @AppStorage("reduceGraphMotion") private var reduceGraphMotion = false
+    @AppStorage("showGraphMinimap") private var showGraphMinimap = true
+    @AppStorage("showGraphEdgeLabels") private var showGraphEdgeLabels = true
 
     public init(timeline: GrammarParserVisualizationTimeline) { self.timeline = timeline }
 
@@ -16,7 +20,14 @@ public struct GrammarParserVisualizationView: NSViewRepresentable {
         return view
     }
     public func updateNSView(_ view: WKWebView, context: Context) {
-        guard let html = try? GrammarParserVisualizationHTMLRenderer.render(timeline),
+        let preferences = GrammarVisualPreferences(
+            appearance: GrammarVisualAppearance(rawValue: visualAppearance) ?? .system,
+            motion: reduceGraphMotion ? .reduced : .standard,
+            showsMinimap: showGraphMinimap, showsEdgeLabels: showGraphEdgeLabels
+        )
+        guard let html = try? GrammarParserVisualizationHTMLRenderer.render(
+            timeline, preferences: preferences
+        ),
               context.coordinator.lastHTML != html else { return }
         context.coordinator.lastHTML = html
         view.loadHTMLString(html, baseURL: nil)

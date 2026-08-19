@@ -295,11 +295,11 @@ enum AutomatonSVG {
 
     static var svgStyles: String {
         """
-        .edge path{stroke:#8792a5;stroke-width:1.5;fill:none;marker-end:url(#arrow)}.arrow{fill:#8792a5;stroke:none}
-        .edge-label-bg{fill:#fff;opacity:.88}.edge-label{text-anchor:middle;font:11px system-ui;fill:#4b5565}
-        .node{cursor:pointer}.node rect{fill:#f5f7fb;stroke:#7b879b;stroke-width:1.5}.node.decision-resolved>rect{fill:#e7f1ff;stroke:#3478c9;stroke-width:2.5}.node.decision-unresolved>rect{fill:#ffe5e2;stroke:#c43b32;stroke-width:3}.node.decision-expected>rect{fill:#e3f6e9;stroke:#2d8a50;stroke-width:2.5}.node:hover>rect{filter:brightness(.96)}.node.selected>rect{stroke:#1266c5;stroke-width:4}
-        .title{font:700 15px system-ui;fill:#172033}.node .count{font:11px system-ui;fill:#596579}.node.compact .title,.node.compact .count{text-anchor:middle}
-        .item{font:11px ui-monospace,monospace;fill:#303949}.decision-badge circle{stroke:#fff;stroke-width:1.5}.decision-badge text{text-anchor:middle;font:700 11px system-ui;fill:#fff}.decision-badge.resolved circle{fill:#3478c9}.decision-badge.unresolved circle{fill:#c43b32}.decision-badge.expected circle{fill:#2d8a50}.mini-node{fill:#8391a8}.mini-resolved{fill:#3478c9}.mini-unresolved{fill:#c43b32}.mini-expected{fill:#2d8a50}.mini-selected{stroke:#1266c5;stroke-width:8;vector-effect:non-scaling-stroke}
+        .edge path{stroke:var(--gw-edge);stroke-width:1.5;fill:none;marker-end:url(#arrow)}.arrow{fill:var(--gw-edge);stroke:none}
+        .edge-label-bg{fill:var(--gw-raised);opacity:.88}.edge-label{text-anchor:middle;font:11px system-ui;fill:var(--gw-secondary)}
+        .node{cursor:pointer}.node rect{fill:var(--gw-surface);stroke:var(--gw-border);stroke-width:1.5}.node.decision-resolved>rect{stroke:var(--gw-accent);stroke-width:2.5}.node.decision-unresolved>rect{stroke:var(--gw-danger);stroke-width:3}.node.decision-expected>rect{stroke:var(--gw-success);stroke-width:2.5}.node:hover>rect{filter:brightness(.96)}.node.selected>rect{stroke:var(--gw-accent);stroke-width:4}
+        .title{font:700 15px system-ui;fill:var(--gw-text)}.node .count{font:11px system-ui;fill:var(--gw-secondary)}.node.compact .title,.node.compact .count{text-anchor:middle}
+        .item{font:11px ui-monospace,monospace;fill:var(--gw-text)}.decision-badge circle{stroke:var(--gw-canvas);stroke-width:1.5}.decision-badge text{text-anchor:middle;font:700 11px system-ui;fill:var(--gw-canvas)}.decision-badge.resolved circle{fill:var(--gw-accent)}.decision-badge.unresolved circle{fill:var(--gw-danger)}.decision-badge.expected circle{fill:var(--gw-success)}.mini-node{fill:var(--gw-secondary)}.mini-resolved{fill:var(--gw-accent)}.mini-unresolved{fill:var(--gw-danger)}.mini-expected{fill:var(--gw-success)}.mini-selected{stroke:var(--gw-accent);stroke-width:8;vector-effect:non-scaling-stroke}
         """
     }
 
@@ -464,6 +464,10 @@ private struct AutomatonWebView: NSViewRepresentable {
     let visibleStates: Set<StateID>
     let detail: AutomatonDetail
     let onSelect: (StateID) -> Void
+    @AppStorage("visualAppearance") private var visualAppearance = GrammarVisualAppearance.system.rawValue
+    @AppStorage("reduceGraphMotion") private var reduceGraphMotion = false
+    @AppStorage("showGraphMinimap") private var showGraphMinimap = true
+    @AppStorage("showGraphEdgeLabels") private var showGraphEdgeLabels = true
 
     func makeCoordinator() -> Coordinator { Coordinator(onSelect: onSelect) }
 
@@ -485,7 +489,12 @@ private struct AutomatonWebView: NSViewRepresentable {
             detail: detail,
             interactive: true
         )
-        let html = htmlDocument(svg: svg)
+        let preferences = GrammarVisualPreferences(
+            appearance: GrammarVisualAppearance(rawValue: visualAppearance) ?? .system,
+            motion: reduceGraphMotion ? .reduced : .standard,
+            showsMinimap: showGraphMinimap, showsEdgeLabels: showGraphEdgeLabels
+        )
+        let html = htmlDocument(svg: svg, preferences: preferences)
         if context.coordinator.lastHTML != html {
             context.coordinator.lastHTML = html
             context.coordinator.pendingSelected = selectedState
@@ -497,10 +506,10 @@ private struct AutomatonWebView: NSViewRepresentable {
         }
     }
 
-    private func htmlDocument(svg: String) -> String {
+    private func htmlDocument(svg: String, preferences: GrammarVisualPreferences) -> String {
         """
         <!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width'>
-        <style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}button{font:12px system-ui;padding:5px 8px}#graph-controls{position:fixed;z-index:3;right:12px;top:12px;display:flex;gap:4px}#minimap{position:fixed;z-index:3;right:12px;bottom:12px;width:170px;height:110px;background:#fffE;border:1px solid #aeb7c5;border-radius:8px}.mini-node{fill:#8391a8}.mini-selected{fill:#1671d9}#mini-viewport{fill:#1671d922;stroke:#1671d9;stroke-width:5;vector-effect:non-scaling-stroke}#automaton{touch-action:none;cursor:grab}#automaton.dragging{cursor:grabbing}\(AutomatonSVG.svgStyles)</style></head>
+        <style>\(GrammarVisualDesignSystem.graphCSS(preferences))html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}button{font:12px system-ui;padding:5px 8px}#graph-controls{position:fixed;z-index:3;right:12px;top:12px;display:flex;gap:4px}#minimap{position:fixed;z-index:3;right:12px;bottom:12px;width:170px;height:110px;background:var(--gw-raised);border:1px solid var(--gw-border);border-radius:8px;\(preferences.showsMinimap ? "" : "display:none;")}.mini-node{fill:var(--gw-secondary)}.mini-selected{fill:var(--gw-accent)}#mini-viewport{fill:#1671d922;stroke:var(--gw-accent);stroke-width:5;vector-effect:non-scaling-stroke}#automaton{touch-action:none;cursor:grab}#automaton.dragging{cursor:grabbing}\(preferences.showsEdgeLabels ? "" : ".edge-label,.edge-label-bg{display:none}")\(AutomatonSVG.svgStyles)</style></head>
         <body>\(svg)<script>
         const svg=document.getElementById('automaton'), viewport=document.getElementById('viewport'), mini=document.getElementById('mini-viewport');
         let scale=1,tx=0,ty=0,drag=null; const contentW=\(layoutWidth),contentH=\(layoutHeight);

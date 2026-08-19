@@ -56,6 +56,8 @@ Advanced graph geometry adds two-pass native text measurement, shape-aware edge 
 
 Interactive parser visualization builds stable-layout step-through timelines with active state and transition highlighting, playback controls, pan/zoom/fit viewport state, minimaps, and collapsible syntax-tree or shared-forest projections. Timelines are available through the library, CLI, SDK, JSON, and standalone HTML.
 
+Visual product consolidation gives the editor and graph surfaces one semantic palette, persisted appearance and motion preferences, consistent focus and reduced-motion behavior, and a native **Visuals** gallery for reviewing representative states. Portable visual audits and deterministic SVG/HTML snapshot manifests make accessibility and presentation changes visible to release automation. See [Documentation/VisualProductConsolidation.md](Documentation/VisualProductConsolidation.md).
+
 ## Library API
 
 Xcode host applications should use `GrammarWorkbenchAPI`, the versioned, concurrency-safe library façade. It provides a typed LR algorithm choice and immutable `Sendable` values for compilation diagnostics, grammar analysis, artifact inspection, lexing, parsing/replay, and batch tests. Engine model types remain an implementation detail, while existing lower-level public front-end and lexer APIs remain available for source compatibility.
@@ -244,6 +246,8 @@ The Tests workspace persists named accept, reject, and conflict cases with optio
 - `SampleArtifact.swift`: replaceable sample artifact provider.
 - `ExplorerStore.swift`: cross-view selection and replay state.
 - `ArtifactExplorerView.swift`: native master/detail explorer.
+- `VisualProductConsolidation.swift`: portable visual preferences, design tokens, audits, and snapshot manifests.
+- `VisualProductGalleryView.swift`: native reference gallery for product states and parser visualization.
 - `HTMLExporter.swift`: dependency-free standalone report export.
 - `TestingAndInterchange.swift`: persistent test cases, batch execution, and versioned project/artifact JSON interchange.
 

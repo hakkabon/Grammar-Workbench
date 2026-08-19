@@ -56,12 +56,17 @@ public enum GrammarWorkbenchCapabilities {
     public static let graphCorrectnessAndMeasurement: GrammarWorkbenchFeatureMaturity = .stable
     public static let advancedGraphGeometry: GrammarWorkbenchFeatureMaturity = .stable
     public static let interactiveParserVisualization: GrammarWorkbenchFeatureMaturity = .stable
+    public static let visualProductConsolidation: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)
 public struct GrammarWorkbenchSettingsView: View {
     @AppStorage("openLastDocument") private var openLastDocument = true
     @AppStorage("confirmArtifactExport") private var confirmArtifactExport = false
+    @AppStorage("visualAppearance") private var visualAppearance = GrammarVisualAppearance.system.rawValue
+    @AppStorage("reduceGraphMotion") private var reduceGraphMotion = false
+    @AppStorage("showGraphMinimap") private var showGraphMinimap = true
+    @AppStorage("showGraphEdgeLabels") private var showGraphEdgeLabels = true
 
     public init() {}
 
@@ -69,6 +74,14 @@ public struct GrammarWorkbenchSettingsView: View {
         Form {
             Toggle("Reopen the last document at launch", isOn: $openLastDocument)
             Toggle("Confirm generated artifact exports", isOn: $confirmArtifactExport)
+            Picker("Graph appearance", selection: $visualAppearance) {
+                ForEach(GrammarVisualAppearance.allCases, id: \.rawValue) {
+                    Text($0.rawValue.capitalized).tag($0.rawValue)
+                }
+            }
+            Toggle("Reduce graph animation", isOn: $reduceGraphMotion)
+            Toggle("Show graph minimaps", isOn: $showGraphMinimap)
+            Toggle("Show graph edge labels", isOn: $showGraphEdgeLabels)
             LabeledContent("Version", value: GrammarWorkbenchRelease.displayVersion)
         }
         .formStyle(.grouped)

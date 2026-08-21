@@ -61,6 +61,13 @@ Long-lived IDE and build integrations can retain incremental state through
 concurrent JSON-lines host with lifecycle events and request cancellation. See
 [the stateful tooling guide](Documentation/StatefulToolingProtocol.md).
 
+Collaborative workspaces now share revision-checked grammar documents,
+participant presence, idempotent operations, and bounded ordered event history
+through that persistent service. The host-neutral protocol is ready for HTTP or
+WebSocket front ends without embedding authentication or a cloud dependency in
+the core. See
+[Documentation/CollaborativeHostedWorkbench.md](Documentation/CollaborativeHostedWorkbench.md).
+
 Reusable semantic language definitions can now be distributed as versioned `GrammarSemanticLanguageKitManifest` files. A kit binds its grammar, semantic rules, file extensions, conformance tests, and generator defaults; strict compilation detects stale semantic production selectors before a consumer opens a project. Kits work through the library, CLI, SDK, and stateful service host. See [Documentation/SemanticLanguageKits.md](Documentation/SemanticLanguageKits.md).
 
 Language kits can also be shipped as reproducible ecosystem packages with

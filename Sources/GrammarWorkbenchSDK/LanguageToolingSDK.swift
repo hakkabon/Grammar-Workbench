@@ -34,6 +34,12 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case documentOpen
     case documentChange
     case documentClose
+    case collaborationCreate
+    case collaborationJoin
+    case collaborationLeave
+    case collaborationStatus
+    case collaborationChange
+    case collaborationEvents
     case cancel
 }
 
@@ -73,7 +79,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost,
             "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
-            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability
+            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability,
+            "collaborativeOrHostedWorkbench": GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench
         ]
     )
 
@@ -146,6 +153,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var revision: Int?
     public var edits: [GrammarTextEdit]?
     public var targetRequestID: String?
+    public var workspaceID: String?
+    public var participant: GrammarCollaborationParticipant?
+    public var collaborationDocuments: [GrammarCollaborationDocument]?
+    public var operationID: String?
+    public var expectedRevision: Int?
+    public var afterEventSequence: Int?
 
     public init(
         requestID: String = UUID().uuidString,
@@ -173,6 +186,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         revision: Int? = nil,
         edits: [GrammarTextEdit]? = nil,
         targetRequestID: String? = nil,
+        workspaceID: String? = nil,
+        participant: GrammarCollaborationParticipant? = nil,
+        collaborationDocuments: [GrammarCollaborationDocument]? = nil,
+        operationID: String? = nil,
+        expectedRevision: Int? = nil,
+        afterEventSequence: Int? = nil,
         schemaVersion: Int = GrammarToolingSchema.current,
         apiVersion: Int = GrammarWorkbenchAPIVersion.current
     ) {
@@ -203,6 +222,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.revision = revision
         self.edits = edits
         self.targetRequestID = targetRequestID
+        self.workspaceID = workspaceID
+        self.participant = participant
+        self.collaborationDocuments = collaborationDocuments
+        self.operationID = operationID
+        self.expectedRevision = expectedRevision
+        self.afterEventSequence = afterEventSequence
     }
 }
 
@@ -289,6 +314,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
+    public let collaboration: GrammarCollaborationResult?
+    public let collaborationWorkspace: GrammarCollaborationWorkspaceSnapshot?
+    public let collaborationEvents: [GrammarCollaborationEvent]?
 
     public init(
         requestID: String,
@@ -315,7 +343,10 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         selectedResearchPreview: GrammarSelectedResearchPreview? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
-        events: [GrammarToolingEvent]? = nil
+        events: [GrammarToolingEvent]? = nil,
+        collaboration: GrammarCollaborationResult? = nil,
+        collaborationWorkspace: GrammarCollaborationWorkspaceSnapshot? = nil,
+        collaborationEvents: [GrammarCollaborationEvent]? = nil
     ) {
         schemaVersion = GrammarToolingSchema.current
         self.requestID = requestID
@@ -344,6 +375,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.session = session
         self.document = document
         self.events = events
+        self.collaboration = collaboration
+        self.collaborationWorkspace = collaborationWorkspace
+        self.collaborationEvents = collaborationEvents
     }
 }
 
@@ -527,7 +561,9 @@ public struct GrammarLanguageToolingService: Sendable {
                     selectedResearchPreview: try GrammarSelectedResearchPreviewEngine.run(studyID: id)
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
-                 .documentOpen, .documentChange, .documentClose, .cancel:
+                 .documentOpen, .documentChange, .documentClose,
+                 .collaborationCreate, .collaborationJoin, .collaborationLeave,
+                 .collaborationStatus, .collaborationChange, .collaborationEvents, .cancel:
                 return failure(
                     request, code: "stateful-service-required",
                     message: "This operation requires GrammarStatefulLanguageToolingService."

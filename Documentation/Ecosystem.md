@@ -63,6 +63,11 @@ Clients that retain documents use `GrammarStatefulLanguageToolingService` or the
 JSON-lines host. Per-session operations are serialized, independent sessions run
 concurrently, and cancellation targets public request identifiers.
 
+Hosted collaborators use the same persistent host for shared workspace
+snapshots, participant presence, optimistic document revisions, safe operation
+replay, and event polling. Network transports, authentication, and durable
+storage remain adapters around this transport-neutral contract.
+
 ## Validation and distribution
 
 The release-candidate gate runs the complete Swift suite, a framed stdio smoke session, and—when Node is available—the real VS Code client against the server. Release packaging produces independent LSP and editor-client archives, includes them in `SHA256SUMS`, and does not download npm dependencies. Consumers may package the included VS Code source as a VSIX explicitly with `@vscode/vsce`.

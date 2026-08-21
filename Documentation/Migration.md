@@ -72,6 +72,11 @@ should negotiate `sessionOpen`, retain the returned session identifier, correlat
 responses by `requestID`, and treat event sequence numbers as session-local.
 JSON-lines responses may arrive out of request order.
 
+Phase 34 adds optional collaboration fields and operations to the same SDK
+schema. Existing envelopes remain valid because the fields are optional.
+Stateless clients should rely on negotiated operations; only the persistent
+service advertises collaborative workspaces.
+
 ## Grammar analysis and transformations
 
 Existing front-end diagnostics and `GrammarAnalysisSnapshot` remain source-compatible. Consumers that need hygiene, dependency cycles, left recursion, duplicate groups, or transformation planning may adopt `GrammarEngineering` incrementally. Transformation plans are source-fingerprinted and do not mutate a compilation or project workspace. Treat `GrammarBehaviorComparison.agreesOnCorpus` as bounded evidence, not a proof of global grammar equivalence.

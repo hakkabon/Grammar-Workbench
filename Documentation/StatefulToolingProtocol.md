@@ -22,6 +22,15 @@ incremental coordinator.
 document length. Limit violations return `resource-limit` before mutating state;
 hosts can select tighter values for constrained deployments.
 
+## Collaborative workspaces
+
+The persistent service also exposes `collaborationCreate`, `collaborationJoin`,
+`collaborationLeave`, `collaborationStatus`, `collaborationChange`, and
+`collaborationEvents`. These operations share revision-checked documents and a
+bounded workspace event stream between clients. They are independent of parser
+sessions, allowing a host to attach analysis policy after accepting shared text.
+See [CollaborativeHostedWorkbench.md](CollaborativeHostedWorkbench.md).
+
 ## Embedding
 
 Swift hosts use `GrammarStatefulLanguageToolingService` directly or a
@@ -59,7 +68,7 @@ them through `requestID`. Malformed lines return an `invalid-json` failure.
 
 The JSON-lines transport complements rather than replaces LSP. It exposes the
 complete typed compilation and incremental-analysis contracts to build daemons,
-IDE extensions, test runners, and remote transport adapters.
+IDE extensions, test runners, collaborative clients, and remote transport adapters.
 
 ## Errors and compatibility
 

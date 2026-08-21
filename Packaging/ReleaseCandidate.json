@@ -109,6 +109,11 @@
     "portableScaleMaximumSymbols": 20000,
     "portableScaleMaximumRightHandSideSymbols": 250000,
     "portableScaleReleaseCorpusProductions": 5000,
-    "portableScaleAuditMaximumMilliseconds": 1000
+    "portableScaleAuditMaximumMilliseconds": 1000,
+    "collaborationMaximumWorkspaces": 4,
+    "collaborationMaximumParticipantsPerWorkspace": 8,
+    "collaborationMaximumDocumentsPerWorkspace": 16,
+    "collaborationMaximumRetainedEvents": 64,
+    "collaborationMaximumEditsPerOperation": 32
   }
 }

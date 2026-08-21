@@ -27,6 +27,9 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - `GrammarWorkbenchSDK` envelopes, capability negotiation, codecs, async client/service APIs, and transport protocol.
 - Integrated project navigator, problem, operation, and snapshot contracts for native documents and multi-document analyses.
 - Stateful tooling sessions, incremental document operations, lifecycle events, request registry, and JSON-lines service-host contract.
+- Collaborative workspace snapshots, participants, revision-checked document
+  changes, idempotent operations, bounded ordered events, host limits, and
+  persistent tooling operations.
 - Versioned semantic language-kit manifests, strict grammar/semantic/conformance validation, project factories, and SDK/service-host kit operations.
 - Versioned language-kit packages and catalogs, semantic-version requirements,
   deterministic dependency resolution, and conformant package templates.

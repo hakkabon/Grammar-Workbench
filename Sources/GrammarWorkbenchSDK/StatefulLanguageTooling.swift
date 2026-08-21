@@ -238,9 +238,16 @@ private actor GrammarToolingSessionState {
 public actor GrammarStatefulLanguageToolingService {
     private var sessions: [String: GrammarToolingSessionState] = [:]
     private let stateless = GrammarLanguageToolingService()
+    private let collaborationHost: GrammarCollaborativeWorkbenchHost
     public let limits: GrammarStatefulToolingLimits
 
-    public init(limits: GrammarStatefulToolingLimits = .init()) { self.limits = limits }
+    public init(
+        limits: GrammarStatefulToolingLimits = .init(),
+        collaborationHost: GrammarCollaborativeWorkbenchHost = .init()
+    ) {
+        self.limits = limits
+        self.collaborationHost = collaborationHost
+    }
 
     public func handle(_ request: GrammarToolingRequest) async -> GrammarToolingResponse {
         guard request.schemaVersion == GrammarToolingSchema.current else {
@@ -337,6 +344,49 @@ public actor GrammarStatefulLanguageToolingService {
                     id: required(request.documentID, "documentID")
                 )
                 return .init(requestID: request.requestID, session: session, events: [event])
+            case .collaborationCreate:
+                let value = try await collaborationHost.createWorkspace(
+                    id: required(request.workspaceID, "workspaceID"),
+                    owner: required(request.participant, "participant"),
+                    documents: request.collaborationDocuments ?? [],
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaboration: value)
+            case .collaborationJoin:
+                let value = try await collaborationHost.join(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    participant: required(request.participant, "participant"),
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaboration: value)
+            case .collaborationLeave:
+                let value = try await collaborationHost.leave(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    participantID: required(request.participant, "participant").id,
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaboration: value)
+            case .collaborationStatus:
+                let value = try await collaborationHost.status(
+                    required(request.workspaceID, "workspaceID")
+                )
+                return .init(requestID: request.requestID, collaborationWorkspace: value)
+            case .collaborationChange:
+                let value = try await collaborationHost.apply(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    participantID: required(request.participant, "participant").id,
+                    documentID: required(request.documentID, "documentID"),
+                    expectedRevision: required(request.expectedRevision, "expectedRevision"),
+                    edits: required(request.edits, "edits"),
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaboration: value)
+            case .collaborationEvents:
+                let value = try await collaborationHost.events(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    after: request.afterEventSequence ?? -1
+                )
+                return .init(requestID: request.requestID, collaborationEvents: value)
             case .cancel:
                 return failure(
                     request, "request-registry-required",
@@ -358,6 +408,8 @@ public actor GrammarStatefulLanguageToolingService {
         } catch is CancellationError {
             return failure(request, "cancelled", "Request ‘\(request.requestID)’ was cancelled.")
         } catch let error as StatefulToolingError {
+            return failure(request, error.code, error.localizedDescription)
+        } catch let error as GrammarCollaborationError {
             return failure(request, error.code, error.localizedDescription)
         } catch {
             return failure(request, "invalid-request", error.localizedDescription)

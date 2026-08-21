@@ -45,6 +45,9 @@ The release-candidate gate verifies the product from four perspectives:
     canonical grammar identity through deterministic export and re-import, and
     complete its pre-construction scale audit within the published size and
     latency bounds.
+24. The collaborative host must fill its declared workspace, participant, and
+    document capacities, preserve ordered bounded events, reject stale edits,
+    and replay retained operation identifiers without duplicate mutation.
 
 Run the normal gate:
 

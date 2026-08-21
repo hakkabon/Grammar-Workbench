@@ -76,6 +76,11 @@ private struct ReleaseCandidatePolicy: Decodable {
         let portableScaleMaximumRightHandSideSymbols: Int
         let portableScaleReleaseCorpusProductions: Int
         let portableScaleAuditMaximumMilliseconds: Double
+        let collaborationMaximumWorkspaces: Int
+        let collaborationMaximumParticipantsPerWorkspace: Int
+        let collaborationMaximumDocumentsPerWorkspace: Int
+        let collaborationMaximumRetainedEvents: Int
+        let collaborationMaximumEditsPerOperation: Int
     }
 
     let schemaVersion: Int
@@ -145,6 +150,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity == .stable)
     #expect(GrammarWorkbenchCapabilities.languageKitEcosystem == .stable)
     #expect(GrammarWorkbenchCapabilities.scaleAndInteroperability == .stable)
+    #expect(GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -246,6 +252,40 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         #expect(loaded.manifest.sources.count <= policy.budgets.sourceProjectMaximumSources)
         #expect(loaded.descriptor.kind == GrammarSourceProjectDescriptor.kindIdentifier)
     }
+}
+
+@Test func collaborativeHostStaysWithinReleaseBounds() async throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let host = GrammarCollaborativeWorkbenchHost(limits: .init(
+        maximumWorkspaces: budget.collaborationMaximumWorkspaces,
+        maximumParticipantsPerWorkspace: budget.collaborationMaximumParticipantsPerWorkspace,
+        maximumDocumentsPerWorkspace: budget.collaborationMaximumDocumentsPerWorkspace,
+        maximumDocumentUTF16Length: 100_000,
+        maximumRetainedEvents: budget.collaborationMaximumRetainedEvents,
+        maximumEditsPerOperation: budget.collaborationMaximumEditsPerOperation
+    ))
+    for workspace in 0..<budget.collaborationMaximumWorkspaces {
+        let owner = GrammarCollaborationParticipant(
+            id: "owner-\(workspace)", displayName: "Owner \(workspace)"
+        )
+        _ = try await host.createWorkspace(
+            id: "workspace-\(workspace)", owner: owner,
+            documents: (0..<budget.collaborationMaximumDocumentsPerWorkspace).map {
+                .init(id: "document-\($0)", text: "initial")
+            },
+            operationID: "create-\(workspace)"
+        )
+        for participant in 1..<budget.collaborationMaximumParticipantsPerWorkspace {
+            _ = try await host.join(
+                workspaceID: "workspace-\(workspace)",
+                participant: .init(
+                    id: "participant-\(participant)", displayName: "Participant \(participant)"
+                ),
+                operationID: "join-\(workspace)-\(participant)"
+            )
+        }
+    }
+    #expect(await host.workspaceIDs.count == budget.collaborationMaximumWorkspaces)
 }
 
 @Test func interactiveParserVisualizationStaysWithinReleaseBounds() throws {

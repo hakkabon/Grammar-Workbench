@@ -48,12 +48,15 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.capabilities?.operations.contains(.semanticWorkspace) == true)
     #expect(response.capabilities?.transports == ["in-process", "json"])
     #expect(response.capabilities?.operations.contains(.sessionOpen) == false)
+    #expect(response.capabilities?.operations.contains(.collaborationCreate) == false)
 }
 
 @Test func statefulCapabilitiesAdvertiseSessionsAndJSONLines() async throws {
     let client = GrammarToolingClient(transport: GrammarStatefulInProcessToolingTransport())
     let response = try await client.send(.init(operation: .capabilities))
     #expect(response.capabilities?.operations.contains(.sessionOpen) == true)
+    #expect(response.capabilities?.operations.contains(.collaborationCreate) == true)
+    #expect(response.capabilities?.features["collaborativeOrHostedWorkbench"] == .stable)
     #expect(response.capabilities?.operations.contains(.cancel) == true)
     #expect(response.capabilities?.transports.contains("json-lines") == true)
 }
@@ -105,6 +108,42 @@ private struct StatefulReleasePolicy: Decodable {
         operation: .sessionClose, sessionID: "editor"
     ))
     #expect(closedSession.events?.first?.kind == .sessionClosed)
+}
+
+@Test func hostedCollaborationFlowsThroughPersistentToolingProtocol() async throws {
+    let service = GrammarStatefulLanguageToolingService()
+    let owner = GrammarCollaborationParticipant(id: "owner", displayName: "Owner")
+    let peer = GrammarCollaborationParticipant(id: "peer", displayName: "Peer")
+    let created = await service.handle(.init(
+        requestID: "collaboration-create", operation: .collaborationCreate,
+        workspaceID: "hosted", participant: owner,
+        collaborationDocuments: [.init(id: "grammar", text: "first")],
+        operationID: "create"
+    ))
+    #expect(created.status == .success)
+    #expect(created.collaboration?.workspace.documents.first?.text.text == "first")
+
+    let joined = await service.handle(.init(
+        requestID: "collaboration-join", operation: .collaborationJoin,
+        workspaceID: "hosted", participant: peer, operationID: "join"
+    ))
+    #expect(joined.collaboration?.workspace.participants.count == 2)
+
+    let changed = await service.handle(.init(
+        requestID: "collaboration-change", operation: .collaborationChange,
+        documentID: "grammar", edits: [.init(range: nil, replacement: "second")],
+        workspaceID: "hosted", participant: peer,
+        operationID: "change", expectedRevision: 0
+    ))
+    #expect(changed.collaboration?.workspace.documents.first?.text.text == "second")
+    let events = await service.handle(.init(
+        requestID: "collaboration-events", operation: .collaborationEvents,
+        workspaceID: "hosted", afterEventSequence: 0
+    ))
+    #expect(events.collaborationEvents?.map(\.sequence) == [1, 2])
+
+    let wire = try GrammarToolingCodec.decodeResponse(GrammarToolingCodec.encode(changed))
+    #expect(wire.collaboration == changed.collaboration)
 }
 
 @Test func statefulSessionReanalyzesDocumentsAfterGrammarReplacement() async throws {

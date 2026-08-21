@@ -24,6 +24,9 @@
   "requiredSemanticLanguageKits": [
     "Examples/TinySemanticLanguageKit.json"
   ],
+  "requiredLanguageKitPackages": [
+    "Examples/TinyLanguageKitPackage.json"
+  ],
   "requiredGraphFixtures": [
     "Examples/GraphVisualization.json"
   ],
@@ -95,6 +98,8 @@
     "browserRuntimeMaximumSteps": 10000,
     "browserRuntimeMaximumStackDepth": 2048,
     "grammarRefactoringMaximumEdits": 64,
-    "grammarRefactoringMaximumAffectedLines": 32
+    "grammarRefactoringMaximumAffectedLines": 32,
+    "languageKitPackageMaximumDependencies": 8,
+    "languageKitResolutionMaximumPackages": 16
   }
 }

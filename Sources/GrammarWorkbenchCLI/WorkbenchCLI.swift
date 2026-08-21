@@ -257,6 +257,48 @@ struct GrammarWorkbenchCLI {
                 to: URL(fileURLWithPath: arguments[2]), options: .atomic
             )
             print("Wrote \(arguments[2]) from \(kit.manifest.identifier)@\(kit.manifest.version)")
+        case "kit-template":
+            guard arguments.count == 6 else {
+                throw CLIError.usage("kit-template requires IDENTIFIER NAME VERSION EXTENSION OUTPUT")
+            }
+            let package = try GrammarLanguageKitTemplate.make(.init(
+                identifier: arguments[1], name: arguments[2], version: arguments[3],
+                fileExtension: arguments[4]
+            ))
+            try GrammarLanguageKitPackageCodec.encode(package).write(
+                to: URL(fileURLWithPath: arguments[5]), options: .atomic
+            )
+            print("Wrote \(arguments[5]): \(package.identifier)@\(package.version)")
+        case "kit-package-validate":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("kit-package-validate requires PACKAGE")
+            }
+            let package = try GrammarLanguageKitPackageCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            print("Valid language-kit package \(package.manifest.identifier)@\(package.manifest.version): \(package.manifest.dependencies.count) dependencies, \(package.languageKit.conformance.passed) tests passed")
+        case "kit-resolve":
+            guard arguments.count == 4 || arguments.count == 5 else {
+                throw CLIError.usage("kit-resolve requires CATALOG IDENTIFIER MINIMUM_VERSION [OUTPUT]")
+            }
+            let catalog = try GrammarLanguageKitCatalogCodec.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let minimum = try GrammarLanguageKitVersion(arguments[3])
+            let registry = GrammarLanguageKitPackageRegistry()
+            try await registry.add(contentsOf: catalog)
+            let resolution = try await registry.resolve(roots: [
+                .init(identifier: arguments[2], requirement: .compatible(with: minimum))
+            ])
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(resolution)
+            if arguments.count == 5 {
+                try data.write(to: URL(fileURLWithPath: arguments[4]), options: .atomic)
+                print("Wrote \(arguments[4]): \(resolution.packages.count) resolved packages")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "graph-layout":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("graph-layout requires GRAPH OUTPUT [OPTIONS]")
@@ -897,6 +939,9 @@ struct GrammarWorkbenchCLI {
       grammar-workbench project-rename PROJECT SCHEMA DOCUMENT UTF16_OFFSET NEW_NAME OUTPUT_PROJECT
       grammar-workbench kit-validate KIT
       grammar-workbench kit-project KIT OUTPUT_PROJECT
+      grammar-workbench kit-template IDENTIFIER NAME VERSION EXTENSION OUTPUT
+      grammar-workbench kit-package-validate PACKAGE
+      grammar-workbench kit-resolve CATALOG IDENTIFIER MINIMUM_VERSION [OUTPUT]
       grammar-workbench graph-layout GRAPH OUTPUT [OPTIONS]
       grammar-workbench graph-validate GRAPH [OUTPUT]
       grammar-workbench graph-measure GRAPH [OUTPUT]

@@ -63,6 +63,12 @@ concurrent JSON-lines host with lifecycle events and request cancellation. See
 
 Reusable semantic language definitions can now be distributed as versioned `GrammarSemanticLanguageKitManifest` files. A kit binds its grammar, semantic rules, file extensions, conformance tests, and generator defaults; strict compilation detects stale semantic production selectors before a consumer opens a project. Kits work through the library, CLI, SDK, and stateful service host. See [Documentation/SemanticLanguageKits.md](Documentation/SemanticLanguageKits.md).
 
+Language kits can also be shipped as reproducible ecosystem packages with
+semantic-version requirements and deterministic offline catalog resolution.
+The CLI can scaffold, validate, and resolve packages, while the release gate
+checks a packaged fixture. See
+[Documentation/LanguageKitEcosystem.md](Documentation/LanguageKitEcosystem.md).
+
 Canonical grammar exchange spans the bootstrap BNF profile, Workbench notation, and EBNF lowering. `portable-import`, `portable-render --verify`, and `bootstrap-bundle` provide fingerprinted grammar envelopes and reproducible fixed-point evidence. See [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
 
 Parser research can be expressed as versioned, falsifiable validation programmes. `research-validate` records stable evidence separately from timing distributions, while `research-compare` detects incompatible baselines and pass-to-fail regressions. See [Documentation/ResearchValidationProgramme.md](Documentation/ResearchValidationProgramme.md).

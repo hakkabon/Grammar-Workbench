@@ -2,6 +2,10 @@
 
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
+Language-kit package manifests add semantic versions and explicit prerequisites;
+offline catalogs provide deterministic, dependency-first resolution. Package
+dependencies remain separate kits rather than implicitly composing grammars.
+
 Graph layout is consumed through the independently released Swift-Layout package. Tagged Layout releases build the XCFramework and generated Swift bindings, publish the binary, and update Swift-Layout automatically. Grammar Workbench pins a tested Swift-Layout revision and exposes only its own portable graph contracts to downstream consumers.
 
 Canonical grammar interchange is independent of parser-table artifacts and document persistence. BNF-profile, Workbench, and EBNF sources normalize into fingerprinted `GrammarPortableInterchange` envelopes; bootstrap bundles add fixed-point and differential-validation evidence for research and CI consumers.

@@ -68,6 +68,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let browserRuntimeMaximumStackDepth: Int
         let grammarRefactoringMaximumEdits: Int
         let grammarRefactoringMaximumAffectedLines: Int
+        let languageKitPackageMaximumDependencies: Int
+        let languageKitResolutionMaximumPackages: Int
     }
 
     let schemaVersion: Int
@@ -78,6 +80,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredProducts: [String]
     let requiredProjectManifests: [String]
     let requiredSemanticLanguageKits: [String]
+    let requiredLanguageKitPackages: [String]
     let requiredGraphFixtures: [String]
     let requiredResearchProgrammes: [String]
     let requiredSourceProjects: [String]
@@ -133,6 +136,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation == .stable)
     #expect(GrammarWorkbenchCapabilities.browserAndPortableRuntime == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity == .stable)
+    #expect(GrammarWorkbenchCapabilities.languageKitEcosystem == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -156,6 +160,13 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         let kit = try GrammarSemanticLanguageKitCodec.decode(data, requirePassingTests: true)
         #expect(kit.manifest.kind == GrammarSemanticLanguageKitManifest.kindIdentifier)
+    }
+    for path in policy.requiredLanguageKitPackages {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        let package = try GrammarLanguageKitPackageCodec.decode(data)
+        #expect(package.manifest.dependencies.count <= policy.budgets.languageKitPackageMaximumDependencies)
+        #expect(package.languageKit.isConformant)
+        #expect(policy.budgets.languageKitResolutionMaximumPackages >= 1)
     }
     for path in policy.requiredGraphFixtures {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))

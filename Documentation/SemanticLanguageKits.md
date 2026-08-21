@@ -1,5 +1,8 @@
 # Semantic language kits
 
+For semantic-versioned distribution, dependency resolution, catalogs, and
+starter templates, see [LanguageKitEcosystem.md](LanguageKitEcosystem.md).
+
 Phase 15 packages the language-specific decisions that previously lived in separate host files. A `GrammarSemanticLanguageKitManifest` binds a grammar, semantic workspace schema, filename extensions, conformance tests, generator defaults, identity, and version into one portable JSON contract.
 
 ## Validation

@@ -38,6 +38,9 @@ The release-candidate gate verifies the product from four perspectives:
     comments, literals, and patterns, reject stale or colliding edits, and stay
     within the declared edit and affected-line budgets while preserving the
     release corpus and saved tests.
+22. The packaged language-kit fixture must preserve package/kit identity,
+    compile with passing conformance tests, stay within the direct-dependency
+    budget, and resolve within the declared package-count bound.
 
 Run the normal gate:
 

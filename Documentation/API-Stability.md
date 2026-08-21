@@ -26,6 +26,8 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Integrated project navigator, problem, operation, and snapshot contracts for native documents and multi-document analyses.
 - Stateful tooling sessions, incremental document operations, lifecycle events, request registry, and JSON-lines service-host contract.
 - Versioned semantic language-kit manifests, strict grammar/semantic/conformance validation, project factories, and SDK/service-host kit operations.
+- Versioned language-kit packages and catalogs, semantic-version requirements,
+  deterministic dependency resolution, and conformant package templates.
 - Portable graph, layout-option, positioned-snapshot, metrics, adapter, SVG-export, and tooling-operation contracts backed by Swift-Layout.
 - Browser-runtime decision reports, schema-2 portable LR artifacts, the
   `portable-browser` generator, and the versioned worker runtime contract.

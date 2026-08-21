@@ -1,0 +1,37 @@
+{
+  "apiVersion": 1,
+  "dependencies": [],
+  "identifier": "org.grammar-workbench.tiny",
+  "kind": "grammar-workbench-language-kit-package",
+  "languageKit": {
+    "apiVersion": 1,
+    "fileExtensions": ["tiny"],
+    "generators": [],
+    "grammar": {
+      "algorithm": "LALR(1)",
+      "notation": "Workbench",
+      "source": "%token LET /let\\b/\n%token USE /use\\b/\n%token ID /[A-Za-z_][A-Za-z0-9_]*/\n%token SEMI /;/\n%skip /\\s+/\n%start Program\nProgram : Program Statement | Statement ;\nStatement : LET ID SEMI | USE ID SEMI ;"
+    },
+    "identifier": "org.grammar-workbench.tiny",
+    "kind": "grammar-workbench-semantic-language-kit",
+    "metadata": {"description": "Packaged Phase 32 ecosystem fixture."},
+    "name": "Tiny Semantic Language",
+    "schemaVersion": 1,
+    "semantics": {
+      "caseSensitive": true,
+      "renamePattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+      "rules": [
+        {"enclosingProduction": 3, "kind": "variable", "role": "definition", "scope": "workspace", "tokenKind": "ID"},
+        {"enclosingProduction": 4, "kind": "variable", "role": "reference", "scope": "workspace", "tokenKind": "ID"}
+      ]
+    },
+    "tests": [
+      {"expectation": "Accept", "id": "94A8E899-C759-41DE-87B4-222CB90B4FAD", "input": "let alpha; use alpha;", "name": "definition and use"},
+      {"expectation": "Reject", "id": "3CF013A5-D35D-4DFC-B47F-BB56E5DE6556", "input": "let ;", "name": "missing identifier"}
+    ],
+    "version": "1.0.0"
+  },
+  "metadata": {"distribution": "release-fixture"},
+  "schemaVersion": 1,
+  "version": "1.0.0"
+}

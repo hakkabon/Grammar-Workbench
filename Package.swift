@@ -20,8 +20,8 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/hakkabon/Swift-Layout.git",
-            revision: "2cd9af8b1e63b9b4d69288c8ac6cb3edaa8ad2a3"
+             url: "https://github.com/hakkabon/Swift-Layout.git",
+             revision: "1afecb5ddf8d1abe12f71595957e0e93cde5e0ae"
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",

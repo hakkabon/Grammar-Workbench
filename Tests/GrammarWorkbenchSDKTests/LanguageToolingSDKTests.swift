@@ -395,6 +395,19 @@ private struct StatefulReleasePolicy: Decodable {
     ))
     #expect(rendered.renderedGrammar == "<start> ::= \"ok\"\n")
 
+    let yacc = await service.handle(.init(
+        requestID: "yacc-import", operation: .portableGrammarImport,
+        portableSource: "%token ID\n%start root\n%%\nroot : ID ;\n%%",
+        portableNotation: .yacc
+    ))
+    let yaccGrammar = try #require(yacc.portableGrammar)
+    #expect(yaccGrammar.sourceNotation == .yacc)
+    let audit = await service.handle(.init(
+        requestID: "portable-audit", operation: .portableGrammarAudit,
+        portableGrammar: yaccGrammar
+    ))
+    #expect(audit.portableScaleReport?.productions == 1)
+
     let bundled = await service.handle(.init(
         requestID: "bootstrap-bundle", operation: .bootstrapBundle,
         bootstrapOptions: .init(maximumGenerations: 3)

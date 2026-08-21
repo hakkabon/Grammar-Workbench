@@ -10,6 +10,10 @@ Graph layout is consumed through the independently released Swift-Layout package
 
 Canonical grammar interchange is independent of parser-table artifacts and document persistence. BNF-profile, Workbench, and EBNF sources normalize into fingerprinted `GrammarPortableInterchange` envelopes; bootstrap bundles add fixed-point and differential-validation evidence for research and CI consumers.
 
+The Yacc/Bison syntax profile brings external production grammars into that
+same envelope while discarding executable host actions. A bounded scale audit
+lets registries and CI reject oversized exchanges before parser construction.
+
 Research programmes package falsifiable parser hypotheses and bounded corpora for local runs, CI, SDK hosts, and cross-version baseline comparison. Deterministic evidence fingerprints remain separate from hardware-sensitive timing summaries.
 
 Selected research previews reuse those programmes to provide guided conclusions in the native Workbench, CLI, and SDK without weakening or duplicating the underlying evidence.

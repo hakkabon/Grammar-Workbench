@@ -4,11 +4,13 @@ public enum GrammarPortableNotation: String, CaseIterable, Codable, Sendable {
     case bnfProfile
     case workbench
     case ebnf
+    case yacc
 }
 
 public enum GrammarPortableRenderFormat: String, CaseIterable, Codable, Sendable {
     case bnfProfile
     case workbench
+    case yacc
 }
 
 /// Canonical grammar exchange independent of parser tables and UI documents.
@@ -99,6 +101,8 @@ public enum GrammarPortableInterchangeCodec {
                     })
                 }
             )
+        case .yacc:
+            specification = try GrammarYaccInterchange.parse(source, startSymbol: startSymbol)
         }
         return .init(sourceNotation: notation, specification: specification)
     }
@@ -130,6 +134,7 @@ public enum GrammarPortableInterchangeCodec {
         return switch format {
         case .bnfProfile: renderBNF(value.specification)
         case .workbench: renderWorkbench(value.specification)
+        case .yacc: GrammarYaccInterchange.render(value.specification)
         }
     }
 
@@ -146,6 +151,8 @@ public enum GrammarPortableInterchangeCodec {
             )
         case .workbench:
             imported = try importGrammar(rendered, notation: .workbench)
+        case .yacc:
+            imported = try importGrammar(rendered, notation: .yacc)
         }
         return .init(
             sourceFingerprint: value.fingerprint,

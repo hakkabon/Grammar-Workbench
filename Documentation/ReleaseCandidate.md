@@ -41,6 +41,10 @@ The release-candidate gate verifies the product from four perspectives:
 22. The packaged language-kit fixture must preserve package/kit identity,
     compile with passing conformance tests, stay within the direct-dependency
     budget, and resolve within the declared package-count bound.
+23. The Yacc interoperability fixture must discard foreign actions, preserve
+    canonical grammar identity through deterministic export and re-import, and
+    complete its pre-construction scale audit within the published size and
+    latency bounds.
 
 Run the normal gate:
 

@@ -27,6 +27,9 @@
   "requiredLanguageKitPackages": [
     "Examples/TinyLanguageKitPackage.json"
   ],
+  "requiredInteroperabilityFixtures": [
+    "Examples/Expression.y"
+  ],
   "requiredGraphFixtures": [
     "Examples/GraphVisualization.json"
   ],
@@ -100,6 +103,12 @@
     "grammarRefactoringMaximumEdits": 64,
     "grammarRefactoringMaximumAffectedLines": 32,
     "languageKitPackageMaximumDependencies": 8,
-    "languageKitResolutionMaximumPackages": 16
+    "languageKitResolutionMaximumPackages": 16,
+    "portableScaleMaximumSourceBytes": 8000000,
+    "portableScaleMaximumProductions": 20000,
+    "portableScaleMaximumSymbols": 20000,
+    "portableScaleMaximumRightHandSideSymbols": 250000,
+    "portableScaleReleaseCorpusProductions": 5000,
+    "portableScaleAuditMaximumMilliseconds": 1000
   }
 }

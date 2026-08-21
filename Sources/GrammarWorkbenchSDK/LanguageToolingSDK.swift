@@ -23,6 +23,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case parserVisualization
     case portableGrammarImport
     case portableGrammarRender
+    case portableGrammarAudit
     case bootstrapBundle
     case researchValidate
     case selectedResearchPreview
@@ -70,7 +71,9 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime,
             "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
-            "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost
+            "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost,
+            "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
+            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability
         ]
     )
 
@@ -81,7 +84,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             .capabilities, .compile, .parse, .generalizedParse, .projectAnalyze,
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
             .graphValidate, .graphMeasure, .graphDOT, .graphGeometry, .parserVisualization,
-            .portableGrammarImport, .portableGrammarRender, .bootstrapBundle, .researchValidate,
+            .portableGrammarImport, .portableGrammarRender, .portableGrammarAudit, .bootstrapBundle, .researchValidate,
             .selectedResearchPreview
         ],
         transports: ["in-process", "json"],
@@ -106,7 +109,9 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "wasmFeasibilityAndPortableDemonstration": GrammarWorkbenchCapabilities.wasmFeasibilityAndPortableDemonstration,
             "reproduciblePortabilityAndReleaseConsolidation": GrammarWorkbenchCapabilities.reproduciblePortabilityAndReleaseConsolidation,
             "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime,
-            "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity
+            "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity,
+            "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
+            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability
         ]
     )
 }
@@ -277,6 +282,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let parserVisualization: GrammarParserVisualizationTimeline?
     public let portableGrammar: GrammarPortableInterchange?
     public let renderedGrammar: String?
+    public let portableScaleReport: GrammarPortableScaleReport?
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
     public let researchReport: GrammarResearchReport?
     public let selectedResearchPreview: GrammarSelectedResearchPreview?
@@ -303,6 +309,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         parserVisualization: GrammarParserVisualizationTimeline? = nil,
         portableGrammar: GrammarPortableInterchange? = nil,
         renderedGrammar: String? = nil,
+        portableScaleReport: GrammarPortableScaleReport? = nil,
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
         researchReport: GrammarResearchReport? = nil,
         selectedResearchPreview: GrammarSelectedResearchPreview? = nil,
@@ -330,6 +337,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.parserVisualization = parserVisualization
         self.portableGrammar = portableGrammar
         self.renderedGrammar = renderedGrammar
+        self.portableScaleReport = portableScaleReport
         self.bootstrapBundle = bootstrapBundle
         self.researchReport = researchReport
         self.selectedResearchPreview = selectedResearchPreview
@@ -489,6 +497,13 @@ public struct GrammarLanguageToolingService: Sendable {
                     renderedGrammar: try GrammarPortableInterchangeCodec.render(
                         try required(request.portableGrammar, "portableGrammar"),
                         as: try required(request.portableRenderFormat, "portableRenderFormat")
+                    )
+                )
+            case .portableGrammarAudit:
+                return .init(
+                    requestID: request.requestID,
+                    portableScaleReport: try GrammarPortableScaleValidator.validate(
+                        try required(request.portableGrammar, "portableGrammar")
                     )
                 )
             case .bootstrapBundle:

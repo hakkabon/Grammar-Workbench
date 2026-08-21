@@ -71,6 +71,12 @@ checks a packaged fixture. See
 
 Canonical grammar exchange spans the bootstrap BNF profile, Workbench notation, and EBNF lowering. `portable-import`, `portable-render --verify`, and `bootstrap-bundle` provide fingerprinted grammar envelopes and reproducible fixed-point evidence. See [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
 
+Scale and interoperability add a bounded pre-construction audit for large
+canonical grammars and a deterministic Yacc/Bison syntax profile. External
+`.y` grammars can discard foreign semantic actions, round-trip through the same
+fingerprinted interchange, and flow through the existing CLI and SDK surfaces.
+See [Documentation/ScaleAndInteroperability.md](Documentation/ScaleAndInteroperability.md).
+
 Parser research can be expressed as versioned, falsifiable validation programmes. `research-validate` records stable evidence separately from timing distributions, while `research-compare` detects incompatible baselines and pass-to-fail regressions. See [Documentation/ResearchValidationProgramme.md](Documentation/ResearchValidationProgramme.md).
 
 The Research workspace also offers three selected previews for ambiguity growth, precedence-hidden alternatives, and search reproducibility. Each gives a plain-language conclusion while retaining its complete validation report. See [Documentation/SelectedResearchPreview.md](Documentation/SelectedResearchPreview.md).

@@ -8,6 +8,10 @@ Capability responses advertise `crossPlatformCoreSeparation`. Hosts that only ne
 
 Bootstrap and interchange hosts can negotiate `portableGrammarImport`, `portableGrammarRender`, and `bootstrapBundle`. Their payloads use the same canonical envelopes and verified fingerprints as the CLI, so a service-generated bundle can be decoded directly by an in-process core consumer.
 
+Portable grammar operations also accept the Phase 33 `yacc` notation and render
+format. Hosts should negotiate the operation and Grammar Workbench release
+before sending newer enum cases to an older decoder.
+
 Research hosts can negotiate `researchValidate` and submit a complete `GrammarResearchProgramme`. The returned report preserves the same hypothesis failures, evidence fingerprints, environment metadata, and timing distributions as `research-validate` on the CLI.
 
 Educational and guided hosts can negotiate `selectedResearchPreview` with one of the stable catalog identifiers. The response includes the plain-language observations and the complete research report rather than a simplified result with discarded evidence.

@@ -388,12 +388,13 @@ struct GrammarWorkbenchCLI {
             print("Wrote \(arguments[3]): advanced geometry for \(graph.nodes.count) nodes and \(graph.edges.count) edges")
         case "portable-import":
             guard arguments.count >= 3 else {
-                throw CLIError.usage("portable-import requires GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]")
+                throw CLIError.usage("portable-import requires GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf|yacc] [--start=SYMBOL]")
             }
             let flags = arguments.dropFirst(3)
             let inferred: GrammarPortableNotation = switch URL(fileURLWithPath: arguments[1]).pathExtension.lowercased() {
             case "bnf": .bnfProfile
             case "ebnf": .ebnf
+            case "y", "yacc": .yacc
             default: .workbench
             }
             var selectedNotation = inferred
@@ -417,7 +418,7 @@ struct GrammarWorkbenchCLI {
             print("Wrote \(arguments[2]): \(interchange.specification.productions.count) productions, fingerprint \(interchange.fingerprint)")
         case "portable-render":
             guard arguments.count >= 3 else {
-                throw CLIError.usage("portable-render requires INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]")
+                throw CLIError.usage("portable-render requires INTERCHANGE OUTPUT [--format=bnfProfile|workbench|yacc] [--verify]")
             }
             var format: GrammarPortableRenderFormat = .bnfProfile
             var verify = false
@@ -443,6 +444,24 @@ struct GrammarWorkbenchCLI {
             }
             try Data(rendered.utf8).write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
             print("Wrote \(arguments[2]) as \(format.rawValue)\(verify ? " (round trip verified)" : "")")
+        case "portable-audit":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("portable-audit requires INTERCHANGE [OUTPUT]")
+            }
+            let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            let interchange = try GrammarPortableInterchangeCodec.decode(data)
+            let report = try GrammarPortableScaleValidator.validate(
+                interchange, sourceBytes: data.count
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let reportData = try encoder.encode(report)
+            if arguments.count == 3 {
+                try reportData.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(report.productions) productions, \(report.nonterminals + report.terminals) symbols")
+            } else {
+                print(String(decoding: reportData, as: UTF8.self))
+            }
         case "export-artifact":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("export-artifact requires GRAMMAR OUTPUT [ALGORITHM]")
@@ -947,8 +966,9 @@ struct GrammarWorkbenchCLI {
       grammar-workbench graph-measure GRAPH [OUTPUT]
       grammar-workbench graph-dot GRAPH [OUTPUT]
       grammar-workbench graph-geometry GRAPH SPECIFICATION OUTPUT
-      grammar-workbench portable-import GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf] [--start=SYMBOL]
-      grammar-workbench portable-render INTERCHANGE OUTPUT [--format=bnfProfile|workbench] [--verify]
+      grammar-workbench portable-import GRAMMAR OUTPUT [--notation=bnfProfile|workbench|ebnf|yacc] [--start=SYMBOL]
+      grammar-workbench portable-render INTERCHANGE OUTPUT [--format=bnfProfile|workbench|yacc] [--verify]
+      grammar-workbench portable-audit INTERCHANGE [OUTPUT]
       grammar-workbench tooling-request REQUEST_JSON [RESPONSE_JSON]
       grammar-workbench export-artifact GRAMMAR OUTPUT [ALGORITHM]
       grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]

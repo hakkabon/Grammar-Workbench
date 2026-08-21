@@ -70,6 +70,12 @@ private struct ReleaseCandidatePolicy: Decodable {
         let grammarRefactoringMaximumAffectedLines: Int
         let languageKitPackageMaximumDependencies: Int
         let languageKitResolutionMaximumPackages: Int
+        let portableScaleMaximumSourceBytes: Int
+        let portableScaleMaximumProductions: Int
+        let portableScaleMaximumSymbols: Int
+        let portableScaleMaximumRightHandSideSymbols: Int
+        let portableScaleReleaseCorpusProductions: Int
+        let portableScaleAuditMaximumMilliseconds: Double
     }
 
     let schemaVersion: Int
@@ -81,6 +87,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredProjectManifests: [String]
     let requiredSemanticLanguageKits: [String]
     let requiredLanguageKitPackages: [String]
+    let requiredInteroperabilityFixtures: [String]
     let requiredGraphFixtures: [String]
     let requiredResearchProgrammes: [String]
     let requiredSourceProjects: [String]
@@ -137,6 +144,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.browserAndPortableRuntime == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity == .stable)
     #expect(GrammarWorkbenchCapabilities.languageKitEcosystem == .stable)
+    #expect(GrammarWorkbenchCapabilities.scaleAndInteroperability == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -168,6 +176,62 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         #expect(package.languageKit.isConformant)
         #expect(policy.budgets.languageKitResolutionMaximumPackages >= 1)
     }
+    for path in policy.requiredInteroperabilityFixtures {
+        let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
+        let source = try #require(String(data: data, encoding: .utf8))
+        let interchange = try GrammarPortableInterchangeCodec.importGrammar(
+            source, notation: .yacc
+        )
+        let started = ContinuousClock.now
+        let report = try GrammarPortableScaleValidator.validate(
+            interchange,
+            sourceBytes: data.count,
+            limits: .init(
+                maximumSourceBytes: policy.budgets.portableScaleMaximumSourceBytes,
+                maximumProductions: policy.budgets.portableScaleMaximumProductions,
+                maximumSymbols: policy.budgets.portableScaleMaximumSymbols,
+                maximumRightHandSideSymbols: policy.budgets.portableScaleMaximumRightHandSideSymbols
+            )
+        )
+        let elapsed = started.duration(to: .now)
+        let milliseconds = Double(elapsed.components.seconds) * 1_000
+            + Double(elapsed.components.attoseconds) / 1_000_000_000_000_000
+        #expect(report.productions > 0)
+        #expect(milliseconds <= policy.budgets.portableScaleAuditMaximumMilliseconds)
+        #expect(try GrammarPortableInterchangeCodec.verifyRoundTrip(
+            interchange, through: .yacc
+        ).matches)
+    }
+    let scaleCount = policy.budgets.portableScaleReleaseCorpusProductions
+    let scaleGrammar = GrammarPortableInterchange(
+        sourceNotation: .yacc,
+        specification: .init(
+            startSymbol: "scale0",
+            productions: (0..<scaleCount).map { index in
+                .init(
+                    lhs: "scale\(index)",
+                    rhs: index + 1 < scaleCount
+                        ? [.nonterminal("scale\(index + 1)")]
+                        : [.literal("done")]
+                )
+            }
+        )
+    )
+    let scaleStarted = ContinuousClock.now
+    let scaleReport = try GrammarPortableScaleValidator.validate(
+        scaleGrammar,
+        limits: .init(
+            maximumSourceBytes: policy.budgets.portableScaleMaximumSourceBytes,
+            maximumProductions: policy.budgets.portableScaleMaximumProductions,
+            maximumSymbols: policy.budgets.portableScaleMaximumSymbols,
+            maximumRightHandSideSymbols: policy.budgets.portableScaleMaximumRightHandSideSymbols
+        )
+    )
+    let scaleElapsed = scaleStarted.duration(to: .now)
+    let scaleMilliseconds = Double(scaleElapsed.components.seconds) * 1_000
+        + Double(scaleElapsed.components.attoseconds) / 1_000_000_000_000_000
+    #expect(scaleReport.productions == scaleCount)
+    #expect(scaleMilliseconds <= policy.budgets.portableScaleAuditMaximumMilliseconds)
     for path in policy.requiredGraphFixtures {
         let data = try Data(contentsOf: packageRoot().appendingPathComponent(path))
         _ = try JSONDecoder().decode(GrammarGraph.self, from: data)

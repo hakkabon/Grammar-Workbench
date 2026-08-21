@@ -8,6 +8,8 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - `GrammarWorkbenchCore`, the portable façade and its re-exported model identities.
 - Immutable public snapshots and schema-versioned project, artifact, and semantic-model interchange.
 - Canonical portable-grammar and bootstrap-evidence envelopes, codecs, fingerprints, and deterministic renderers.
+- Bounded portable-grammar scale reports and the syntax-level Yacc/Bison import
+  and deterministic rendering profile.
 - Research programme, case, expectation, evidence, timing, report, and baseline-comparison contracts.
 - Selected research catalog, study, observation, plain-language preview, and underlying evidence contracts.
 - Source-project descriptors, rooted source associations, safe filesystem loading, and explicit LSP grammar associations.

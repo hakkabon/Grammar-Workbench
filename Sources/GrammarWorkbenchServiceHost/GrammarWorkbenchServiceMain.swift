@@ -20,27 +20,44 @@ private actor ToolingOutput {
 enum GrammarWorkbenchServiceMain {
     static func main() async {
         let output = ToolingOutput()
-        let registry: GrammarToolingRequestRegistry
-        if let path = ProcessInfo.processInfo.environment["GRAMMAR_WORKBENCH_COLLABORATION_STORE"],
-           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            do {
-                let host = try await GrammarDurableCollaborativeWorkbenchHost.open(
+        do {
+            let environment = ProcessInfo.processInfo.environment
+            let collaborationHost: any GrammarCollaborationHosting
+            if let path = environment["GRAMMAR_WORKBENCH_COLLABORATION_STORE"],
+               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                collaborationHost = try await GrammarDurableCollaborativeWorkbenchHost.open(
                     store: GrammarCollaborationFileStore(
                         fileURL: URL(fileURLWithPath: path).standardizedFileURL
                     )
                 )
-                registry = GrammarToolingRequestRegistry(
-                    service: GrammarStatefulLanguageToolingService(collaborationHost: host)
-                )
-            } catch {
-                FileHandle.standardError.write(Data(
-                    "error: collaboration store could not be opened: \(error.localizedDescription)\n".utf8
-                ))
-                return
+            } else {
+                collaborationHost = GrammarCollaborativeWorkbenchHost()
             }
-        } else {
-            registry = GrammarToolingRequestRegistry()
+            let languageKitHost: any GrammarHostedLanguageKitServing
+            if let path = environment["GRAMMAR_WORKBENCH_LANGUAGE_KIT_STORE"],
+               !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                languageKitHost = try await GrammarHostedLanguageKitService.open(
+                    store: GrammarHostedLanguageKitFileStore(
+                        fileURL: URL(fileURLWithPath: path).standardizedFileURL
+                    )
+                )
+            } else {
+                languageKitHost = GrammarHostedLanguageKitService()
+            }
+            let registry = GrammarToolingRequestRegistry(
+                service: GrammarStatefulLanguageToolingService(
+                    collaborationHost: collaborationHost, hostedLanguageKits: languageKitHost
+                )
+            )
+            await run(registry: registry, output: output)
+        } catch {
+            FileHandle.standardError.write(Data(
+                "error: persistent service store could not be opened: \(error.localizedDescription)\n".utf8
+            ))
         }
+    }
+
+    private static func run(registry: GrammarToolingRequestRegistry, output: ToolingOutput) async {
         await withTaskGroup(of: Void.self) { group in
             while let line = readLine(strippingNewline: true) {
                 guard !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }

@@ -67,6 +67,7 @@ public enum GrammarWorkbenchCapabilities {
     public static let collaborativeOrHostedWorkbench: GrammarWorkbenchFeatureMaturity = .stable
     public static let collaborativeExploration: GrammarWorkbenchFeatureMaturity = .stable
     public static let languageDocumentationPipeline: GrammarWorkbenchFeatureMaturity = .stable
+    public static let hostedLanguageKitEcosystem: GrammarWorkbenchFeatureMaturity = .stable
 }
 
 #if canImport(SwiftUI)

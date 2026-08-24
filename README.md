@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 40 hosted language-kit distribution is described in
+[`Documentation/HostedLanguageKitEcosystem.md`](Documentation/HostedLanguageKitEcosystem.md).
+
 Phase 39 language documentation generation is described in
 [`Documentation/LanguageDocumentationPipeline.md`](Documentation/LanguageDocumentationPipeline.md).
 

@@ -15,6 +15,13 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case semanticWorkspace
     case languageKitValidate
     case languageKitAnalyze
+    case languageKitHostPublish
+    case languageKitHostWithdraw
+    case languageKitHostRestore
+    case languageKitHostPackage
+    case languageKitHostCatalog
+    case languageKitHostResolve
+    case languageKitHostEvents
     case graphLayout
     case graphValidate
     case graphMeasure
@@ -87,7 +94,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability,
             "collaborativeOrHostedWorkbench": GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench,
             "collaborativeExploration": GrammarWorkbenchCapabilities.collaborativeExploration,
-            "languageDocumentationPipeline": GrammarWorkbenchCapabilities.languageDocumentationPipeline
+            "languageDocumentationPipeline": GrammarWorkbenchCapabilities.languageDocumentationPipeline,
+            "hostedLanguageKitEcosystem": GrammarWorkbenchCapabilities.hostedLanguageKitEcosystem
         ]
     )
 
@@ -170,6 +178,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var selectedRule: String?
     public var bookmarkID: String?
     public var bookmarkNote: String?
+    public var languageKitPackage: GrammarLanguageKitPackageManifest?
+    public var languageKitRoots: [GrammarLanguageKitDependency]?
+    public var packageIdentifier: String?
+    public var packageVersion: String?
+    public var publisherID: String?
+    public var includeWithdrawn: Bool?
 
     public init(
         requestID: String = UUID().uuidString,
@@ -206,6 +220,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         selectedRule: String? = nil,
         bookmarkID: String? = nil,
         bookmarkNote: String? = nil,
+        languageKitPackage: GrammarLanguageKitPackageManifest? = nil,
+        languageKitRoots: [GrammarLanguageKitDependency]? = nil,
+        packageIdentifier: String? = nil,
+        packageVersion: String? = nil,
+        publisherID: String? = nil,
+        includeWithdrawn: Bool? = nil,
         schemaVersion: Int = GrammarToolingSchema.current,
         apiVersion: Int = GrammarWorkbenchAPIVersion.current
     ) {
@@ -245,6 +265,12 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.selectedRule = selectedRule
         self.bookmarkID = bookmarkID
         self.bookmarkNote = bookmarkNote
+        self.languageKitPackage = languageKitPackage
+        self.languageKitRoots = languageKitRoots
+        self.packageIdentifier = packageIdentifier
+        self.packageVersion = packageVersion
+        self.publisherID = publisherID
+        self.includeWithdrawn = includeWithdrawn
     }
 }
 
@@ -337,6 +363,11 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let collaborativeExploration: GrammarCollaborativeExplorationResult?
     public let collaborativeExplorationSnapshot: GrammarCollaborativeExplorationSnapshot?
     public let collaborativeExplorationEvents: [GrammarCollaborativeExplorationEvent]?
+    public let hostedLanguageKit: GrammarHostedLanguageKitResult?
+    public let hostedLanguageKitRecord: GrammarHostedLanguageKitRecord?
+    public let hostedLanguageKitCatalog: GrammarHostedLanguageKitCatalogSnapshot?
+    public let hostedLanguageKitResolution: GrammarLanguageKitResolution?
+    public let hostedLanguageKitEvents: [GrammarHostedLanguageKitEvent]?
 
     public init(
         requestID: String,
@@ -369,7 +400,12 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         collaborationEvents: [GrammarCollaborationEvent]? = nil,
         collaborativeExploration: GrammarCollaborativeExplorationResult? = nil,
         collaborativeExplorationSnapshot: GrammarCollaborativeExplorationSnapshot? = nil,
-        collaborativeExplorationEvents: [GrammarCollaborativeExplorationEvent]? = nil
+        collaborativeExplorationEvents: [GrammarCollaborativeExplorationEvent]? = nil,
+        hostedLanguageKit: GrammarHostedLanguageKitResult? = nil,
+        hostedLanguageKitRecord: GrammarHostedLanguageKitRecord? = nil,
+        hostedLanguageKitCatalog: GrammarHostedLanguageKitCatalogSnapshot? = nil,
+        hostedLanguageKitResolution: GrammarLanguageKitResolution? = nil,
+        hostedLanguageKitEvents: [GrammarHostedLanguageKitEvent]? = nil
     ) {
         schemaVersion = GrammarToolingSchema.current
         self.requestID = requestID
@@ -404,6 +440,11 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.collaborativeExploration = collaborativeExploration
         self.collaborativeExplorationSnapshot = collaborativeExplorationSnapshot
         self.collaborativeExplorationEvents = collaborativeExplorationEvents
+        self.hostedLanguageKit = hostedLanguageKit
+        self.hostedLanguageKitRecord = hostedLanguageKitRecord
+        self.hostedLanguageKitCatalog = hostedLanguageKitCatalog
+        self.hostedLanguageKitResolution = hostedLanguageKitResolution
+        self.hostedLanguageKitEvents = hostedLanguageKitEvents
     }
 }
 
@@ -593,7 +634,10 @@ public struct GrammarLanguageToolingService: Sendable {
                 fallthrough
             case .collaborationExplore, .collaborationExploreSelect,
                  .collaborationBookmarkUpsert, .collaborationBookmarkRemove,
-                 .collaborationExplorationEvents:
+                 .collaborationExplorationEvents, .languageKitHostPublish,
+                 .languageKitHostWithdraw, .languageKitHostRestore,
+                 .languageKitHostPackage, .languageKitHostCatalog,
+                 .languageKitHostResolve, .languageKitHostEvents:
                 return failure(
                     request, code: "stateful-service-required",
                     message: "This operation requires GrammarStatefulLanguageToolingService."

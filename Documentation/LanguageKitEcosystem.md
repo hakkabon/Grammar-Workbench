@@ -58,7 +58,8 @@ a major version. Pre-1.0 compatibility is deliberately narrower. Catalogs can
 carry several versions, but cannot contain the same identifier/version twice.
 
 The Phase 32 release gate validates a packaged example and bounds direct
-dependency and resolved-package counts. Remote registries, signatures,
-publisher trust, and network acquisition remain future distribution layers;
-the current API supplies the deterministic package and resolution foundation
-they need without making builds depend on a service.
+dependency and resolved-package counts. Phase 40 supplies a transport-neutral
+hosted registry over this foundation; see
+[Hosted language-kit ecosystem](HostedLanguageKitEcosystem.md). Signatures,
+publisher authentication, and network acquisition remain adapter and deployment
+concerns rather than requirements for deterministic offline builds.

@@ -240,15 +240,18 @@ public actor GrammarStatefulLanguageToolingService {
     private let stateless = GrammarLanguageToolingService()
     private let collaborationHost: any GrammarCollaborationHosting
     private let collaborativeExplorer: GrammarCollaborativeExplorer
+    private let hostedLanguageKits: any GrammarHostedLanguageKitServing
     public let limits: GrammarStatefulToolingLimits
 
     public init(
         limits: GrammarStatefulToolingLimits = .init(),
-        collaborationHost: any GrammarCollaborationHosting = GrammarCollaborativeWorkbenchHost()
+        collaborationHost: any GrammarCollaborationHosting = GrammarCollaborativeWorkbenchHost(),
+        hostedLanguageKits: any GrammarHostedLanguageKitServing = GrammarHostedLanguageKitService()
     ) {
         self.limits = limits
         self.collaborationHost = collaborationHost
         self.collaborativeExplorer = GrammarCollaborativeExplorer(collaboration: collaborationHost)
+        self.hostedLanguageKits = hostedLanguageKits
     }
 
     public func handle(_ request: GrammarToolingRequest) async -> GrammarToolingResponse {
@@ -435,6 +438,46 @@ public actor GrammarStatefulLanguageToolingService {
                     after: request.afterEventSequence ?? -1
                 )
                 return .init(requestID: request.requestID, collaborativeExplorationEvents: value)
+            case .languageKitHostPublish:
+                let value = try await hostedLanguageKits.publish(
+                    try required(request.languageKitPackage, "languageKitPackage"),
+                    publisherID: try required(request.publisherID, "publisherID"),
+                    operationID: try required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, hostedLanguageKit: value)
+            case .languageKitHostWithdraw, .languageKitHostRestore:
+                let version = try GrammarLanguageKitVersion(
+                    try required(request.packageVersion, "packageVersion")
+                )
+                let value = try await hostedLanguageKits.setWithdrawn(
+                    identifier: try required(request.packageIdentifier, "packageIdentifier"),
+                    version: version, withdrawn: request.operation == .languageKitHostWithdraw,
+                    publisherID: try required(request.publisherID, "publisherID"),
+                    operationID: try required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, hostedLanguageKit: value)
+            case .languageKitHostPackage:
+                let value = try await hostedLanguageKits.package(
+                    identifier: try required(request.packageIdentifier, "packageIdentifier"),
+                    version: try GrammarLanguageKitVersion(
+                        try required(request.packageVersion, "packageVersion")
+                    ),
+                    includeWithdrawn: request.includeWithdrawn ?? false
+                )
+                return .init(requestID: request.requestID, hostedLanguageKitRecord: value)
+            case .languageKitHostCatalog:
+                let value = await hostedLanguageKits.catalog(
+                    includeWithdrawn: request.includeWithdrawn ?? false
+                )
+                return .init(requestID: request.requestID, hostedLanguageKitCatalog: value)
+            case .languageKitHostResolve:
+                let value = try await hostedLanguageKits.resolve(
+                    try required(request.languageKitRoots, "languageKitRoots")
+                )
+                return .init(requestID: request.requestID, hostedLanguageKitResolution: value)
+            case .languageKitHostEvents:
+                let value = try await hostedLanguageKits.events(after: request.afterEventSequence ?? -1)
+                return .init(requestID: request.requestID, hostedLanguageKitEvents: value)
             case .cancel:
                 return failure(
                     request, "request-registry-required",
@@ -462,6 +505,8 @@ public actor GrammarStatefulLanguageToolingService {
         } catch let error as GrammarCollaborationDurabilityError {
             return failure(request, error.code, error.localizedDescription)
         } catch let error as GrammarCollaborativeExplorationError {
+            return failure(request, error.code, error.localizedDescription)
+        } catch let error as GrammarHostedLanguageKitError {
             return failure(request, error.code, error.localizedDescription)
         } catch {
             return failure(request, "invalid-request", error.localizedDescription)

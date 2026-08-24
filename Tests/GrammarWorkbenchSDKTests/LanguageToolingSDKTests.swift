@@ -383,6 +383,44 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.compilation?.succeeded == true)
 }
 
+@Test func hostedLanguageKitEcosystemFlowsThroughPersistentProtocol() async throws {
+    let service = GrammarStatefulLanguageToolingService()
+    let package = GrammarLanguageKitPackageManifest(
+        identifier: "org.example.sdk-kit",
+        version: try GrammarLanguageKitVersion("1.0.0"),
+        languageKit: sdkLanguageKit()
+    )
+    let published = await service.handle(.init(
+        operation: .languageKitHostPublish, operationID: "publish",
+        languageKitPackage: package, publisherID: "publisher"
+    ))
+    #expect(published.status == .success)
+    #expect(published.hostedLanguageKit?.record.package.identifier == package.identifier)
+
+    let catalog = await service.handle(.init(operation: .languageKitHostCatalog))
+    #expect(catalog.hostedLanguageKitCatalog?.packages.map(\.identifier) == [package.identifier])
+    let requirement = GrammarLanguageKitDependency(
+        identifier: package.identifier,
+        requirement: .compatible(with: package.version)
+    )
+    let resolved = await service.handle(.init(
+        operation: .languageKitHostResolve, languageKitRoots: [requirement]
+    ))
+    #expect(resolved.hostedLanguageKitResolution?.packages.first?.version == package.version)
+    let fetched = await service.handle(.init(
+        operation: .languageKitHostPackage, packageIdentifier: package.identifier,
+        packageVersion: package.version.description
+    ))
+    #expect(fetched.hostedLanguageKitRecord?.fingerprint == published.hostedLanguageKit?.record.fingerprint)
+    let events = await service.handle(.init(
+        operation: .languageKitHostEvents, afterEventSequence: -1
+    ))
+    #expect(events.hostedLanguageKitEvents?.map(\.kind) == [.packagePublished])
+
+    let wire = try GrammarToolingCodec.decodeResponse(GrammarToolingCodec.encode(published))
+    #expect(wire.hostedLanguageKit == published.hostedLanguageKit)
+}
+
 @Test func toolingLaysOutPortableGraphs() async {
     let graph = GrammarGraph(
         id: "sdk-graph", title: "SDK graph",

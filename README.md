@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 38 collaborative exploration is described in
+[`Documentation/CollaborativeExploration.md`](Documentation/CollaborativeExploration.md).
+
 Phase 37 durable collaborative workspaces are described in
 [`Documentation/DurableCollaborativeWorkspaces.md`](Documentation/DurableCollaborativeWorkspaces.md).
 

@@ -40,6 +40,11 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case collaborationStatus
     case collaborationChange
     case collaborationEvents
+    case collaborationExplore
+    case collaborationExploreSelect
+    case collaborationBookmarkUpsert
+    case collaborationBookmarkRemove
+    case collaborationExplorationEvents
     case cancel
 }
 
@@ -80,7 +85,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "statefulToolingProtocolAndServiceHost": GrammarWorkbenchCapabilities.statefulToolingProtocolAndServiceHost,
             "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
             "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability,
-            "collaborativeOrHostedWorkbench": GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench
+            "collaborativeOrHostedWorkbench": GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench,
+            "collaborativeExploration": GrammarWorkbenchCapabilities.collaborativeExploration
         ]
     )
 
@@ -159,6 +165,9 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var operationID: String?
     public var expectedRevision: Int?
     public var afterEventSequence: Int?
+    public var selectedRule: String?
+    public var bookmarkID: String?
+    public var bookmarkNote: String?
 
     public init(
         requestID: String = UUID().uuidString,
@@ -192,6 +201,9 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         operationID: String? = nil,
         expectedRevision: Int? = nil,
         afterEventSequence: Int? = nil,
+        selectedRule: String? = nil,
+        bookmarkID: String? = nil,
+        bookmarkNote: String? = nil,
         schemaVersion: Int = GrammarToolingSchema.current,
         apiVersion: Int = GrammarWorkbenchAPIVersion.current
     ) {
@@ -228,6 +240,9 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.operationID = operationID
         self.expectedRevision = expectedRevision
         self.afterEventSequence = afterEventSequence
+        self.selectedRule = selectedRule
+        self.bookmarkID = bookmarkID
+        self.bookmarkNote = bookmarkNote
     }
 }
 
@@ -317,6 +332,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let collaboration: GrammarCollaborationResult?
     public let collaborationWorkspace: GrammarCollaborationWorkspaceSnapshot?
     public let collaborationEvents: [GrammarCollaborationEvent]?
+    public let collaborativeExploration: GrammarCollaborativeExplorationResult?
+    public let collaborativeExplorationSnapshot: GrammarCollaborativeExplorationSnapshot?
+    public let collaborativeExplorationEvents: [GrammarCollaborativeExplorationEvent]?
 
     public init(
         requestID: String,
@@ -346,7 +364,10 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         events: [GrammarToolingEvent]? = nil,
         collaboration: GrammarCollaborationResult? = nil,
         collaborationWorkspace: GrammarCollaborationWorkspaceSnapshot? = nil,
-        collaborationEvents: [GrammarCollaborationEvent]? = nil
+        collaborationEvents: [GrammarCollaborationEvent]? = nil,
+        collaborativeExploration: GrammarCollaborativeExplorationResult? = nil,
+        collaborativeExplorationSnapshot: GrammarCollaborativeExplorationSnapshot? = nil,
+        collaborativeExplorationEvents: [GrammarCollaborativeExplorationEvent]? = nil
     ) {
         schemaVersion = GrammarToolingSchema.current
         self.requestID = requestID
@@ -378,6 +399,9 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.collaboration = collaboration
         self.collaborationWorkspace = collaborationWorkspace
         self.collaborationEvents = collaborationEvents
+        self.collaborativeExploration = collaborativeExploration
+        self.collaborativeExplorationSnapshot = collaborativeExplorationSnapshot
+        self.collaborativeExplorationEvents = collaborativeExplorationEvents
     }
 }
 
@@ -564,6 +588,10 @@ public struct GrammarLanguageToolingService: Sendable {
                  .documentOpen, .documentChange, .documentClose,
                  .collaborationCreate, .collaborationJoin, .collaborationLeave,
                  .collaborationStatus, .collaborationChange, .collaborationEvents, .cancel:
+                fallthrough
+            case .collaborationExplore, .collaborationExploreSelect,
+                 .collaborationBookmarkUpsert, .collaborationBookmarkRemove,
+                 .collaborationExplorationEvents:
                 return failure(
                     request, code: "stateful-service-required",
                     message: "This operation requires GrammarStatefulLanguageToolingService."

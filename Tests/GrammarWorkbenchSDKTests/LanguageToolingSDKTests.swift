@@ -146,6 +146,43 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(wire.collaboration == changed.collaboration)
 }
 
+@Test func collaborativeExplorationFlowsThroughPersistentToolingProtocol() async throws {
+    let service = GrammarStatefulLanguageToolingService()
+    let owner = GrammarCollaborationParticipant(id: "owner", displayName: "Owner")
+    let source = "%start Root\nRoot : Item ;\nItem : 'id' ;"
+    _ = await service.handle(.init(
+        operation: .collaborationCreate, workspaceID: "explore", participant: owner,
+        collaborationDocuments: [.init(id: "grammar", text: source)], operationID: "create"
+    ))
+    let selected = await service.handle(.init(
+        operation: .collaborationExploreSelect, documentID: "grammar",
+        workspaceID: "explore", participant: owner, operationID: "focus",
+        expectedRevision: 0, selectedRule: "Item"
+    ))
+    #expect(selected.status == .success)
+    #expect(selected.collaborativeExploration?.snapshot.exploration.selectedRule == "Item")
+
+    let bookmarked = await service.handle(.init(
+        operation: .collaborationBookmarkUpsert, documentID: "grammar",
+        workspaceID: "explore", participant: owner, operationID: "bookmark",
+        expectedRevision: 0, selectedRule: "Item", bookmarkID: "review",
+        bookmarkNote: "Review this rule"
+    ))
+    #expect(bookmarked.collaborativeExploration?.snapshot.bookmarks.first?.bookmark.id == "review")
+    let snapshot = await service.handle(.init(
+        operation: .collaborationExplore, documentID: "grammar",
+        workspaceID: "explore", participant: owner
+    ))
+    #expect(snapshot.collaborativeExplorationSnapshot?.exploration.selectedRule == "Item")
+    let events = await service.handle(.init(
+        operation: .collaborationExplorationEvents, documentID: "grammar",
+        workspaceID: "explore", afterEventSequence: -1
+    ))
+    #expect(events.collaborativeExplorationEvents?.map(\.sequence) == [0, 1])
+    let wire = try GrammarToolingCodec.decodeResponse(GrammarToolingCodec.encode(bookmarked))
+    #expect(wire.collaborativeExploration == bookmarked.collaborativeExploration)
+}
+
 @Test func statefulSessionReanalyzesDocumentsAfterGrammarReplacement() async throws {
     let service = GrammarStatefulLanguageToolingService()
     _ = await service.handle(.init(

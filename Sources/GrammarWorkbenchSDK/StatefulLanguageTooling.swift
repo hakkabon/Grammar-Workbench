@@ -239,6 +239,7 @@ public actor GrammarStatefulLanguageToolingService {
     private var sessions: [String: GrammarToolingSessionState] = [:]
     private let stateless = GrammarLanguageToolingService()
     private let collaborationHost: any GrammarCollaborationHosting
+    private let collaborativeExplorer: GrammarCollaborativeExplorer
     public let limits: GrammarStatefulToolingLimits
 
     public init(
@@ -247,6 +248,7 @@ public actor GrammarStatefulLanguageToolingService {
     ) {
         self.limits = limits
         self.collaborationHost = collaborationHost
+        self.collaborativeExplorer = GrammarCollaborativeExplorer(collaboration: collaborationHost)
     }
 
     public func handle(_ request: GrammarToolingRequest) async -> GrammarToolingResponse {
@@ -387,6 +389,52 @@ public actor GrammarStatefulLanguageToolingService {
                     after: request.afterEventSequence ?? -1
                 )
                 return .init(requestID: request.requestID, collaborationEvents: value)
+            case .collaborationExplore:
+                let value = try await collaborativeExplorer.snapshot(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    documentID: required(request.documentID, "documentID"),
+                    participantID: required(request.participant, "participant").id
+                )
+                return .init(requestID: request.requestID, collaborativeExplorationSnapshot: value)
+            case .collaborationExploreSelect:
+                let value = try await collaborativeExplorer.select(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    documentID: required(request.documentID, "documentID"),
+                    participantID: required(request.participant, "participant").id,
+                    expectedDocumentRevision: required(request.expectedRevision, "expectedRevision"),
+                    rule: required(request.selectedRule, "selectedRule"),
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaborativeExploration: value)
+            case .collaborationBookmarkUpsert:
+                let value = try await collaborativeExplorer.upsertBookmark(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    documentID: required(request.documentID, "documentID"),
+                    participantID: required(request.participant, "participant").id,
+                    expectedDocumentRevision: required(request.expectedRevision, "expectedRevision"),
+                    bookmarkID: required(request.bookmarkID, "bookmarkID"),
+                    rule: required(request.selectedRule, "selectedRule"),
+                    note: request.bookmarkNote ?? "",
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaborativeExploration: value)
+            case .collaborationBookmarkRemove:
+                let value = try await collaborativeExplorer.removeBookmark(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    documentID: required(request.documentID, "documentID"),
+                    participantID: required(request.participant, "participant").id,
+                    expectedDocumentRevision: required(request.expectedRevision, "expectedRevision"),
+                    bookmarkID: required(request.bookmarkID, "bookmarkID"),
+                    operationID: required(request.operationID, "operationID")
+                )
+                return .init(requestID: request.requestID, collaborativeExploration: value)
+            case .collaborationExplorationEvents:
+                let value = try await collaborativeExplorer.events(
+                    workspaceID: required(request.workspaceID, "workspaceID"),
+                    documentID: required(request.documentID, "documentID"),
+                    after: request.afterEventSequence ?? -1
+                )
+                return .init(requestID: request.requestID, collaborativeExplorationEvents: value)
             case .cancel:
                 return failure(
                     request, "request-registry-required",
@@ -412,6 +460,8 @@ public actor GrammarStatefulLanguageToolingService {
         } catch let error as GrammarCollaborationError {
             return failure(request, error.code, error.localizedDescription)
         } catch let error as GrammarCollaborationDurabilityError {
+            return failure(request, error.code, error.localizedDescription)
+        } catch let error as GrammarCollaborativeExplorationError {
             return failure(request, error.code, error.localizedDescription)
         } catch {
             return failure(request, "invalid-request", error.localizedDescription)

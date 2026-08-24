@@ -38,7 +38,7 @@ public struct ArtifactExplorerView: View {
     }
 
     enum ExplorerTab: String, CaseIterable, Identifiable {
-        case guide = "Guide", project = "Project", analysis = "Analysis", semantics = "Semantics", comparison = "Compare", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", visuals = "Visuals", tests = "Tests", generation = "Generate"
+        case guide = "Guide", project = "Project", analysis = "Analysis", semantics = "Semantics", comparison = "Compare", diagram = "Diagram & REPL", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", visuals = "Visuals", tests = "Tests", generation = "Generate"
         var id: Self { self }
 
         var isExpert: Bool {
@@ -248,6 +248,10 @@ public struct ArtifactExplorerView: View {
         case .analysis: analysisView
         case .semantics: semanticsView
         case .comparison: comparisonView
+        case .diagram:
+            GrammarDiagramREPLView(compilation: store.currentCompilationSnapshot) {
+                store.selectSourceRange($0)
+            }
         case .automaton:
             AutomatonView(artifact: store.artifact, selection: store.selection) { store.select(.state($0)) }
         case .table: tableView

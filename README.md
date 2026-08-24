@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 36 diagram and REPL integration is described in
+[`Documentation/DiagramAndREPLProductIntegration.md`](Documentation/DiagramAndREPLProductIntegration.md).
+
 A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.
 
 The app opens in a guided grammar-engineering workspace: it summarizes grammar health, identifies one recommended next step, and organizes validation, examples, ambiguity, tests, algorithm choice, and generation around ordinary development tasks. Parser automata, tables, replay, and generalized analysis remain available through **Expert tools**. Safe cleanup previews recompile proposed edits and protect recorded samples and tests before Apply is enabled. See [Documentation/GuidedGrammarEngineering.md](Documentation/GuidedGrammarEngineering.md).

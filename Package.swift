@@ -26,6 +26,10 @@ let package = Package(
         .package(
             url: "https://github.com/hakkabon/Grammar.git",
             revision: "940fdb4f857391e7cdecbb016adabd33db2121c8"
+        ),
+        .package(
+            url: "https://github.com/hakkabon/Grammar-DiagramKit.git",
+            revision: "bf7d3738e8593899ec53dd823370e853e5b66d2b"
         )
     ],
     targets: [
@@ -33,6 +37,7 @@ let package = Package(
             name: "GrammarWorkbench",
             dependencies: [
                 .product(name: "Grammar", package: "Grammar"),
+                .product(name: "GrammarDiagramKit", package: "Grammar-DiagramKit"),
                 .product(
                     name: "SwiftLayout", package: "Swift-Layout",
                     condition: .when(platforms: [.macOS])

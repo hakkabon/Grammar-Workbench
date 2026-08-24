@@ -111,6 +111,10 @@ final class ExplorerStore {
         sourceSelection = diagnostic.range
     }
 
+    func selectSourceRange(_ range: SourceRange) {
+        sourceSelection = range
+    }
+
     func selectProjectProblem(_ problem: GrammarProjectExperienceProblem) {
         if let range = problem.range { sourceSelection = range }
     }

@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 37 durable collaborative workspaces are described in
+[`Documentation/DurableCollaborativeWorkspaces.md`](Documentation/DurableCollaborativeWorkspaces.md).
+
 Phase 35 interactive grammar exploration is described in
 [`Documentation/InteractiveGrammarExploration.md`](Documentation/InteractiveGrammarExploration.md).
 

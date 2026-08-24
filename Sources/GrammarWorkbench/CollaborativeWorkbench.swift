@@ -59,6 +59,39 @@ public struct GrammarCollaborationResult: Hashable, Codable, Sendable {
     public let replayedOperation: Bool
 }
 
+public struct GrammarCollaborationWorkspaceArchive: Hashable, Codable, Sendable {
+    public let id: String
+    public let revision: Int
+    public let documents: [GrammarCollaborationDocument]
+    public let participants: [GrammarCollaborationParticipant]
+    public let events: [GrammarCollaborationEvent]
+    public let replay: [String: GrammarCollaborationResult]
+    public let nextEventSequence: Int
+
+    public init(
+        id: String, revision: Int, documents: [GrammarCollaborationDocument],
+        participants: [GrammarCollaborationParticipant], events: [GrammarCollaborationEvent],
+        replay: [String: GrammarCollaborationResult], nextEventSequence: Int
+    ) {
+        self.id = id; self.revision = revision; self.documents = documents
+        self.participants = participants; self.events = events; self.replay = replay
+        self.nextEventSequence = nextEventSequence
+    }
+}
+
+public struct GrammarCollaborationArchive: Hashable, Codable, Sendable {
+    public static let currentSchemaVersion = 1
+    public let schemaVersion: Int
+    public let workspaces: [GrammarCollaborationWorkspaceArchive]
+
+    public init(
+        schemaVersion: Int = Self.currentSchemaVersion,
+        workspaces: [GrammarCollaborationWorkspaceArchive]
+    ) {
+        self.schemaVersion = schemaVersion; self.workspaces = workspaces
+    }
+}
+
 public struct GrammarCollaborationLimits: Hashable, Codable, Sendable {
     public var maximumWorkspaces: Int
     public var maximumParticipantsPerWorkspace: Int
@@ -126,9 +159,29 @@ public enum GrammarCollaborationError: Error, LocalizedError, Sendable {
     }
 }
 
+public protocol GrammarCollaborationHosting: Actor {
+    func createWorkspace(
+        id: String, owner: GrammarCollaborationParticipant,
+        documents: [GrammarCollaborationDocument], operationID: String
+    ) async throws -> GrammarCollaborationResult
+    func join(
+        workspaceID: String, participant: GrammarCollaborationParticipant,
+        operationID: String
+    ) async throws -> GrammarCollaborationResult
+    func leave(
+        workspaceID: String, participantID: String, operationID: String
+    ) async throws -> GrammarCollaborationResult
+    func apply(
+        workspaceID: String, participantID: String, documentID: String,
+        expectedRevision: Int, edits: [GrammarTextEdit], operationID: String
+    ) async throws -> GrammarCollaborationResult
+    func status(_ workspaceID: String) async throws -> GrammarCollaborationWorkspaceSnapshot
+    func events(workspaceID: String, after sequence: Int) async throws -> [GrammarCollaborationEvent]
+}
+
 /// Transport-neutral hosted workspace state. The actor provides one total event
 /// order per workspace, optimistic document concurrency, and operation replay.
-public actor GrammarCollaborativeWorkbenchHost {
+public actor GrammarCollaborativeWorkbenchHost: GrammarCollaborationHosting {
     private struct Workspace {
         var revision = 0
         var documents: [String: GrammarTextSnapshot]
@@ -142,6 +195,34 @@ public actor GrammarCollaborativeWorkbenchHost {
     public let limits: GrammarCollaborationLimits
 
     public init(limits: GrammarCollaborationLimits = .init()) { self.limits = limits }
+
+    public init(
+        restoring archive: GrammarCollaborationArchive,
+        limits: GrammarCollaborationLimits = .init()
+    ) throws {
+        self.limits = limits
+        guard archive.schemaVersion == GrammarCollaborationArchive.currentSchemaVersion else {
+            throw GrammarCollaborationDurabilityError.unsupportedSchema(archive.schemaVersion)
+        }
+        guard archive.workspaces.count <= limits.maximumWorkspaces else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("The archive exceeds the workspace limit.")
+        }
+        var restored: [String: Workspace] = [:]
+        for value in archive.workspaces {
+            try Self.validate(value, limits: limits)
+            guard restored[value.id] == nil else {
+                throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ is duplicated.")
+            }
+            restored[value.id] = Workspace(
+                revision: value.revision,
+                documents: Dictionary(uniqueKeysWithValues: value.documents.map { ($0.id, $0.text) }),
+                participants: Dictionary(uniqueKeysWithValues: value.participants.map { ($0.id, $0) }),
+                events: value.events, replay: value.replay,
+                nextSequence: value.nextEventSequence
+            )
+        }
+        workspaces = restored
+    }
 
     public func createWorkspace(
         id: String, owner: GrammarCollaborationParticipant,
@@ -267,6 +348,18 @@ public actor GrammarCollaborativeWorkbenchHost {
 
     public var workspaceIDs: [String] { workspaces.keys.sorted() }
 
+    public func archive() -> GrammarCollaborationArchive {
+        .init(workspaces: workspaces.map { id, workspace in
+            GrammarCollaborationWorkspaceArchive(
+                id: id, revision: workspace.revision,
+                documents: workspace.documents.map { .init(id: $0.key, snapshot: $0.value) }.sorted { $0.id < $1.id },
+                participants: workspace.participants.values.sorted { $0.id < $1.id },
+                events: workspace.events, replay: workspace.replay,
+                nextEventSequence: workspace.nextSequence
+            )
+        }.sorted { $0.id < $1.id })
+    }
+
     private func makeEvent(
         workspaceID: String, workspace: inout Workspace, operationID: String,
         kind: GrammarCollaborationEventKind, participantID: String,
@@ -334,6 +427,49 @@ public actor GrammarCollaborativeWorkbenchHost {
     private func validateLength(_ text: String, id: String) throws {
         guard text.utf16.count <= limits.maximumDocumentUTF16Length else {
             throw GrammarCollaborationError.resourceLimit("Document ‘\(id)’ exceeds the UTF-16 length limit.")
+        }
+    }
+
+    private static func validate(
+        _ value: GrammarCollaborationWorkspaceArchive,
+        limits: GrammarCollaborationLimits
+    ) throws {
+        func validIdentity(_ string: String) -> Bool {
+            !string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && string.utf8.count <= 256
+        }
+        guard validIdentity(value.id), value.revision >= 0, value.nextEventSequence >= 0 else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("Workspace identity, revision, or event sequence is invalid.")
+        }
+        guard value.documents.count <= limits.maximumDocumentsPerWorkspace,
+              value.participants.count <= limits.maximumParticipantsPerWorkspace,
+              value.events.count <= limits.maximumRetainedEvents,
+              value.replay.count <= limits.maximumRetainedEvents else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ exceeds configured limits.")
+        }
+        guard Set(value.documents.map(\.id)).count == value.documents.count,
+              Set(value.participants.map(\.id)).count == value.participants.count else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ contains duplicate identities.")
+        }
+        for document in value.documents {
+            guard validIdentity(document.id), document.text.revision >= 0,
+                  document.text.text.utf16.count <= limits.maximumDocumentUTF16Length else {
+                throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ contains an invalid document.")
+            }
+        }
+        guard value.participants.allSatisfy({ validIdentity($0.id) && validIdentity($0.displayName) }) else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ contains an invalid participant.")
+        }
+        let sequences = value.events.map(\.sequence)
+        let contiguous = zip(sequences, sequences.dropFirst()).allSatisfy { $1 == $0 + 1 }
+        guard sequences.allSatisfy({ $0 >= 0 }), contiguous,
+              value.events.allSatisfy({ $0.workspaceID == value.id && validIdentity($0.operationID) }),
+              (sequences.last.map { value.nextEventSequence == $0 + 1 } ?? true),
+              value.replay.allSatisfy({ operationID, result in
+                  validIdentity(operationID)
+                      && result.workspace.id == value.id
+                      && result.events.allSatisfy { $0.workspaceID == value.id && $0.operationID == operationID }
+              }) else {
+            throw GrammarCollaborationDurabilityError.invalidArchive("Workspace ‘\(value.id)’ has inconsistent event or replay state.")
         }
     }
 }

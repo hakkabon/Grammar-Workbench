@@ -54,7 +54,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "GrammarWorkbenchServiceHost",
-            dependencies: ["GrammarWorkbenchSDK"]
+            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbench"]
         ),
         .executableTarget(
             name: "GrammarWorkbenchWASIDemo",

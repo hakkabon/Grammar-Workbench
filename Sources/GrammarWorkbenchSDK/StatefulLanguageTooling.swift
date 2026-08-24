@@ -238,12 +238,12 @@ private actor GrammarToolingSessionState {
 public actor GrammarStatefulLanguageToolingService {
     private var sessions: [String: GrammarToolingSessionState] = [:]
     private let stateless = GrammarLanguageToolingService()
-    private let collaborationHost: GrammarCollaborativeWorkbenchHost
+    private let collaborationHost: any GrammarCollaborationHosting
     public let limits: GrammarStatefulToolingLimits
 
     public init(
         limits: GrammarStatefulToolingLimits = .init(),
-        collaborationHost: GrammarCollaborativeWorkbenchHost = .init()
+        collaborationHost: any GrammarCollaborationHosting = GrammarCollaborativeWorkbenchHost()
     ) {
         self.limits = limits
         self.collaborationHost = collaborationHost
@@ -410,6 +410,8 @@ public actor GrammarStatefulLanguageToolingService {
         } catch let error as StatefulToolingError {
             return failure(request, error.code, error.localizedDescription)
         } catch let error as GrammarCollaborationError {
+            return failure(request, error.code, error.localizedDescription)
+        } catch let error as GrammarCollaborationDurabilityError {
             return failure(request, error.code, error.localizedDescription)
         } catch {
             return failure(request, "invalid-request", error.localizedDescription)

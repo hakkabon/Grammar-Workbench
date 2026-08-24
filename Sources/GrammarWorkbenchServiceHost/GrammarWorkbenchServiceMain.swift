@@ -1,4 +1,5 @@
 import Foundation
+import GrammarWorkbench
 import GrammarWorkbenchSDK
 
 private actor ToolingOutput {
@@ -18,8 +19,28 @@ private actor ToolingOutput {
 @main
 enum GrammarWorkbenchServiceMain {
     static func main() async {
-        let registry = GrammarToolingRequestRegistry()
         let output = ToolingOutput()
+        let registry: GrammarToolingRequestRegistry
+        if let path = ProcessInfo.processInfo.environment["GRAMMAR_WORKBENCH_COLLABORATION_STORE"],
+           !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            do {
+                let host = try await GrammarDurableCollaborativeWorkbenchHost.open(
+                    store: GrammarCollaborationFileStore(
+                        fileURL: URL(fileURLWithPath: path).standardizedFileURL
+                    )
+                )
+                registry = GrammarToolingRequestRegistry(
+                    service: GrammarStatefulLanguageToolingService(collaborationHost: host)
+                )
+            } catch {
+                FileHandle.standardError.write(Data(
+                    "error: collaboration store could not be opened: \(error.localizedDescription)\n".utf8
+                ))
+                return
+            }
+        } else {
+            registry = GrammarToolingRequestRegistry()
+        }
         await withTaskGroup(of: Void.self) { group in
             while let line = readLine(strippingNewline: true) {
                 guard !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { continue }

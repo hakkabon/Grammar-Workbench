@@ -53,3 +53,7 @@ Authentication, authorization roles, durable databases, encryption, audit-log
 export, attachment storage, invitations, discovery, and deployment manifests
 are deliberately future host concerns. Later hosted phases can add these behind
 the protocol while retaining the revision, event, and retry semantics here.
+
+Phase 37 adds versioned archive persistence and an atomic single-file service
+adapter while retaining these semantics. See
+[DurableCollaborativeWorkspaces.md](DurableCollaborativeWorkspaces.md).

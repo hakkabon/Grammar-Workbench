@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 35 interactive grammar exploration is described in
+[`Documentation/InteractiveGrammarExploration.md`](Documentation/InteractiveGrammarExploration.md).
+
 Phase 36 diagram and REPL integration is described in
 [`Documentation/DiagramAndREPLProductIntegration.md`](Documentation/DiagramAndREPLProductIntegration.md).
 

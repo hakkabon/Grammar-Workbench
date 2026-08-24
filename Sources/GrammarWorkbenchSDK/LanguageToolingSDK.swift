@@ -86,7 +86,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
             "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability,
             "collaborativeOrHostedWorkbench": GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench,
-            "collaborativeExploration": GrammarWorkbenchCapabilities.collaborativeExploration
+            "collaborativeExploration": GrammarWorkbenchCapabilities.collaborativeExploration,
+            "languageDocumentationPipeline": GrammarWorkbenchCapabilities.languageDocumentationPipeline
         ]
     )
 
@@ -124,7 +125,8 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "browserAndPortableRuntime": GrammarWorkbenchCapabilities.browserAndPortableRuntime,
             "grammarRefactoringAndAuthoringProductivity": GrammarWorkbenchCapabilities.grammarRefactoringAndAuthoringProductivity,
             "languageKitEcosystem": GrammarWorkbenchCapabilities.languageKitEcosystem,
-            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability
+            "scaleAndInteroperability": GrammarWorkbenchCapabilities.scaleAndInteroperability,
+            "languageDocumentationPipeline": GrammarWorkbenchCapabilities.languageDocumentationPipeline
         ]
     )
 }

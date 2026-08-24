@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+Phase 39 language documentation generation is described in
+[`Documentation/LanguageDocumentationPipeline.md`](Documentation/LanguageDocumentationPipeline.md).
+
 Phase 38 collaborative exploration is described in
 [`Documentation/CollaborativeExploration.md`](Documentation/CollaborativeExploration.md).
 

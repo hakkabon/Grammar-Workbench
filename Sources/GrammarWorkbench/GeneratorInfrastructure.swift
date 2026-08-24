@@ -135,7 +135,7 @@ public actor GrammarGeneratorRegistry {
             let builtIns: [any GrammarGenerator] = [
                 SwiftGrammarGenerator(), BNFGrammarGenerator(), ArtifactJSONGrammarGenerator(),
                 SemanticModelJSONGrammarGenerator(), SwiftSemanticActionsGrammarGenerator(),
-                BrowserPortableRuntimeGrammarGenerator()
+                BrowserPortableRuntimeGrammarGenerator(), LanguageDocumentationGrammarGenerator()
             ]
             self.generators = Dictionary(uniqueKeysWithValues: builtIns.map { ($0.descriptor.id, $0) })
         } else {

@@ -73,6 +73,14 @@ term = NUMBER | "(" expression ")" ;
     #expect(GrammarWorkbenchAPI.compile(request).succeeded)
 }
 
+@Test func notationPresentationUsesClearUIWordsWithoutChangingWireValues() throws {
+    #expect(GrammarSourceNotation.workbench.displayName == "Yacc-like")
+    #expect(GrammarSourceNotation.ebnf.displayName == "EBNF")
+    #expect(GrammarSourceNotation.workbench.rawValue == "Workbench")
+    let encoded = try JSONEncoder().encode(GrammarSourceNotation.workbench)
+    #expect(String(decoding: encoded, as: UTF8.self) == "\"Workbench\"")
+}
+
 @Test func artifactDiffExplainsGrammarEvolution() throws {
     let previous = GrammarWorkbenchAPI.compile(.init(source: "%start S\nS : 'a' ;"))
     let current = GrammarWorkbenchAPI.compile(.init(source: "%start S\nS : 'a' | 'b' ;"))

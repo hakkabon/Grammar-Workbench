@@ -18,6 +18,15 @@ public enum GrammarSourceNotation: String, CaseIterable, Codable, Identifiable, 
     case ebnf = "EBNF"
 
     public var id: Self { self }
+
+    /// Human-facing terminology. The raw value remains stable for persisted
+    /// documents and the SDK wire format.
+    public var displayName: String {
+        switch self {
+        case .workbench: "Yacc-like"
+        case .ebnf: "EBNF"
+        }
+    }
 }
 
 public struct GrammarCompilationRequest: Hashable, Codable, Sendable {

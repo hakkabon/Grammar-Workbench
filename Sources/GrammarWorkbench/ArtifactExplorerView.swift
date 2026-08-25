@@ -86,6 +86,7 @@ public struct ArtifactExplorerView: View {
                 .accessibilityIdentifier("grammar-source-pane")
             VStack(spacing: 0) {
                 selectedTab
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
             .frame(
                 minWidth: WorkbenchVisualFoundation.workspaceMinimumWidth,
@@ -122,10 +123,27 @@ public struct ArtifactExplorerView: View {
                     .frame(width: 180)
             }
             ToolbarItem {
-                Picker("Grammar notation", selection: notationBinding) {
-                    ForEach(GrammarSourceNotation.allCases) { Text($0.rawValue).tag($0) }
+                Menu {
+                    ForEach(GrammarSourceNotation.allCases) { notation in
+                        Button {
+                            notationBinding.wrappedValue = notation
+                        } label: {
+                            if store.notation == notation {
+                                Label(notation.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(notation.displayName)
+                            }
+                        }
+                    }
+                } label: {
+                    Label(
+                        "Grammar notation: \(store.notation.displayName)",
+                        systemImage: "doc.plaintext"
+                    )
                 }
-                .frame(width: 130)
+                .labelStyle(.titleAndIcon)
+                .fixedSize()
+                .help("Grammar notation: Yacc-like directives and productions, or ISO-style EBNF")
             }
             if store.isRegenerating {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
@@ -1049,7 +1067,7 @@ public struct ArtifactExplorerView: View {
                     validationSummary(grammar)
                     Divider()
                     LabeledContent("Start symbol", value: grammar.startSymbol)
-                    LabeledContent("Source notation", value: store.notation.rawValue)
+                    LabeledContent("Source notation", value: store.notation.displayName)
                     if let difference = store.latestArtifactDiff {
                         DisclosureGroup("Impact of latest valid edit") {
                             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 5) {
@@ -1381,8 +1399,14 @@ public struct ArtifactExplorerView: View {
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Spacer()
-            }.padding()
+                .frame(minHeight: 160, maxHeight: .infinity, alignment: .top)
+            }
+            .padding()
+            .frame(
+                minWidth: 260, idealWidth: 420, maxWidth: .infinity,
+                maxHeight: .infinity, alignment: .topLeading
+            )
+            .layoutPriority(1)
             VStack(spacing: 0) {
                 Picker("Parser visualization", selection: $sampleVisualization) {
                     ForEach(SampleVisualization.allCases) { Text($0.rawValue).tag($0) }
@@ -1397,7 +1421,13 @@ public struct ArtifactExplorerView: View {
                     replayView(frames: store.runtimeResult.frames)
                 }
             }
+            .frame(
+                minWidth: 260, idealWidth: 420, maxWidth: .infinity,
+                maxHeight: .infinity, alignment: .topLeading
+            )
+            .layoutPriority(1)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var testsView: some View {
@@ -1867,7 +1897,9 @@ public struct ArtifactExplorerView: View {
                     if let production = frame.production { Button("Production \(production.rawValue)") { presentDetail(.production(production)) }.buttonStyle(.link) }
                 }
             }
-        }.padding()
+        }
+        .padding()
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func exportHTML() {

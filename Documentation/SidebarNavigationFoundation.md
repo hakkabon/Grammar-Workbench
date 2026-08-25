@@ -17,6 +17,11 @@ and replay links use the same contextual presentation. This leaves navigation,
 source, and workspace as the three horizontal regions and fits comfortably
 inside the retained 1120-point minimum.
 
+The Sample workspace explicitly fills and top-aligns both halves of its split
+view. Trace and Animated Graph therefore use the same stable geometry, and the
+parse-tree region retains a minimum visible height instead of collapsing when
+the trace has little intrinsic content.
+
 `GrammarWorkbenchDestination` and `GrammarWorkbenchNavigationSection` contain
 the hierarchy, titles, and symbol names without importing SwiftUI. A future
 iPad application shell can therefore reuse the same navigation contract while

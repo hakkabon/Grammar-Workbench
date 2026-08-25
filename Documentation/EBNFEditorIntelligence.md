@@ -1,5 +1,11 @@
 # EBNF and editor intelligence
 
+The application toolbar identifies the control as **Grammar notation**. Its
+**Yacc-like** choice is the directive-and-colon syntax historically called
+Workbench notation in persisted files and APIs; **EBNF** selects ISO-style
+grouping, option, and repetition syntax. Changing the choice changes how the
+current source is interpreted—it does not convert between notations.
+
 Grammar Workbench continues to delegate EBNF parsing and lowering to the `Grammar` module. The workbench adds an origin layer around that conversion so generated BNF remains an implementation detail during editing.
 
 ## Origin-aware lowering

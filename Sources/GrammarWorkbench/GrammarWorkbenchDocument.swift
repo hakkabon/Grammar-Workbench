@@ -1,10 +1,10 @@
-#if os(macOS)
+#if canImport(SwiftUI)
 import SwiftUI
 import UniformTypeIdentifiers
 #endif
 import Foundation
 
-#if os(macOS)
+#if canImport(SwiftUI)
 public extension UTType {
     static let grammarWorkbenchDocument = UTType(
         exportedAs: "com.grammar-workbench.document",
@@ -29,7 +29,7 @@ public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
-#if os(macOS)
+#if canImport(SwiftUI)
 public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     public static let readableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
     public static let writableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
@@ -148,11 +148,15 @@ public struct GrammarWorkbenchView: View {
     }
 
     public var body: some View {
+#if os(macOS)
         ArtifactExplorerView(document: $document, documentName: documentName)
             .frame(
                 minWidth: WorkbenchVisualFoundation.windowMinimumWidth,
                 minHeight: WorkbenchVisualFoundation.windowMinimumHeight
             )
+#elseif os(iOS)
+        GrammarWorkbenchTabletView(document: $document, documentName: documentName)
+#endif
     }
 }
 #endif

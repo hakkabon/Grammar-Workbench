@@ -1,4 +1,4 @@
-#if os(macOS)
+#if canImport(SwiftUI)
 import SwiftUI
 
 /// Shared dimensions for the native application's primary workspace and its
@@ -20,6 +20,9 @@ enum WorkbenchVisualFoundation {
     static let inspectorMinimumWidth: CGFloat = 320
     static let inspectorIdealWidth: CGFloat = 420
     static let inspectorMaximumWidth: CGFloat = 560
+
+    static let tabletEditorMinimumWidth: CGFloat = 360
+    static let tabletComfortableWidth: CGFloat = 900
 
     static var requiredPaneWidth: CGFloat {
         sourceMinimumWidth + workspaceMinimumWidth

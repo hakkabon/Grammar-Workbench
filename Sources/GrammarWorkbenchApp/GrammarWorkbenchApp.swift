@@ -1,10 +1,13 @@
 import SwiftUI
+#if os(macOS)
 import AppKit
+#endif
 import GrammarWorkbench
 
 @main
 struct GrammarWorkbenchApp: App {
     var body: some Scene {
+#if os(macOS)
         DocumentGroup(newDocument: GrammarWorkbenchDocument()) { configuration in
             GrammarWorkbenchView(
                 document: configuration.$document,
@@ -36,5 +39,13 @@ struct GrammarWorkbenchApp: App {
         Settings {
             GrammarWorkbenchSettingsView()
         }
+#else
+        DocumentGroup(newDocument: GrammarWorkbenchDocument()) { configuration in
+            GrammarWorkbenchView(
+                document: configuration.$document,
+                documentName: configuration.fileURL?.lastPathComponent ?? "Untitled"
+            )
+        }
+#endif
     }
 }

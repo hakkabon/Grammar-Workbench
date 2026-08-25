@@ -1,5 +1,10 @@
 # Grammar Workbench
 
+An experimental large-iPad adaptive application is available in
+[`Platforms/GrammarWorkbenchTabletApp`](Platforms/GrammarWorkbenchTabletApp).
+Its supported pilot workflows and device verification checklist are described
+in [Documentation/LargeIPadAdaptiveWorkbench.md](Documentation/LargeIPadAdaptiveWorkbench.md).
+
 The macOS 14-compatible sectioned navigation sidebar is described in
 [`Documentation/SidebarNavigationFoundation.md`](Documentation/SidebarNavigationFoundation.md).
 

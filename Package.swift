@@ -5,7 +5,7 @@ let lspVendoredPath = "LocalDependencies/Sources"
 
 let package = Package(
     name: "GrammarWorkbench",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v14), .iOS(.v17)],
     products: [
         .library(name: "GrammarWorkbenchCore", targets: ["GrammarWorkbenchCore"]),
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),

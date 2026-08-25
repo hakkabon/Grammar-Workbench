@@ -456,7 +456,6 @@ struct AutomatonView: View {
         }
     }
 }
-#endif
 
 private struct AutomatonWebView: NSViewRepresentable {
     let artifact: GrammarArtifact
@@ -558,3 +557,4 @@ private struct AutomatonWebView: NSViewRepresentable {
         }
     }
 }
+#endif

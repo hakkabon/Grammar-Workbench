@@ -8,7 +8,11 @@ enum HTMLExporter {
         testReport: WorkbenchTestReport? = nil,
         algorithmComparison: GrammarAlgorithmComparison? = nil
     ) -> String {
+#if os(macOS)
         let automaton = AutomatonSVG.render(artifact, selected: nil)
+#else
+        let automaton = ""
+#endif
         let rows = artifact.states.map { state in
             let values = (artifact.terminals + artifact.nonterminals).map { symbol in
                 let id = CellID(state: state.id, symbol: symbol)

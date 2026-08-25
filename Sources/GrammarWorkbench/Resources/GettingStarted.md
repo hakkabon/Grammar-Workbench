@@ -20,11 +20,11 @@ Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artif
 6. Enter malformed sample input to inspect expected tokens, recovery decisions, the recovered tree, and replay trace.
 7. Open Compare to inspect state merging, table differences, conflicts, and the recommended LR algorithm.
 
-Enable **Expert tools** to inspect the LR automaton, parse table, replay details, and generalized parsing research. Guide never hides the underlying evidence; it provides a task-oriented path to it. When duplicate or unreachable production lines are found, a safe change preview recompiles the proposal and checks samples and tests before enabling Apply.
+Use the **Expert** section of the navigation sidebar to inspect the LR automaton, parse table, replay details, and generalized parsing research. Guide never hides the underlying evidence; it provides a task-oriented path to it. When duplicate or unreachable production lines are found, a safe change preview recompiles the proposal and checks samples and tests before enabling Apply.
 
 Open **Grammar structure** in Guide for reachability, productivity, nullability, dependency, and left-recursion insights. Cleanup previews are explainable transformation plans: they reject stale source and compare language membership over saved examples plus a bounded generated corpus. Automation can export the same report with `grammar-analyze` or create a validated cleaned grammar with `grammar-transform`.
 
-Enable **Expert tools** and open **Bootstrap** to run the bounded self-hosting laboratory. It compiles a trusted BNF seed, regenerates the parser from its meta-grammar until the canonical model stabilizes, then compares a BNF corpus with the handwritten Grammar reader. For automation, run `grammar-workbench bootstrap [report.json]`.
+Open **Bootstrap** in the Expert section to run the bounded self-hosting laboratory. It compiles a trusted BNF seed, regenerates the parser from its meta-grammar until the canonical model stabilizes, then compares a BNF corpus with the handwritten Grammar reader. For automation, run `grammar-workbench bootstrap [report.json]`.
 
 The expert **Research** workspace exposes the shared-packed forest used by generalized parsing. It reports compact symbol/span nodes, packed families, represented derivations, and independent resource limits before showing the bounded set of materialized trees.
 

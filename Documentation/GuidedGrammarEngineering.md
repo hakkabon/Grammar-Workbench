@@ -1,6 +1,6 @@
 # Guided grammar engineering
 
-The Guide workspace is the default entry point to Grammar Workbench. It organizes existing compiler evidence around user goals rather than parser subsystems. Automata, parse tables, replay, and generalized parsing remain available through **Expert tools**.
+The Guide workspace is the default entry point to Grammar Workbench. It organizes existing compiler evidence around user goals rather than parser subsystems. Automata, parse tables, replay, and generalized parsing remain available in the **Expert** section of the navigation sidebar.
 
 ## Grammar health
 
@@ -12,7 +12,11 @@ The score is an orientation aid, not a proof of grammar quality. The underlying 
 
 The native app opens on Guide and presents six common workflows: write and validate, try an input, resolve ambiguity, protect behavior with tests, compare algorithms, and generate a parser. The first recommended action is shown separately so a new user does not need to choose an LR artifact before understanding the problem.
 
-Turning on **Expert tools** adds the Automaton, Table, and Research workspaces. Turning it off while one of those views is selected returns to Guide; it never removes or changes the underlying artifacts.
+The navigation sidebar groups ordinary workflows separately from the Automaton,
+Table, Bootstrap, Research, and Visuals workspaces in **Expert**. Expert
+destinations remain visible and selecting one never changes the underlying
+artifacts. The sidebar can be collapsed from the toolbar without changing the
+current workspace.
 
 ## Safe change previews
 

@@ -1,5 +1,8 @@
 # Grammar Workbench
 
+The macOS 14-compatible sectioned navigation sidebar is described in
+[`Documentation/SidebarNavigationFoundation.md`](Documentation/SidebarNavigationFoundation.md).
+
 Phase 40 hosted language-kit distribution is described in
 [`Documentation/HostedLanguageKitEcosystem.md`](Documentation/HostedLanguageKitEcosystem.md).
 

@@ -4,11 +4,12 @@ import AppKit
 
 public struct ArtifactExplorerView: View {
     @State private var store: ExplorerStore
-    @State private var tab = ExplorerTab.guide
+    @State private var tab = GrammarWorkbenchDestination.guide
     @State private var exportMessage: String?
     @State private var selectedTestID: UUID?
     @State private var exploresResolvedConflicts = false
-    @State private var showsExpertTools = false
+    @State private var showsNavigation = true
+    @State private var showsInspector = true
     @State private var transformationPreview: GrammarGuidedTransformationPreview?
     @State private var problemScope = ProblemScope.all
     @State private var loadedSourceProject: GrammarLoadedSourceProject?
@@ -35,18 +36,6 @@ public struct ArtifactExplorerView: View {
             sampleInput: selectedInput,
             documentName: documentName
         ))
-    }
-
-    enum ExplorerTab: String, CaseIterable, Identifiable {
-        case guide = "Guide", project = "Project", analysis = "Analysis", semantics = "Semantics", comparison = "Compare", explore = "Explore", diagram = "Diagram & REPL", automaton = "Automaton", table = "Table", decisions = "Decisions", sample = "Sample", bootstrap = "Bootstrap", research = "Research", visuals = "Visuals", tests = "Tests", generation = "Generate"
-        var id: Self { self }
-
-        var isExpert: Bool {
-            switch self {
-            case .automaton, .table, .bootstrap, .research, .visuals: true
-            default: false
-            }
-        }
     }
 
     enum ProblemScope: String, CaseIterable, Identifiable {
@@ -76,6 +65,16 @@ public struct ArtifactExplorerView: View {
 
     public var body: some View {
         HSplitView {
+            if showsNavigation {
+                navigationSidebar
+                    .frame(
+                        minWidth: WorkbenchVisualFoundation.navigationMinimumWidth,
+                        idealWidth: WorkbenchVisualFoundation.navigationIdealWidth,
+                        maxWidth: WorkbenchVisualFoundation.navigationMaximumWidth,
+                        maxHeight: .infinity
+                    )
+                    .accessibilityIdentifier("grammar-navigation-sidebar")
+            }
             sourceSidebar
                 .frame(
                     minWidth: WorkbenchVisualFoundation.sourceMinimumWidth,
@@ -86,13 +85,6 @@ public struct ArtifactExplorerView: View {
                 .clipped()
                 .accessibilityIdentifier("grammar-source-pane")
             VStack(spacing: 0) {
-                Picker("View", selection: $tab) {
-                    ForEach(ExplorerTab.allCases.filter { showsExpertTools || !$0.isExpert }) {
-                        Text($0.rawValue).tag($0)
-                    }
-                }
-                    .pickerStyle(.segmented).padding()
-                Divider()
                 selectedTab
             }
             .frame(
@@ -101,14 +93,16 @@ public struct ArtifactExplorerView: View {
                 maxHeight: .infinity
             )
             .accessibilityIdentifier("grammar-workspace-pane")
-            inspector
-                .frame(
-                    minWidth: WorkbenchVisualFoundation.inspectorMinimumWidth,
-                    idealWidth: WorkbenchVisualFoundation.inspectorIdealWidth,
-                    maxWidth: WorkbenchVisualFoundation.inspectorMaximumWidth,
-                    maxHeight: .infinity
-                )
-                .accessibilityIdentifier("grammar-inspector-pane")
+            if showsInspector {
+                inspector
+                    .frame(
+                        minWidth: WorkbenchVisualFoundation.inspectorMinimumWidth,
+                        idealWidth: WorkbenchVisualFoundation.inspectorIdealWidth,
+                        maxWidth: WorkbenchVisualFoundation.inspectorMaximumWidth,
+                        maxHeight: .infinity
+                    )
+                    .accessibilityIdentifier("grammar-inspector-pane")
+            }
         }
         .navigationTitle("Grammar Workbench")
         .toolbar {
@@ -143,8 +137,12 @@ public struct ArtifactExplorerView: View {
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
             ToolbarItem {
-                Toggle("Expert tools", systemImage: "graduationcap", isOn: $showsExpertTools)
-                    .help("Show automata, parse tables, and generalized parsing research")
+                Toggle("Navigation", systemImage: "sidebar.left", isOn: $showsNavigation)
+                    .help(showsNavigation ? "Hide navigation sidebar" : "Show navigation sidebar")
+            }
+            ToolbarItem {
+                Toggle("Inspector", systemImage: "sidebar.right", isOn: $showsInspector)
+                    .help(showsInspector ? "Hide inspector" : "Show inspector")
             }
             ToolbarItem {
                 Menu("Interchange", systemImage: "arrow.left.arrow.right") {
@@ -169,9 +167,23 @@ public struct ArtifactExplorerView: View {
         .onChange(of: document?.wrappedValue.notation) { _, notation in
             if let notation, store.notation != notation { store.notation = notation }
         }
-        .onChange(of: showsExpertTools) { _, visible in
-            if !visible, tab.isExpert { tab = .guide }
+    }
+
+    private var navigationSidebar: some View {
+        List(selection: $tab) {
+            ForEach(GrammarWorkbenchNavigationSection.allCases) { section in
+                Section(section.rawValue) {
+                    ForEach(GrammarWorkbenchDestination.destinations(in: section)) { destination in
+                        Label(destination.title, systemImage: destination.systemImage)
+                            .tag(destination)
+                            .accessibilityIdentifier("grammar-navigation-\(destination.rawValue)")
+                    }
+                }
+            }
         }
+        .listStyle(.sidebar)
+        .navigationTitle("Workspaces")
+        .accessibilityLabel("Grammar Workbench navigation")
     }
 
     private func performanceLabel(_ performance: GrammarConstructionPerformance) -> String {
@@ -692,7 +704,7 @@ public struct ArtifactExplorerView: View {
                     .frame(width: 112, height: 112)
                     VStack(alignment: .leading, spacing: 8) {
                         Text(report.summary.headline).font(.title2.bold())
-                        Text("Start with the first recommended action. Detailed parser machinery remains available through Expert tools when you need it.")
+                        Text("Start with the first recommended action. Detailed parser machinery remains available in the Expert section of the navigation sidebar.")
                             .foregroundStyle(.secondary)
                         HStack(spacing: 16) {
                             guidanceMetric("Errors", report.summary.errors, .red)
@@ -817,7 +829,8 @@ public struct ArtifactExplorerView: View {
     }
 
     private func workflowCard(
-        _ title: String, _ description: String, _ icon: String, _ destination: ExplorerTab
+        _ title: String, _ description: String, _ icon: String,
+        _ destination: GrammarWorkbenchDestination
     ) -> some View {
         Button { tab = destination } label: {
             VStack(alignment: .leading, spacing: 8) {
@@ -840,7 +853,7 @@ public struct ArtifactExplorerView: View {
         case .decisions: tab = .decisions
         case .comparison: tab = .comparison
         case .tests: tab = .tests
-        case .research: showsExpertTools = true; tab = .research
+        case .research: tab = .research
         }
     }
 

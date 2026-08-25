@@ -11,6 +11,9 @@ struct GrammarSourceNotationDetectionTests {
         #expect(GrammarSourceNotationDetector.detect(
             source: "s = \"ok\" ;", pathExtension: "grammar"
         ) == .workbench)
+        #expect(GrammarSourceNotationDetector.detect(
+            source: "%start S\nS : 'ok' ;", pathExtension: "bnf"
+        ) == .ebnf)
     }
 
     @Test("Unknown plain text uses one-parser-only detection")

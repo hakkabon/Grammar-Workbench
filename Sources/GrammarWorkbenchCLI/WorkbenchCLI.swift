@@ -97,7 +97,7 @@ struct GrammarWorkbenchCLI {
             guard compilation.succeeded, let grammar = compilation.grammar else { throw CLIError.validationFailed }
             print("Valid grammar: \(grammar.productions.count) productions, \(grammar.terminals.count) terminals")
         case "test":
-            guard arguments.count == 2 else { throw CLIError.usage("test requires a project interchange or .grammarworkbench file") }
+            guard arguments.count == 2 else { throw CLIError.usage("test requires a project interchange or .gwb file") }
             let data = try Data(contentsOf: URL(fileURLWithPath: arguments[1]))
             let document: GrammarWorkbenchDocument
             if let interchange = try? GrammarInterchangeCodec.decode(data) {
@@ -906,7 +906,8 @@ struct GrammarWorkbenchCLI {
     }
 
     private static func notation(for path: String) -> GrammarSourceNotation {
-        URL(fileURLWithPath: path).pathExtension.lowercased() == "ebnf" ? .ebnf : .workbench
+        ["bnf", "ebnf"].contains(URL(fileURLWithPath: path).pathExtension.lowercased())
+            ? .ebnf : .workbench
     }
 
     private static func positiveOption(_ argument: String, name: String) -> Int? {

@@ -13,7 +13,7 @@ descriptor to attach those files to the language server.
 
 Grammar Workbench builds and explains SLR(1), LALR(1), and canonical LR(1) artifacts from editable grammars.
 
-1. Create or open a `.grammarworkbench` document and begin in **Guide**, which recommends the next useful action.
+1. Create or open a `.gwb` document and begin in **Guide**, which recommends the next useful action. Legacy `.grammarworkbench` documents remain supported.
 2. Declare tokens with `%token`, optional lexer patterns with `/pattern/`, and ignored text with `%skip`. For context-sensitive lexing, select rules with `%mode` and transition with `%begin`, `%push`, or `%pop`.
 3. Follow task-oriented links to validate the grammar, try an input, resolve ambiguity, protect behavior with tests, compare algorithms, or generate a parser.
 4. Export a standalone HTML report, project interchange JSON, versioned artifact JSON, portable BNF, or a standalone Swift parser.

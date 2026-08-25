@@ -9,7 +9,7 @@ public enum GrammarSourceNotationDetector {
         fallback: GrammarSourceNotation = .workbench
     ) -> GrammarSourceNotation {
         switch pathExtension?.lowercased() {
-        case "ebnf": return .ebnf
+        case "bnf", "ebnf": return .ebnf
         case "grammar", "y", "yacc", "yy": return .workbench
         default: break
         }

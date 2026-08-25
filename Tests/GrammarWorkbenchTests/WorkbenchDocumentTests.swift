@@ -86,6 +86,22 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     #expect(document.notation == .ebnf)
 }
 
+@Test func documentRecognizesBNFAndYaccContentTypes() throws {
+    let bnf = try GrammarWorkbenchDocument(
+        fileData: Data("value ::= \"text\" ;".utf8), contentType: .bnfGrammar
+    )
+    let yacc = try GrammarWorkbenchDocument(
+        fileData: Data("%start S\nS : 'text' ;".utf8), contentType: .yaccGrammar
+    )
+
+    #expect(bnf.notation == .ebnf)
+    #expect(yacc.notation == .workbench)
+    #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.plainText))
+    #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.bnfGrammar))
+    #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.ebnfGrammar))
+    #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.yaccGrammar))
+}
+
 @MainActor
 @Test func debouncedEditingRegeneratesOnlyTheLatestValidSource() async throws {
     let store = ExplorerStore()

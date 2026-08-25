@@ -11,14 +11,15 @@ public enum GrammarDocumentKind: Equatable {
 }
 
 public extension DocumentURI {
-    /// The Workbench notation is used for `.grammarworkbench` and `.grammar`
-    /// files, the ISO EBNF notation for `.ebnf` files, and every other
+    /// The Workbench notation is used for `.gwb`, legacy `.grammarworkbench`,
+    /// and Yacc-like source files, the ISO EBNF front end for `.bnf` and
+    /// `.ebnf` files, and every other
     /// extension is treated as a source document.
     var grammarWorkbenchKind: GrammarDocumentKind {
         switch arbitrarySchemeURL.pathExtension.lowercased() {
-        case "grammarworkbench", "grammar":
+        case "gwb", "grammarworkbench", "grammar", "y", "yacc", "yy":
             return .grammar(notation: .workbench)
-        case "ebnf":
+        case "bnf", "ebnf":
             return .grammar(notation: .ebnf)
         default:
             return .source

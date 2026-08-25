@@ -14,6 +14,14 @@ public extension UTType {
         importedAs: "org.iso.ebnf-source",
         conformingTo: .plainText
     )
+    static let bnfGrammar = UTType(
+        importedAs: "org.iso.bnf-source",
+        conformingTo: .plainText
+    )
+    static let yaccGrammar = UTType(
+        importedAs: "com.grammar-workbench.yacc-source",
+        conformingTo: .plainText
+    )
 }
 #endif
 
@@ -31,8 +39,12 @@ public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
 
 #if canImport(SwiftUI)
 public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
-    public static let readableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
-    public static let writableContentTypes: [UTType] = [.grammarWorkbenchDocument, .ebnfGrammar, .plainText]
+    public static let readableContentTypes: [UTType] = [
+        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
+    ]
+    public static let writableContentTypes: [UTType] = [
+        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
+    ]
 
     public var source: String
     public var algorithm: String
@@ -107,7 +119,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
             }
             self = Self(
                 source: source,
-                notation: contentType == .ebnfGrammar
+                notation: contentType == .ebnfGrammar || contentType == .bnfGrammar
                     ? .ebnf
                     : GrammarSourceNotationDetector.detect(source: source),
                 samples: [WorkbenchSample(name: "Sample 1", input: "")]
@@ -116,7 +128,7 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
     }
 
     public func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        if configuration.contentType == .plainText || configuration.contentType == .ebnfGrammar {
+        if configuration.contentType != .grammarWorkbenchDocument {
             return FileWrapper(regularFileWithContents: Data(source.utf8))
         }
         let encoder = JSONEncoder()

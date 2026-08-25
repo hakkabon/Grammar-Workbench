@@ -7,7 +7,9 @@ macOS product; the iPad interface does not introduce alternate implementations.
 
 ## Included pilot workflows
 
-- Open, edit, and autosave Grammar Workbench, EBNF, and plain-text grammar documents.
+- Open, edit, and autosave `.gwb` Workbench documents and `.bnf`, `.ebnf`,
+  `.grammar`, `.y`, `.yacc`, `.yy`, or plain-text grammar sources. Legacy
+  `.grammarworkbench` documents remain accepted.
 - Show the persisted or import-detected notation beside the filename.
 - Switch among Guide, Analysis, Sample, Tests, and Visuals with `NavigationSplitView`.
 - Keep source and workspace side by side at comfortable large-iPad widths.
@@ -33,6 +35,11 @@ Xcode. Select the **GrammarWorkbenchTabletApp** scheme and an iPad simulator.
 For a physical iPad, select a Development Team for the app target, choose the
 connected iPad, and run. The host is restricted to device family 2 and therefore
 does not advertise an unsupported iPhone experience.
+
+`.gwb` is the preferred stateful format because it preserves source, notation,
+algorithm, samples, and tests. Source-only documents retain their grammar text
+instead of being silently rewritten as Workbench JSON. WSN is not advertised
+until a real WSN front end is available.
 
 The command-line simulator build gate is:
 

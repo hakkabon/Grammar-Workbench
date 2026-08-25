@@ -1,9 +1,10 @@
 # Grammar Workbench
 
 The grammar source remains visible in the left resizable pane. The task workspace
-and inspector are independent panes, so resizing or showing another area does
-not cover the editor. Plain `.txt` and `.grammar` files use Workbench notation;
-`.ebnf` files select EBNF notation.
+is independent, so resizing or showing another area does not cover the editor.
+The notation badge beside the filename shows how the source is interpreted.
+Known Yacc-like and `.ebnf` extensions select their corresponding notation;
+for unknown plain text, import detects a notation only when exactly one front end accepts it.
 
 Use **Open Source Project** to load a `.grammar-workbench-source.json`
 descriptor. Its associated program files appear in the Project workspace with
@@ -30,7 +31,7 @@ The expert **Research** workspace exposes the shared-packed forest used by gener
 
 Project integrations can add a declarative semantic schema to classify definitions and references. The resulting workspace service supplies cross-document navigation, diagnostics, dependencies, and safe revision-checked rename plans; `project-semantic` exports the same snapshot for editor and CI automation.
 
-Open a `.ebnf` file or choose EBNF in the toolbar to use ISO-style notation. The Analysis inspector shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
+Open a `.ebnf` file to use ISO-style notation. If an extensionless or ambiguous import needs correction, use **Interpret Grammar As** from the source editor's context menu. This changes the document interpretation without converting its source. The Analysis workspace shows the BNF produced by the shared Grammar module and summarizes how each successful edit changes states, table entries, conflicts, terminals, and productions. Diagnostics, completions, quick fixes, and artifact navigation remain anchored to the original EBNF declarations rather than generated BNF symbols.
 
 For automation, the CLI detects `.ebnf` files automatically. Use `lower-ebnf` to inspect lowering, `diff` to review artifact changes, and the `GrammarWorkbenchPlugin` SwiftPM build plugin to turn target-local `.grammar` or `.ebnf` files into standalone Swift parsers.
 

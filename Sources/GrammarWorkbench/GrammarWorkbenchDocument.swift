@@ -107,7 +107,9 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
             }
             self = Self(
                 source: source,
-                notation: contentType == .ebnfGrammar ? .ebnf : .workbench,
+                notation: contentType == .ebnfGrammar
+                    ? .ebnf
+                    : GrammarSourceNotationDetector.detect(source: source),
                 samples: [WorkbenchSample(name: "Sample 1", input: "")]
             )
         }

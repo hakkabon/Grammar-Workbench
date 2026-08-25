@@ -122,29 +122,6 @@ public struct ArtifactExplorerView: View {
                 Picker("LR algorithm", selection: algorithmBinding) { ForEach(LRAlgorithm.allCases) { Text($0.rawValue).tag($0) } }
                     .frame(width: 180)
             }
-            ToolbarItem {
-                Menu {
-                    ForEach(GrammarSourceNotation.allCases) { notation in
-                        Button {
-                            notationBinding.wrappedValue = notation
-                        } label: {
-                            if store.notation == notation {
-                                Label(notation.displayName, systemImage: "checkmark")
-                            } else {
-                                Text(notation.displayName)
-                            }
-                        }
-                    }
-                } label: {
-                    Label(
-                        "Grammar notation: \(store.notation.displayName)",
-                        systemImage: "doc.plaintext"
-                    )
-                }
-                .labelStyle(.titleAndIcon)
-                .fixedSize()
-                .help("Grammar notation: Yacc-like directives and productions, or ISO-style EBNF")
-            }
             if store.isRegenerating {
                 ToolbarItem { ProgressView().controlSize(.small).help("Regenerating grammar artifacts") }
             } else if let performance = store.constructionPerformance {
@@ -221,7 +198,21 @@ public struct ArtifactExplorerView: View {
 
     private var sourceSidebar: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label(store.documentName, systemImage: "doc.text").font(.headline).padding(.horizontal)
+            HStack(spacing: 8) {
+                Label(store.documentName, systemImage: "doc.text")
+                    .font(.headline)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                Text(store.notation.displayName)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(.quaternary, in: Capsule())
+                    .help(notationHelp)
+                    .accessibilityLabel("Grammar notation: \(store.notation.displayName)")
+            }
+            .padding(.horizontal)
             GrammarSourceEditor(
                 text: sourceBinding,
                 diagnostics: store.frontEnd.diagnostics,
@@ -232,6 +223,21 @@ public struct ArtifactExplorerView: View {
                 .frame(minHeight: 280)
                 .clipped()
                 .accessibilityLabel(document == nil ? "Read-only grammar source" : "Editable grammar source")
+                .contextMenu {
+                    Menu("Interpret Grammar As") {
+                        ForEach(GrammarSourceNotation.allCases) { notation in
+                            Button {
+                                notationBinding.wrappedValue = notation
+                            } label: {
+                                if notation == store.notation {
+                                    Label(notation.displayName, systemImage: "checkmark")
+                                } else {
+                                    Text(notation.displayName)
+                                }
+                            }
+                        }
+                    }
+                }
             Text("\(store.artifact.productions.count) productions · \(store.artifact.states.count) states")
                 .font(.caption).foregroundStyle(.secondary).padding(.horizontal)
             if !store.frontEnd.diagnostics.isEmpty {
@@ -268,6 +274,13 @@ public struct ArtifactExplorerView: View {
                 .frame(maxHeight: 190)
             }
         }.padding(.vertical)
+    }
+
+    private var notationHelp: String {
+        switch store.notation {
+        case .workbench: "Yacc-like grammar notation using directives and colon productions"
+        case .ebnf: "ISO-style EBNF grammar notation"
+        }
     }
 
     @ViewBuilder private var selectedTab: some View {
@@ -2065,6 +2078,10 @@ public struct ArtifactExplorerView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let source = try String(contentsOf: url, encoding: .utf8)
+            let notation = GrammarSourceNotationDetector.detect(
+                source: source, pathExtension: url.pathExtension
+            )
+            notationBinding.wrappedValue = notation
             store.load(source: source, documentName: url.lastPathComponent)
             tab = .analysis
         } catch {

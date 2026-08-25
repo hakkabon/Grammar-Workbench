@@ -1,10 +1,17 @@
 # EBNF and editor intelligence
 
-The application toolbar identifies the control as **Grammar notation**. Its
-**Yacc-like** choice is the directive-and-colon syntax historically called
-Workbench notation in persisted files and APIs; **EBNF** selects ISO-style
-grouping, option, and repetition syntax. Changing the choice changes how the
-current source is interpreted—it does not convert between notations.
+The editor header shows a non-editable **Yacc-like** or **EBNF** badge beside
+the grammar filename. Yacc-like is the directive-and-colon syntax historically
+called Workbench notation in persisted files and APIs; EBNF selects ISO-style
+grouping, option, and repetition syntax.
+
+Persisted document or project metadata takes precedence when opening a grammar.
+Otherwise `.ebnf` selects EBNF and known Yacc-like extensions select Yacc-like.
+Unknown plain text is tried through both front ends and is detected only when
+exactly one succeeds; inconclusive input falls back to Yacc-like. Detection runs
+at import, never continuously during incomplete edits. The editor context menu
+provides **Interpret Grammar As** for an explicit correction. Reinterpretation
+does not convert source text.
 
 Grammar Workbench continues to delegate EBNF parsing and lowering to the `Grammar` module. The workbench adds an origin layer around that conversion so generated BNF remains an implementation detail during editing.
 

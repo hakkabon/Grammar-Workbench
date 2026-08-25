@@ -61,7 +61,18 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     )
 
     #expect(document.source == source)
+    #expect(document.notation == .workbench)
     #expect(document.samples.count == 1)
+}
+
+@Test func documentDetectsEBNFInImportedPlainText() throws {
+    let source = "lexical { NUMBER = /[0-9]+/ ; }\nvalue = NUMBER ;"
+    let document = try GrammarWorkbenchDocument(
+        fileData: Data(source.utf8),
+        contentType: UTType.plainText
+    )
+
+    #expect(document.notation == .ebnf)
 }
 
 @Test func documentRecognizesEBNFContentType() throws {

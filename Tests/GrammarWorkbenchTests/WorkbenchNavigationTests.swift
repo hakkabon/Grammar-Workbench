@@ -32,10 +32,10 @@ struct WorkbenchNavigationTests {
     }
 
     #if os(macOS)
-    @Test("Optional navigation expands beyond the stable three-pane minimum")
+    @Test("Optional navigation fits the stable three-region minimum")
     func widthBudget() {
         #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
-        #expect(WorkbenchVisualFoundation.expandedPaneWidth > WorkbenchVisualFoundation.windowMinimumWidth)
+        #expect(WorkbenchVisualFoundation.expandedPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
         #expect(WorkbenchVisualFoundation.navigationMinimumWidth >= 180)
     }
     #endif

@@ -9,7 +9,7 @@ public struct ArtifactExplorerView: View {
     @State private var selectedTestID: UUID?
     @State private var exploresResolvedConflicts = false
     @State private var showsNavigation = true
-    @State private var showsInspector = true
+    @State private var presentedDetail: ArtifactIdentity?
     @State private var transformationPreview: GrammarGuidedTransformationPreview?
     @State private var problemScope = ProblemScope.all
     @State private var loadedSourceProject: GrammarLoadedSourceProject?
@@ -93,15 +93,17 @@ public struct ArtifactExplorerView: View {
                 maxHeight: .infinity
             )
             .accessibilityIdentifier("grammar-workspace-pane")
-            if showsInspector {
-                inspector
+            .popover(isPresented: detailIsPresented, arrowEdge: .trailing) {
+                contextualDetail
                     .frame(
                         minWidth: WorkbenchVisualFoundation.inspectorMinimumWidth,
                         idealWidth: WorkbenchVisualFoundation.inspectorIdealWidth,
                         maxWidth: WorkbenchVisualFoundation.inspectorMaximumWidth,
-                        maxHeight: .infinity
+                        minHeight: 180,
+                        idealHeight: 420,
+                        maxHeight: 620
                     )
-                    .accessibilityIdentifier("grammar-inspector-pane")
+                    .accessibilityIdentifier("grammar-contextual-detail")
             }
         }
         .navigationTitle("Grammar Workbench")
@@ -136,13 +138,9 @@ public struct ArtifactExplorerView: View {
                 }
             }
             ToolbarItem { Button("Export HTML", systemImage: "square.and.arrow.up", action: exportHTML) }
-            ToolbarItem {
+            ToolbarItem(placement: .navigation) {
                 Toggle("Navigation", systemImage: "sidebar.left", isOn: $showsNavigation)
                     .help(showsNavigation ? "Hide navigation sidebar" : "Show navigation sidebar")
-            }
-            ToolbarItem {
-                Toggle("Inspector", systemImage: "sidebar.right", isOn: $showsInspector)
-                    .help(showsInspector ? "Hide inspector" : "Show inspector")
             }
             ToolbarItem {
                 Menu("Interchange", systemImage: "arrow.left.arrow.right") {
@@ -167,6 +165,7 @@ public struct ArtifactExplorerView: View {
         .onChange(of: document?.wrappedValue.notation) { _, notation in
             if let notation, store.notation != notation { store.notation = notation }
         }
+        .onChange(of: tab) { _, _ in presentedDetail = nil }
     }
 
     private var navigationSidebar: some View {
@@ -269,7 +268,9 @@ public struct ArtifactExplorerView: View {
                 store.selectSourceRange($0)
             }
         case .automaton:
-            AutomatonView(artifact: store.artifact, selection: store.selection) { store.select(.state($0)) }
+            AutomatonView(artifact: store.artifact, selection: store.selection) {
+                presentDetail(.state($0))
+            }
         case .table: tableView
         case .decisions: decisionsView
         case .sample: sampleView
@@ -542,7 +543,7 @@ public struct ArtifactExplorerView: View {
                     Text("Productions available to semantic actions").font(.headline)
                     ForEach(model.productions) { production in
                         Button("\(production.id): \(production.text)") {
-                            store.select(.production(.init(rawValue: production.id)))
+                            presentDetail(.production(.init(rawValue: production.id)))
                         }
                         .buttonStyle(.plain).font(.system(.body, design: .monospaced))
                     }
@@ -1107,7 +1108,7 @@ public struct ArtifactExplorerView: View {
                     Text("Productions").font(.headline)
                     ForEach(grammar.productions) { production in
                         Button(production.text) {
-                            store.select(.production(.init(rawValue: production.id + 1)))
+                            presentDetail(.production(.init(rawValue: production.id + 1)))
                         }
                         .buttonStyle(.plain)
                         .font(.system(.body, design: .monospaced))
@@ -1216,7 +1217,7 @@ public struct ArtifactExplorerView: View {
 
     private func tableStateCell(_ state: StateID) -> some View {
         let summary = store.artifact.decisionSummary(for: state)
-        return Button(state.description) { store.select(.state(state)) }
+        return Button(state.description) { presentDetail(.state(state)) }
             .frame(width: 60, height: 32)
             .background(summary.map { dispositionColor($0.disposition).opacity(0.17) } ?? Color(nsColor: .controlBackgroundColor))
             .help(summary.map { "\($0.disposition.label): \($0.decisions.count) decision\($0.decisions.count == 1 ? "" : "s")" } ?? "No decisions")
@@ -1230,7 +1231,7 @@ public struct ArtifactExplorerView: View {
         let description = decision.map {
             "\($0.disposition.label). Candidates: \(candidates). Effective: \(effective)."
         } ?? "State \(id.state.rawValue), symbol \(id.symbol), \(effective.isEmpty ? "empty" : effective)"
-        return Button { store.select(.cell(id)) } label: {
+        return Button { presentDetail(.cell(id)) } label: {
             HStack(spacing: 4) {
                 Text(effective)
                 if let decision {
@@ -1264,7 +1265,7 @@ public struct ArtifactExplorerView: View {
                 Divider()
             }
             List(store.artifact.decisions) { decision in
-                Button { store.select(.decision(decision.id)) } label: {
+                Button { presentDetail(.decision(decision.id)) } label: {
                     VStack(alignment: .leading, spacing: 5) {
                         Label(decision.title, systemImage: decisionIcon(decision))
                             .foregroundStyle(decisionColor(decision))
@@ -1359,7 +1360,7 @@ public struct ArtifactExplorerView: View {
                     ForEach(store.runtimeResult.diagnostics, id: \.index) { diagnostic in
                         VStack(alignment: .leading, spacing: 3) {
                             Button {
-                                store.select(.state(diagnostic.state))
+                                presentDetail(.state(diagnostic.state))
                             } label: {
                                 Label(diagnostic.message, systemImage: "exclamationmark.triangle.fill")
                             }
@@ -1699,10 +1700,26 @@ public struct ArtifactExplorerView: View {
         }
     }
 
-    @ViewBuilder private var inspector: some View {
-        if let selection = store.selection {
-            ScrollView { VStack(alignment: .leading, spacing: 14) { inspectorContent(selection) }.padding().frame(maxWidth: .infinity, alignment: .leading) }
-        } else { ContentUnavailableView("Select an artifact", systemImage: "cursorarrow.click") }
+    private var detailIsPresented: Binding<Bool> {
+        .init(
+            get: { presentedDetail != nil },
+            set: { if !$0 { presentedDetail = nil } }
+        )
+    }
+
+    @ViewBuilder private var contextualDetail: some View {
+        if let selection = presentedDetail {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) { inspectorContent(selection) }
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+    }
+
+    private func presentDetail(_ selection: ArtifactIdentity) {
+        store.select(selection)
+        presentedDetail = selection
     }
 
     @ViewBuilder private func inspectorContent(_ selection: ArtifactIdentity) -> some View {
@@ -1714,16 +1731,16 @@ public struct ArtifactExplorerView: View {
                     .foregroundStyle(dispositionColor(summary.disposition))
                 ForEach(summary.decisions) { decision in
                     Button("\(decision.cell.symbol): \(store.artifact.candidateActions(for: decision).map(\.label).joined(separator: " / "))") {
-                        store.select(.decision(decision.id))
+                        presentDetail(.decision(decision.id))
                     }.buttonStyle(.link)
                 }
             }
             ForEach(store.artifact.state(id)?.items ?? []) { item in
-                Button(item.text) { store.select(.production(item.production)) }.buttonStyle(.plain).font(.system(.body, design: .monospaced))
+                Button(item.text) { presentDetail(.production(item.production)) }.buttonStyle(.plain).font(.system(.body, design: .monospaced))
             }
             Text("Outgoing transitions").font(.headline)
             ForEach(store.artifact.transitions.filter { $0.from == id }) { transition in
-                Button("\(transition.symbol) → \(transition.to)") { store.select(.state(transition.to)) }.buttonStyle(.link)
+                Button("\(transition.symbol) → \(transition.to)") { presentDetail(.state(transition.to)) }.buttonStyle(.link)
             }
         case .production(let id):
             Text("Production \(id.rawValue)").font(.title2.bold())
@@ -1845,9 +1862,9 @@ public struct ArtifactExplorerView: View {
                 LabeledContent("Input", value: frame.remainingInput.joined(separator: " "))
                 LabeledContent("Action", value: frame.action)
                 HStack {
-                    if let state = frame.state { Button("State \(state)") { store.select(.state(state)) }.buttonStyle(.link) }
-                    if let cell = frame.cell { Button("Cell \(cell.symbol)") { store.select(.cell(cell)) }.buttonStyle(.link) }
-                    if let production = frame.production { Button("Production \(production.rawValue)") { store.select(.production(production)) }.buttonStyle(.link) }
+                    if let state = frame.state { Button("State \(state)") { presentDetail(.state(state)) }.buttonStyle(.link) }
+                    if let cell = frame.cell { Button("Cell \(cell.symbol)") { presentDetail(.cell(cell)) }.buttonStyle(.link) }
+                    if let production = frame.production { Button("Production \(production.rawValue)") { presentDetail(.production(production)) }.buttonStyle(.link) }
                 }
             }
         }.padding()

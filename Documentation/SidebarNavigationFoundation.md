@@ -9,10 +9,13 @@ of a segmented workspace picker and an Expert-mode toggle. The hierarchy is:
 - **Expert:** Automaton, Table, Bootstrap, Research, Visuals.
 
 Expert workspaces are always discoverable. Collapsing the navigation sidebar
-does not change the selected workspace. Navigation and inspector visibility are
-controlled independently from the toolbar, while the source editor remains a
-permanent resizable pane. The 1120-point three-pane minimum is retained; the
-expanded four-region arrangement naturally requests additional width.
+does not change the selected workspace. The source editor remains a permanent
+resizable pane. Artifact detail is requested contextually rather than occupying
+a permanent inspector pane: selecting an Automaton state opens its LR items,
+decisions, and transitions in a popover; table cells, productions, decisions,
+and replay links use the same contextual presentation. This leaves navigation,
+source, and workspace as the three horizontal regions and fits comfortably
+inside the retained 1120-point minimum.
 
 `GrammarWorkbenchDestination` and `GrammarWorkbenchNavigationSection` contain
 the hierarchy, titles, and symbol names without importing SwiftUI. A future

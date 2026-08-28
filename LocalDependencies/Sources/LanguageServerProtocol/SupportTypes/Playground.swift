@@ -35,7 +35,7 @@ public struct Playground: ResponseType, Equatable, LSPAnyCodable {
   public init(
     id: String,
     label: String?,
-    location: Location,
+    location: Location
   ) {
     self.id = id
     self.label = label

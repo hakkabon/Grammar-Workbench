@@ -3,7 +3,7 @@
 //  This file is a minimal stand-in for the `SKLogging` module that upstream
 //  `LanguageServerProtocolTransport` imports. It reproduces only the small API
 //  surface the vendored transport modules rely on, with implementations that
-//  compile and run on Swift 6.1 at a macOS 14 deployment target.
+//  compile and run with the Workbench's Swift 6.0 toolchain baseline.
 //
 //  Upstream `SKLogging` (https://github.com/swiftlang/swift-tools-protocols)
 //  requires Swift 6.2 and macOS 15. See LocalDependencies/README.md.
@@ -16,7 +16,13 @@ import Foundation
 public typealias LogLevel = OSLogType
 
 /// The default logger used by Grammar Workbench's LSP transport.
-public let logger: Logger = Logger(subsystem: "grammar-workbench-lsp", category: "grammar-workbench")
+///
+/// This is computed rather than stored because the open-source `os.Logger`
+/// available on Linux is not `Sendable`. A shared global instance would
+/// therefore violate Swift 6 strict-concurrency checking.
+public var logger: Logger {
+  Logger(subsystem: "grammar-workbench-lsp", category: "grammar-workbench")
+}
 
 /// Minimal stand-in for the upstream logging-scope configuration point.
 public enum LoggingScope {

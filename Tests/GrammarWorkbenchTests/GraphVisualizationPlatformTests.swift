@@ -55,6 +55,24 @@ private func platformGraph() -> GrammarGraph {
     #expect(vertical.routes.allSatisfy { !$0.points.isEmpty })
 }
 
+@Test func graphLayoutPreservesParallelEdgeIdentity() throws {
+    let graph = GrammarGraph(
+        id: "parallel", title: "Parallel edges",
+        nodes: [.init(id: "a", label: "A"), .init(id: "b", label: "B")],
+        edges: [
+            .init(id: "second", source: "a", target: "b", label: "two"),
+            .init(id: "first", source: "a", target: "b", label: "one")
+        ]
+    )
+
+    let snapshot = try GrammarGraphLayoutEngine.layout(graph)
+
+    #expect(Set(snapshot.routes.map(\.edge.id)) == ["first", "second"])
+    #expect(Dictionary(uniqueKeysWithValues: snapshot.routes.map { ($0.edge.id, $0.edge.label) }) == [
+        "first": "one", "second": "two"
+    ])
+}
+
 @Test func graphPlatformRejectsMalformedInputsBeforeFFI() throws {
     let duplicate = GrammarGraph(
         id: "bad", title: "Bad",

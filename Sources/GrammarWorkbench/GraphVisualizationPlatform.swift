@@ -284,7 +284,13 @@ public enum GrammarGraphLayoutEngine {
         let externalID = Dictionary(uniqueKeysWithValues: orderedNodes.enumerated().map {
             ($0.element.id, UInt64($0.offset))
         })
-        let byExternalID = Dictionary(uniqueKeysWithValues: externalID.map { ($0.value, $0.key) })
+        let orderedEdges = graph.edges.sorted { $0.id < $1.id }
+        let externalEdgeID = Dictionary(uniqueKeysWithValues: orderedEdges.enumerated().map {
+            ($0.element.id, UInt64($0.offset))
+        })
+        let edgeByExternalID = Dictionary(uniqueKeysWithValues: orderedEdges.map {
+            (externalEdgeID[$0.id]!, $0)
+        })
         let started = ContinuousClock.now
         let result: FfiLayoutResult
         let routing: FfiRoutingStyle
@@ -297,13 +303,15 @@ public enum GrammarGraphLayoutEngine {
             result = try SwiftLayout.layout(
                 nodes: orderedNodes.map {
                     FfiNode(
-                        id: externalID[$0.id]!, width: Float($0.width), height: Float($0.height)
+                        id: externalID[$0.id]!, width: Float($0.width), height: Float($0.height),
+                        rankHint: nil, rankConstraint: .preferred
                     )
                 },
-                edges: graph.edges.map { edge in
+                edges: orderedEdges.map { edge in
                     let measuredWidth = edge.metadata["geometry.labelWidth"].flatMap(Float.init)
                     let measuredHeight = edge.metadata["geometry.labelHeight"].flatMap(Float.init)
                     return FfiEdge(
+                        id: externalEdgeID[edge.id]!,
                         from: externalID[edge.source]!, to: externalID[edge.target]!,
                         labelWidth: edge.label.map { measuredWidth ?? Float(max(24, $0.count * 7)) },
                         labelHeight: edge.label == nil ? nil : measuredHeight ?? 18
@@ -341,23 +349,11 @@ public enum GrammarGraphLayoutEngine {
                 )
             ))
         }
-        let pair = { (from: UInt64, to: UInt64) in "\(from)\u{1f}\(to)" }
-        var edgesByPair = Dictionary(grouping: graph.edges) {
-            pair(externalID[$0.source]!, externalID[$0.target]!)
-        }
-        for key in edgesByPair.keys { edgesByPair[key]?.sort { $0.id < $1.id } }
-        func takeEdge(from: UInt64, to: UInt64) throws -> GrammarGraphEdge {
-            let key = pair(from, to)
-            guard var candidates = edgesByPair[key], !candidates.isEmpty else {
-                throw GrammarGraphLayoutError.incompleteResult("\(byExternalID[from] ?? "?")->\(byExternalID[to] ?? "?")")
-            }
-            let edge = candidates.removeFirst()
-            edgesByPair[key] = candidates
-            return edge
-        }
         var routes: [GrammarGraphRoute] = []
         for route in result.routes {
-            let edge = try takeEdge(from: route.from, to: route.to)
+            guard let edge = edgeByExternalID[route.id] else {
+                throw GrammarGraphLayoutError.incompleteResult("edge \(route.id)")
+            }
             routes.append(.init(
                 edge: edge,
                 points: route.waypoints.map {
@@ -388,27 +384,10 @@ public enum GrammarGraphLayoutEngine {
                 isReversed: route.reversed, isSelfLoop: route.isSelfLoop
             ))
         }
-        let nodeByID = Dictionary(uniqueKeysWithValues: positioned.map { ($0.id, $0) })
-        for loop in result.selfLoops where !(edgesByPair[pair(loop.from, loop.to)]?.isEmpty ?? true) {
-            let edge = try takeEdge(from: loop.from, to: loop.to)
-            guard let id = byExternalID[loop.from], let node = nodeByID[id] else {
-                throw GrammarGraphLayoutError.incompleteResult(edge.id)
-            }
-            let f = node.frame
-            routes.append(.init(
-                edge: edge,
-                points: [
-                    .init(x: f.midX - 12, y: f.minY),
-                    .init(x: f.midX - 28, y: f.minY - 28),
-                    .init(x: f.midX + 28, y: f.minY - 28),
-                    .init(x: f.midX + 12, y: f.minY)
-                ],
-                segments: [], arrowhead: nil, labelPosition: nil,
-                isReversed: false, isSelfLoop: true
-            ))
-        }
-        if let remainder = edgesByPair.values.flatMap({ $0 }).first {
-            throw GrammarGraphLayoutError.incompleteResult(remainder.id)
+        if routes.count != orderedEdges.count {
+            let routedIDs = Set(result.routes.map(\.id))
+            let missing = externalEdgeID.first { !routedIDs.contains($0.value) }?.key ?? "unknown"
+            throw GrammarGraphLayoutError.incompleteResult(missing)
         }
         let routePoints = routes.flatMap(\.points)
             + routes.compactMap(\.arrowhead).flatMap { [$0.tip, $0.left, $0.right] }

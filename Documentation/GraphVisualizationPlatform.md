@@ -1,6 +1,6 @@
 # Graph visualization platform
 
-Phase 16 replaces the automaton view's private layout algorithm with a shared graph contract backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package. Swift-Layout wraps the Rust [Layout](https://github.com/hakkabon/Layout) engine and is updated from tagged Rust releases by its zero-touch GitHub Actions workflow. Grammar Workbench pins the corrected Swift-Layout 0.0.3 release commit (`8430a99`); it does not compile Rust or copy generated UniFFI bindings.
+Phase 16 replaces the automaton view's private layout algorithm with a shared graph contract backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package. Swift-Layout wraps the Rust [Layout](https://github.com/hakkabon/Layout) engine and is updated from tagged Rust releases by its zero-touch GitHub Actions workflow. Grammar Workbench pins the Swift 6.0-compatible commit for the 0.0.3 binary and bindings (`1c282a3`); it does not compile Rust or copy generated UniFFI bindings.
 
 The [Sample-App](https://github.com/hakkabon/Sample-App) remains the reference gallery for the lower-level package. Grammar Workbench builds a language-engineering layer above it rather than duplicating the sample application's domain objects or presentation code.
 

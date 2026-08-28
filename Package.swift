@@ -21,7 +21,7 @@ let package = Package(
     dependencies: [
         .package(
              url: "https://github.com/hakkabon/Swift-Layout.git",
-             revision: "8430a99f703656affa1e63a3a9d3755111789c90"
+             revision: "1c282a3aafb03cb019a9966a42cfa568365f90a1"
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",

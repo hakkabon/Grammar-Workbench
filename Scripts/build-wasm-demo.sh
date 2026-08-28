@@ -29,6 +29,7 @@ if [ -z "$WASM_SDK_ID" ]; then
 fi
 
 SCRATCH="${SCRATCH_PATH:-$ROOT_DIR/.build-wasm}"
+"$ROOT_DIR/Scripts/prepare-portable-dependencies.sh" "$SCRATCH"
 swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" \
     --swift-sdk "$WASM_SDK_ID" -c release --product grammar-workbench-wasi
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" \

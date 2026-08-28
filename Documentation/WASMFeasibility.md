@@ -38,6 +38,11 @@ Current exclusions are:
 
 ## Build the WASI module
 
+The build script prepares the pinned Grammar dependency for non-Apple platforms
+before invoking SwiftPM. This applies the same revision-checked `OSLog`
+compatibility patch used by Linux delivery; it can be retired after Grammar
+publishes portable logging support.
+
 Install the SDK declared by `Packaging/PortabilityToolchain.json`:
 
 ```sh

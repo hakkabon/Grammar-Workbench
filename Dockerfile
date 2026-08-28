@@ -1,7 +1,8 @@
 FROM swift:6.0-jammy AS builder
 WORKDIR /src
 COPY . .
-RUN swift build -c release --product grammar-workbench \
+RUN Scripts/prepare-portable-dependencies.sh \
+ && swift build -c release --product grammar-workbench \
  && swift build -c release --product grammar-workbench-lsp \
  && swift build -c release --product grammar-workbench-service
 

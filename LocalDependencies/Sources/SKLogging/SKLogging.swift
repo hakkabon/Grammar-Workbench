@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+#if canImport(os)
 @_exported import os
 
 public typealias LogLevel = OSLogType
@@ -23,6 +24,53 @@ public typealias LogLevel = OSLogType
 public var logger: Logger {
   Logger(subsystem: "grammar-workbench-lsp", category: "grammar-workbench")
 }
+#else
+public enum LogLevel: Sendable {
+  case `default`
+  case info
+  case debug
+  case error
+  case fault
+}
+
+/// Source-compatible portable stand-in for the subset of `os.Logger` used by
+/// the vendored LSP transport. It intentionally emits nothing: an LSP server
+/// must not mix diagnostic logging into its stdout protocol stream.
+public struct Logger: Sendable {
+  public enum Privacy: Sendable {
+    case `public`
+    case `private`
+  }
+
+  public struct Message: ExpressibleByStringLiteral, ExpressibleByStringInterpolation, Sendable {
+    public struct StringInterpolation: StringInterpolationProtocol, Sendable {
+      public init(literalCapacity: Int, interpolationCount: Int) {}
+      public mutating func appendLiteral(_ literal: String) {}
+      public mutating func appendInterpolation<T>(_ value: T) {}
+      public mutating func appendInterpolation<T>(_ value: T, privacy: Privacy) {}
+    }
+
+    public init(stringLiteral value: String) {}
+    public init(stringInterpolation: StringInterpolation) {}
+  }
+
+  public init(subsystem: String, category: String) {}
+  public func log(_ message: Message) {}
+  public func log(level: LogLevel, _ message: Message) {}
+  public func trace(_ message: Message) {}
+  public func debug(_ message: Message) {}
+  public func info(_ message: Message) {}
+  public func notice(_ message: Message) {}
+  public func warning(_ message: Message) {}
+  public func error(_ message: Message) {}
+  public func critical(_ message: Message) {}
+  public func fault(_ message: Message) {}
+}
+
+public var logger: Logger {
+  Logger(subsystem: "grammar-workbench-lsp", category: "grammar-workbench")
+}
+#endif
 
 /// Minimal stand-in for the upstream logging-scope configuration point.
 public enum LoggingScope {

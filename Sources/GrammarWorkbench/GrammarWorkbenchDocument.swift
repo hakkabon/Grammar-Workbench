@@ -37,15 +37,7 @@ public struct WorkbenchSample: Identifiable, Hashable, Codable, Sendable {
     }
 }
 
-#if canImport(SwiftUI)
-public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
-    public static let readableContentTypes: [UTType] = [
-        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
-    ]
-    public static let writableContentTypes: [UTType] = [
-        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
-    ]
-
+public struct GrammarWorkbenchDocument: Codable, Sendable {
     public var source: String
     public var algorithm: String
     public var notation: GrammarSourceNotation
@@ -95,6 +87,29 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         )
     }
 
+    public static let defaultSource = """
+    %start E
+    %token ID /[A-Za-z_][A-Za-z0-9_]*/
+    %skip /\\s+/
+    %left '+'
+    %left '*'
+
+    E : E '+' E
+      | E '*' E
+      | ID
+      ;
+    """
+}
+
+#if canImport(SwiftUI)
+extension GrammarWorkbenchDocument: FileDocument {
+    public static let readableContentTypes: [UTType] = [
+        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
+    ]
+    public static let writableContentTypes: [UTType] = [
+        .grammarWorkbenchDocument, .ebnfGrammar, .bnfGrammar, .yaccGrammar, .plainText
+    ]
+
     public init(configuration: ReadConfiguration) throws {
         guard let data = configuration.file.regularFileContents else {
             throw CocoaError(.fileReadCorruptFile)
@@ -135,19 +150,6 @@ public struct GrammarWorkbenchDocument: FileDocument, Codable, Sendable {
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return FileWrapper(regularFileWithContents: try encoder.encode(self))
     }
-
-    public static let defaultSource = """
-    %start E
-    %token ID /[A-Za-z_][A-Za-z0-9_]*/
-    %skip /\\s+/
-    %left '+'
-    %left '*'
-
-    E : E '+' E
-      | E '*' E
-      | ID
-      ;
-    """
 }
 
 public struct GrammarWorkbenchView: View {

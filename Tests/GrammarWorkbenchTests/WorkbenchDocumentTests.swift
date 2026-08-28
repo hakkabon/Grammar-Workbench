@@ -1,6 +1,8 @@
 import Foundation
 import Testing
+#if canImport(SwiftUI) && canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
+#endif
 @testable import GrammarWorkbench
 
 @MainActor
@@ -53,6 +55,7 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     #expect(document.selectedSampleID == document.samples[0].id)
 }
 
+#if canImport(SwiftUI) && canImport(UniformTypeIdentifiers)
 @Test func documentReadsUTF8PlainTextGrammar() throws {
     let source = "%start S\nS : 'text' ;"
     let document = try GrammarWorkbenchDocument(
@@ -101,6 +104,7 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.ebnfGrammar))
     #expect(GrammarWorkbenchDocument.readableContentTypes.contains(.yaccGrammar))
 }
+#endif
 
 @MainActor
 @Test func debouncedEditingRegeneratesOnlyTheLatestValidSource() async throws {

@@ -361,9 +361,9 @@ public enum GrammarResearchValidator {
         for _ in 0..<repetitions {
             var options = item.generalizedOptions
             options.searchStrategy = .depthFirst
-            let started = DispatchTime.now().uptimeNanoseconds
+            let started = portableTimestampNanoseconds()
             let result = compilation.parseGeneralized(item.input, options: options)
-            timings.append(DispatchTime.now().uptimeNanoseconds - started)
+            timings.append(portableElapsedNanoseconds(since: started))
             primary = primary ?? result
             fingerprints.append(fingerprint(result))
         }

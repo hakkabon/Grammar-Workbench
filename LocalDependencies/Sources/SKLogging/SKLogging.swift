@@ -132,7 +132,9 @@ public final class CustomLogStringConvertibleWrapper: NSObject, Sendable {
     underlyingObject.description
   }
 
+#if canImport(ObjectiveC)
   @objc
+#endif
   public var redactedDescription: String {
     underlyingObject.redactedDescription
   }

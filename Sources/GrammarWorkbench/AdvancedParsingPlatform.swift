@@ -1,5 +1,22 @@
 import Foundation
 
+/// A Foundation-only timestamp used for portable performance reporting.
+///
+/// `DispatchTime` is not available in every Swift WASI runtime. These metrics
+/// are observational rather than scheduling primitives, so a wall-clock
+/// timestamp is sufficient. Elapsed calculations saturate at zero in case the
+/// system clock moves backwards during an operation.
+@inline(__always)
+func portableTimestampNanoseconds() -> UInt64 {
+    UInt64(max(0, Date().timeIntervalSinceReferenceDate * 1_000_000_000))
+}
+
+@inline(__always)
+func portableElapsedNanoseconds(since started: UInt64) -> UInt64 {
+    let finished = portableTimestampNanoseconds()
+    return finished >= started ? finished - started : 0
+}
+
 public enum GrammarParsingMode: String, Hashable, Codable, Sendable {
     case deterministic
     case generalized
@@ -153,7 +170,7 @@ public struct GrammarParsingPlatform: Sendable {
     }
 
     public func parse(_ request: GrammarPlatformParseRequest) -> GrammarPlatformParseResult {
-        let started = DispatchTime.now().uptimeNanoseconds
+        let started = portableTimestampNanoseconds()
         switch request.options.mode {
         case .deterministic:
             return deterministicResult(request, started: started, decision: "Deterministic mode was requested.")
@@ -195,7 +212,7 @@ public struct GrammarParsingPlatform: Sendable {
     public func parseCancellable(
         _ request: GrammarPlatformParseRequest
     ) async -> GrammarPlatformParseResult {
-        let started = DispatchTime.now().uptimeNanoseconds
+        let started = portableTimestampNanoseconds()
         if Task.isCancelled { return cancelledResult(request, started: started) }
         switch request.options.mode {
         case .deterministic:
@@ -314,7 +331,7 @@ public struct GrammarParsingPlatform: Sendable {
             deterministic: parsed, generalized: nil,
             selectedTree: parsed.syntaxTree, selectedAlternativeID: nil,
             metrics: .init(
-                elapsedNanoseconds: DispatchTime.now().uptimeNanoseconds - started,
+                elapsedNanoseconds: portableElapsedNanoseconds(since: started),
                 deterministicAttempts: 1, generalizedConfigurations: 0,
                 generalizedBranchPoints: 0,
                 acceptedAlternatives: parsed.syntaxTree == nil ? 0 : 1,
@@ -352,7 +369,7 @@ public struct GrammarParsingPlatform: Sendable {
             deterministic: deterministic, generalized: result,
             selectedTree: selected?.tree, selectedAlternativeID: selected?.id,
             metrics: .init(
-                elapsedNanoseconds: DispatchTime.now().uptimeNanoseconds - started,
+                elapsedNanoseconds: portableElapsedNanoseconds(since: started),
                 deterministicAttempts: deterministicAttempts,
                 generalizedConfigurations: result.metrics.exploredConfigurations,
                 generalizedBranchPoints: result.metrics.branchPoints,
@@ -371,7 +388,7 @@ public struct GrammarParsingPlatform: Sendable {
             deterministic: nil, generalized: nil,
             selectedTree: nil, selectedAlternativeID: nil,
             metrics: .init(
-                elapsedNanoseconds: DispatchTime.now().uptimeNanoseconds - started,
+                elapsedNanoseconds: portableElapsedNanoseconds(since: started),
                 deterministicAttempts: 0, generalizedConfigurations: 0,
                 generalizedBranchPoints: 0, acceptedAlternatives: 0, reachedLimits: []
             ),

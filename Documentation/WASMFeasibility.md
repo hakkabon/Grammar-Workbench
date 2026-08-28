@@ -18,7 +18,7 @@ module remains a standalone-runtime and CI portability target. See
 `GrammarWASMFeasibilityReport.current` and `grammar-workbench wasm-feasibility`
 publish the current status in machine-readable form. WASM remains
 **experimental**, but `Packaging/PortabilityToolchain.json` now pins Swift
-6.3, Node 22, the `swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1` SDK, the WASI target, and the
+6.0, Node 22, the `6.0.3-RELEASE-wasm32-unknown-wasi` SDK, the WASI target, and the
 Wasmtime runtime family.
 
 The viable surface is:
@@ -38,15 +38,14 @@ Current exclusions are:
 
 ## Build the WASI module
 
-The build script prepares the pinned Grammar dependency for non-Apple platforms
-before invoking SwiftPM. This applies the same revision-checked `OSLog`
-compatibility patch used by Linux delivery; it can be retired after Grammar
-publishes portable logging support.
+The pinned Grammar dependency uses portable structured logging with a no-op
+default. Its Apple-only `OSLog` adapter is conditionally compiled, so the WASI
+build does not patch dependency checkouts.
 
 Install the SDK declared by `Packaging/PortabilityToolchain.json`:
 
 ```sh
-swift sdk install https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.3-RELEASE/swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1.artifactbundle.zip --checksum 6704d137e532f1ac31eafedd80658f9ee61239f2b6291216a02da32361ea9dcb
+swift sdk install https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.3-RELEASE/swift-wasm-6.0.3-RELEASE-wasm32-unknown-wasi.artifactbundle.zip --checksum 31d3585b06dd92de390bacc18527801480163188cd7473f492956b5e213a8618
 Scripts/build-wasm-demo.sh --require-sdk
 ```
 

@@ -8,7 +8,6 @@ if [ "$(uname -s)" != "Linux" ]; then
 fi
 
 cd "$ROOT_DIR"
-Scripts/prepare-portable-dependencies.sh
 swift build --product grammar-workbench
 swift build --product grammar-workbench-lsp
 swift build --product grammar-workbench-service

@@ -25,7 +25,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",
-            revision: "940fdb4f857391e7cdecbb016adabd33db2121c8"
+            revision: "b965098a7a6b85be53f0b21dba5db2d13e7132af"
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",

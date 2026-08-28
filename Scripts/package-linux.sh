@@ -28,7 +28,6 @@ SCRATCH="$WORK_DIR/build"
 PACKAGE_NAME="Grammar-Workbench-$VERSION-linux-$ARCHIVE_ARCH"
 PACKAGE_DIR="$WORK_DIR/$PACKAGE_NAME"
 
-"$ROOT_DIR/Scripts/prepare-portable-dependencies.sh" "$SCRATCH"
 for PRODUCT in grammar-workbench grammar-workbench-lsp grammar-workbench-service; do
     swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --product "$PRODUCT"
 done

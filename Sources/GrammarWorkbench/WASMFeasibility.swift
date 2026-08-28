@@ -29,9 +29,9 @@ public struct GrammarWASMFeasibilityReport: Hashable, Codable, Sendable {
         transport: "newline-delimited-json",
         browserDemoUsesPrecomputedArtifact: true,
         nativeGraphLayoutAvailable: false,
-        pinnedSwiftVersion: "6.3",
-        pinnedSwiftSDKID: "swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1",
-        wasiTargetTriple: "wasm32-unknown-wasip1",
+        pinnedSwiftVersion: "6.0",
+        pinnedSwiftSDKID: "6.0.3-RELEASE-wasm32-unknown-wasi",
+        wasiTargetTriple: "wasm32-unknown-wasi",
         browserExecutionModel: "precomputed-lr-artifact",
         nativeWASIEquivalenceContract: true,
         constraints: [

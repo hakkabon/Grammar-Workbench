@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "swiftToolsVersion": "6.0",
-  "requiredSwiftVersion": "6.3",
+  "requiredSwiftVersion": "6.0",
   "nodeMajorVersion": 22,
   "wasi": {
-    "swiftSDKID": "swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1",
-    "swiftSDKBundleURL": "https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.3-RELEASE/swift-wasm-6.3-RELEASE-wasm32-unknown-wasip1.artifactbundle.zip",
-    "swiftSDKBundleSHA256": "6704d137e532f1ac31eafedd80658f9ee61239f2b6291216a02da32361ea9dcb",
-    "targetTriple": "wasm32-unknown-wasip1",
+    "swiftSDKID": "6.0.3-RELEASE-wasm32-unknown-wasi",
+    "swiftSDKBundleURL": "https://github.com/swiftwasm/swift/releases/download/swift-wasm-6.0.3-RELEASE/swift-wasm-6.0.3-RELEASE-wasm32-unknown-wasi.artifactbundle.zip",
+    "swiftSDKBundleSHA256": "31d3585b06dd92de390bacc18527801480163188cd7473f492956b5e213a8618",
+    "targetTriple": "wasm32-unknown-wasi",
     "runtime": "wasmtime",
     "minimumRuntimeVersion": "30.0.0"
   },

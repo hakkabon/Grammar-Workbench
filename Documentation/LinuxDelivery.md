@@ -8,7 +8,7 @@ The SwiftUI application is intentionally not part of the Linux archive. Linux us
 
 - A 64-bit `x86_64` or `arm64` Linux system
 - A glibc-based distribution compatible with the build environment
-- Swift 6.3 when building from source; prebuilt archives do not require a Swift toolchain
+- Swift 6.0 when building from source; prebuilt archives do not require a Swift toolchain
 
 The release archive is named `Grammar-Workbench-VERSION-linux-ARCH.tar.gz` and has an adjacent `.sha256` file. Verify and unpack it with:
 
@@ -54,9 +54,6 @@ Scripts/validate-linux-delivery.sh
 
 The validation gate builds the CLI, LSP, and service, runs portable API tests, packages the release, inspects its manifest, and runs the same CLI/LSP/service smoke suites used by macOS packaging. GitHub CI executes this gate on Ubuntu, and tagged releases produce a Linux archive independently of the macOS application artifacts.
 
-The pinned Grammar revision predates portable logging support and imports Apple's
-`OSLog` module directly. Portable build and packaging scripts run
-`Scripts/prepare-portable-dependencies.sh`, which verifies that exact revision and
-applies the narrow compatibility patch under `Patches/`. The workaround fails
-closed if the dependency revision or source changes. It should be removed when a
-Grammar release with conditional logging is available.
+The pinned Grammar revision provides portable structured logging with a no-op
+default. Its optional Apple adapter is the only layer that imports `OSLog`, so
+Linux builds do not require dependency-checkout patching.

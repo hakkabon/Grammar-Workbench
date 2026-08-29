@@ -75,6 +75,7 @@ import Testing
     #expect(!preview.proposedSource.contains("Dead"))
 }
 
+#if os(macOS)
 @MainActor @Test func explorerStoreSharesGuidanceWithTheNativeWorkspace() {
     let store = ExplorerStore(source: "%start E\nE : E '+' E | 'id' ;")
     let report = store.guidance(tests: [])
@@ -82,3 +83,4 @@ import Testing
     #expect(report.summary.unresolvedConflicts == 1)
     store.selectGuidance(report.nextAction!)
 }
+#endif

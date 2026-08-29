@@ -150,12 +150,14 @@ import Testing
 }
 #endif
 
+#if os(macOS)
 @Test func primaryVisualFoundationKeepsAllPanesSideBySide() {
     #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
     #expect(WorkbenchVisualFoundation.sourceMinimumWidth >= 300)
     #expect(WorkbenchVisualFoundation.workspaceMinimumWidth > WorkbenchVisualFoundation.sourceMinimumWidth)
     #expect(WorkbenchVisualFoundation.inspectorMinimumWidth >= 240)
 }
+#endif
 
 #if os(macOS)
 @MainActor

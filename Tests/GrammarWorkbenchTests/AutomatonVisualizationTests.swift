@@ -1,3 +1,4 @@
+#if os(macOS)
 import Testing
 @testable import GrammarWorkbench
 
@@ -82,3 +83,4 @@ private func visualizationArtifact(stateCount: Int) -> GrammarArtifact {
     #expect(svg.contains("data-state='2'"))
     #expect(svg.contains("selected"))
 }
+#endif

@@ -23,6 +23,7 @@ private func decisionArtifact(_ source: String, algorithm: LRAlgorithm = .lalr) 
     }
 }
 
+#if os(macOS)
 @Test func automatonSVGMarksResolvedStatesWithBadgesAndAccessibility() throws {
     let artifact = try decisionArtifact(GrammarWorkbenchDocument.defaultSource)
     let svg = AutomatonSVG.render(artifact, selected: nil)
@@ -54,6 +55,7 @@ private func decisionArtifact(_ source: String, algorithm: LRAlgorithm = .lalr) 
     #expect(expectedFilter.visible.count == 1)
     #expect(expectedFilter.visible.allSatisfy { expected.decisionSummary(for: $0)?.disposition == .expected })
 }
+#endif
 
 @Test func nonassociativeDecisionRetainsCandidatesAndEffectiveError() throws {
     let artifact = try decisionArtifact("%start E\n%nonassoc '<'\nE : E '<' E | 'id' ;")

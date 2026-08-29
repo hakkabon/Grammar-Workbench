@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 #endif
 @testable import GrammarWorkbench
 
+#if os(macOS)
 @MainActor
 private func awaitRegeneration(_ store: ExplorerStore) async throws {
     for _ in 0..<200 {
@@ -22,6 +23,7 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     }
     Issue.record("Incremental sample analysis did not settle within two seconds.")
 }
+#endif
 
 @Test func documentRoundTripPreservesWorkbenchState() throws {
     let selectedID = UUID()
@@ -106,6 +108,7 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
 }
 #endif
 
+#if os(macOS)
 @MainActor
 @Test func debouncedEditingRegeneratesOnlyTheLatestValidSource() async throws {
     let store = ExplorerStore()
@@ -145,3 +148,4 @@ private func awaitIncrementalSample(_ store: ExplorerStore, text: String) async 
     #expect(store.incrementalSampleAnalysis?.reuse.createdTokens == 1)
     #expect(store.incrementalSampleAnalysis?.tokens.first?.id != firstID)
 }
+#endif

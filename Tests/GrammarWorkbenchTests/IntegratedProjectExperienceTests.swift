@@ -72,6 +72,7 @@ Statement : LET ID SEMI | USE ID SEMI ;
     #expect(try JSONDecoder().decode(GrammarProjectExperienceSnapshot.self, from: encoded) == snapshot)
 }
 
+#if os(macOS)
 @MainActor @Test func explorerStorePublishesIntegratedOperationStatus() {
     let store = ExplorerStore(source: "%start S\nS : 'ok' ;")
     store.updateSource("%start S\nS : 'next' ;", debounceNanoseconds: 5_000_000_000)
@@ -90,3 +91,4 @@ Statement : LET ID SEMI | USE ID SEMI ;
     #expect(snapshot.problems.contains { $0.area == .grammar && $0.severity == .error })
     #expect(store.artifact.states.count == originalStates)
 }
+#endif

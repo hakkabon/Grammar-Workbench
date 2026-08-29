@@ -541,7 +541,10 @@ private struct AutomatonWebView: NSViewRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+    final class Coordinator: NSObject,
+        @preconcurrency WKScriptMessageHandler,
+        @preconcurrency WKNavigationDelegate
+    {
         var onSelect: (StateID) -> Void
         var lastHTML: String?
         var lastSelected: StateID?

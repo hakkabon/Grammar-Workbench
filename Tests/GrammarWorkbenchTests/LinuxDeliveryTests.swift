@@ -39,6 +39,11 @@ import Testing
     #expect(validation.contains("smoke-lsp.sh"))
     #expect(validation.contains("smoke-tooling-service.sh"))
 
+    let smoke = try source("Scripts/smoke-release.sh")
+    #expect(smoke.contains("graphLayoutAvailability"))
+    #expect(smoke.contains("interchangeOnly"))
+    #expect(smoke.contains("graph-dot"))
+
     let manifest = try source("Package.swift")
     #expect(manifest.contains("#if os(macOS)"))
     #expect(manifest.contains("nativeAppProducts"))

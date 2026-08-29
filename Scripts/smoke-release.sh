@@ -12,6 +12,7 @@ WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-smoke.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT
 
 test -x "$CLI_PATH"
+"$CLI_PATH" platform-info "$WORK_DIR/runtime-platform.json"
 for GRAMMAR in "$ROOT_DIR"/Examples/Corpus/*.grammar; do
     "$CLI_PATH" validate "$GRAMMAR" >/dev/null
 done
@@ -27,7 +28,7 @@ done
 "$CLI_PATH" generate semantic-swift "$ROOT_DIR/Examples/Expression.grammar" "$WORK_DIR/ExpressionSemantics.swift" typeName=ExpressionSemantics
 "$CLI_PATH" parse "$ROOT_DIR/Examples/Expression.grammar" "left + right" "$WORK_DIR/parse.json"
 "$CLI_PATH" generalized-parse "$ROOT_DIR/Examples/Expression.grammar" "left + middle + right" "$WORK_DIR/generalized.json" --include-resolved --breadth-first --maximum-trees=8
-"$CLI_PATH" platform-parse "$ROOT_DIR/Examples/Corpus/ExpectedConflict.grammar" "if condition then if nested then left else right" "$WORK_DIR/platform.json" --ambiguity=firstStable
+"$CLI_PATH" platform-parse "$ROOT_DIR/Examples/Corpus/ExpectedConflict.grammar" "if condition then if nested then left else right" "$WORK_DIR/platform-parse.json" --ambiguity=firstStable
 "$CLI_PATH" grammar-analyze "$ROOT_DIR/Examples/TransformationCleanup.grammar" "$WORK_DIR/analysis.json"
 "$CLI_PATH" grammar-transform unreachable "$ROOT_DIR/Examples/TransformationCleanup.grammar" "$WORK_DIR/cleaned.grammar"
 "$CLI_PATH" validate "$WORK_DIR/cleaned.grammar" >/dev/null
@@ -37,8 +38,11 @@ done
 "$CLI_PATH" project-generate "$ROOT_DIR/Examples/ExpressionProject.json" "$WORK_DIR/project-output"
 "$CLI_PATH" kit-validate "$ROOT_DIR/Examples/TinySemanticLanguageKit.json"
 "$CLI_PATH" kit-project "$ROOT_DIR/Examples/TinySemanticLanguageKit.json" "$WORK_DIR/kit-project.json"
-"$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.json"
-"$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.svg"
+"$CLI_PATH" graph-dot "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph.dot"
+if grep -q '"graphLayoutAvailability" : "swiftLayout"' "$WORK_DIR/runtime-platform.json"; then
+    "$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.json"
+    "$CLI_PATH" graph-layout "$ROOT_DIR/Examples/GraphVisualization.json" "$WORK_DIR/graph-layout.svg"
+fi
 "$CLI_PATH" portable-import "$ROOT_DIR/Examples/PortableArithmetic.bnf" "$WORK_DIR/portable-grammar.json" --notation=bnfProfile --start=expression
 "$CLI_PATH" portable-render "$WORK_DIR/portable-grammar.json" "$WORK_DIR/portable-grammar.bnf" --format=bnfProfile --verify
 "$CLI_PATH" bootstrap-bundle "$WORK_DIR/bootstrap-bundle.json"
@@ -56,14 +60,20 @@ test -s "$WORK_DIR/Expression.semantic.json"
 test -s "$WORK_DIR/ExpressionSemantics.swift"
 test -s "$WORK_DIR/parse.json"
 test -s "$WORK_DIR/generalized.json"
-test -s "$WORK_DIR/platform.json"
+test -s "$WORK_DIR/platform-parse.json"
 test -s "$WORK_DIR/analysis.json"
 test -s "$WORK_DIR/cleaned.grammar"
 test -s "$WORK_DIR/project-output/Generated/Grammar.semantic.json"
 test -s "$WORK_DIR/source-project.json"
 test -s "$WORK_DIR/kit-project.json"
-test -s "$WORK_DIR/graph-layout.json"
-test -s "$WORK_DIR/graph-layout.svg"
+test -s "$WORK_DIR/runtime-platform.json"
+test -s "$WORK_DIR/graph.dot"
+if grep -q '"graphLayoutAvailability" : "swiftLayout"' "$WORK_DIR/runtime-platform.json"; then
+    test -s "$WORK_DIR/graph-layout.json"
+    test -s "$WORK_DIR/graph-layout.svg"
+else
+    grep -q '"graphLayoutAvailability" : "interchangeOnly"' "$WORK_DIR/runtime-platform.json"
+fi
 test -s "$WORK_DIR/portable-grammar.json"
 test -s "$WORK_DIR/portable-grammar.bnf"
 test -s "$WORK_DIR/bootstrap-bundle.json"

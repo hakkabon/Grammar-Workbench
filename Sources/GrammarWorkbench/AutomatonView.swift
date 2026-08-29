@@ -540,6 +540,7 @@ private struct AutomatonWebView: NSViewRepresentable {
         return Int(AutomatonLayoutEngine.layout(states: states, transitions: transitions, compact: compact).height)
     }
 
+    @MainActor
     final class Coordinator: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
         var onSelect: (StateID) -> Void
         var lastHTML: String?

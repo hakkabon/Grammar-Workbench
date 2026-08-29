@@ -1,6 +1,10 @@
+#if os(macOS)
 import AppKit
+#endif
 import Foundation
+#if os(macOS)
 import SwiftUI
+#endif
 import Testing
 @testable import GrammarWorkbench
 
@@ -652,6 +656,7 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
     #expect(Date().timeIntervalSince(start) * 1_000 < budget.repeatedParseMilliseconds)
 }
 
+#if os(macOS)
 @MainActor
 @Test func longGrammarLinesRemainContainedByTheEditorClipView() {
     let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: 240))
@@ -679,3 +684,4 @@ private struct IncrementalListSemanticsForReleaseGate: GrammarSemanticReducer {
     #expect(WorkbenchVisualFoundation.windowMinimumWidth >= budget.visualMinimumWorkspaceWidth)
     #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
 }
+#endif

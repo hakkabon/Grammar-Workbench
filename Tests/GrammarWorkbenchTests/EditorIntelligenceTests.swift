@@ -1,5 +1,7 @@
+#if os(macOS)
 import AppKit
 import SwiftUI
+#endif
 import Testing
 @testable import GrammarWorkbench
 
@@ -46,6 +48,7 @@ import Testing
     #expect(!GrammarFrontEnd.process(fix.applying(to: source)).hasErrors)
 }
 
+#if os(macOS)
 @MainActor
 @Test func artifactSelectionResolvesToProductionSourceRange() {
     let source = "%start S\nS : A ;\nA : 'id' ;"
@@ -55,6 +58,7 @@ import Testing
     store.select(.state(.init(rawValue: 0)))
     #expect(store.sourceSelection != nil)
 }
+#endif
 
 @Test func undefinedSymbolQuickFixAddsTokenDeclaration() throws {
     let source = "%start S\n%token ID\nS : ID Missing ;"
@@ -99,6 +103,7 @@ import Testing
     #expect(!GrammarFrontEnd.process(definitionFix.applying(to: undefined), notation: .ebnf).hasErrors)
 }
 
+#if os(macOS)
 @MainActor @Test func EBNFArtifactNavigationSelectsTheOriginalDeclaration() throws {
     let source = "root = item { item } ;\nitem = \"x\" ;"
     let store = ExplorerStore(source: source, notation: .ebnf)
@@ -143,6 +148,7 @@ import Testing
     #expect(textView.frame.height >= scrollView.contentSize.height)
     #expect(textView.minSize.height == scrollView.contentSize.height)
 }
+#endif
 
 @Test func primaryVisualFoundationKeepsAllPanesSideBySide() {
     #expect(WorkbenchVisualFoundation.requiredPaneWidth <= WorkbenchVisualFoundation.windowMinimumWidth)
@@ -151,6 +157,7 @@ import Testing
     #expect(WorkbenchVisualFoundation.inspectorMinimumWidth >= 240)
 }
 
+#if os(macOS)
 @MainActor
 @Test func lineNumberRulerNeverConsumesTheEditorViewport() {
     let scrollView = GrammarEditorScrollView(frame: NSRect(x: 0, y: 0, width: 380, height: 520))
@@ -204,3 +211,4 @@ import Testing
     #expect(editorFrame.minX >= rulerFrame.maxX - 1)
     #expect(editorFrame.intersects(rulerFrame) == false)
 }
+#endif

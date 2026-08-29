@@ -2,6 +2,7 @@
 import SwiftUI
 import GrammarDiagramKit
 
+@MainActor
 struct GrammarDiagramREPLView: View {
     let compilation: GrammarCompilation
     let onSelectSource: (SourceRange) -> Void

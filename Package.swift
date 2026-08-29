@@ -3,6 +3,18 @@ import PackageDescription
 
 let lspVendoredPath = "LocalDependencies/Sources"
 
+#if os(macOS)
+let nativeAppProducts: [Product] = [
+    .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"])
+]
+let nativeAppTargets: [Target] = [
+    .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"])
+]
+#else
+let nativeAppProducts: [Product] = []
+let nativeAppTargets: [Target] = []
+#endif
+
 let package = Package(
     name: "GrammarWorkbench",
     platforms: [.macOS(.v14), .iOS(.v17)],
@@ -10,14 +22,13 @@ let package = Package(
         .library(name: "GrammarWorkbenchCore", targets: ["GrammarWorkbenchCore"]),
         .library(name: "GrammarWorkbench", targets: ["GrammarWorkbench"]),
         .library(name: "GrammarWorkbenchSDK", targets: ["GrammarWorkbenchSDK"]),
-        .executable(name: "GrammarWorkbenchApp", targets: ["GrammarWorkbenchApp"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .executable(name: "grammar-workbench-service", targets: ["GrammarWorkbenchServiceHost"]),
         .executable(name: "grammar-workbench-wasi", targets: ["GrammarWorkbenchWASIDemo"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
         .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
         .plugin(name: "GrammarWorkbenchPlugin", targets: ["GrammarWorkbenchPlugin"])
-    ],
+    ] + nativeAppProducts,
     dependencies: [
         .package(
              url: "https://github.com/hakkabon/Swift-Layout.git",
@@ -47,7 +58,6 @@ let package = Package(
         ),
         .target(name: "GrammarWorkbenchCore", dependencies: ["GrammarWorkbench"]),
         .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbench"]),
-        .executableTarget(name: "GrammarWorkbenchApp", dependencies: ["GrammarWorkbench"]),
         .executableTarget(
             name: "GrammarWorkbenchCLI",
             dependencies: ["GrammarWorkbench", "GrammarWorkbenchSDK"]
@@ -94,5 +104,5 @@ let package = Package(
                 "GrammarWorkbenchLSP", "LanguageServerProtocol", "LanguageServerProtocolTransport"
             ]
         )
-    ]
+    ] + nativeAppTargets
 )

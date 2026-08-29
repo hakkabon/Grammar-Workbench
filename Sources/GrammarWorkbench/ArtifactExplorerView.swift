@@ -2,6 +2,7 @@
 import SwiftUI
 import AppKit
 
+@MainActor
 public struct ArtifactExplorerView: View {
     @State private var store: ExplorerStore
     @State private var tab = GrammarWorkbenchDestination.guide

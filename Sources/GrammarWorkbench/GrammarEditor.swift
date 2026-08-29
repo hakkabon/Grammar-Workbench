@@ -121,6 +121,7 @@ struct GrammarSourceEditor: NSViewRepresentable {
         Coordinator(text: $text)
     }
 
+    @MainActor
     static func makeTextView(contentSize: NSSize) -> NSTextView {
         let initialSize = GrammarEditorScrollView.usableViewportSize(contentSize)
         let textView = NSTextView(frame: NSRect(origin: .zero, size: initialSize))
@@ -321,6 +322,7 @@ struct GrammarSourceEditor: NSViewRepresentable {
 final class GrammarEditorScrollView: NSScrollView {
     static let fallbackViewportSize = NSSize(width: 320, height: 240)
 
+    @MainActor
     static func usableViewportSize(_ proposed: NSSize) -> NSSize {
         NSSize(
             width: proposed.width > 1 ? proposed.width : fallbackViewportSize.width,

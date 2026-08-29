@@ -39,6 +39,11 @@ import Testing
     #expect(validation.contains("smoke-lsp.sh"))
     #expect(validation.contains("smoke-tooling-service.sh"))
 
+    let manifest = try source("Package.swift")
+    #expect(manifest.contains("#if os(macOS)"))
+    #expect(manifest.contains("nativeAppProducts"))
+    #expect(manifest.contains("nativeAppTargets"))
+
     let dockerfile = try source("Dockerfile")
     #expect(dockerfile.contains("FROM swift:6.0-jammy AS builder"))
     #expect(dockerfile.contains("ENTRYPOINT [\"grammar-workbench\"]"))

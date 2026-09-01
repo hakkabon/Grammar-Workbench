@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "cases": [
+    { "id": "mini-empty", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "", "expectedStatus": "accepted", "tags": ["epsilon", "statements"] },
+    { "id": "mini-let", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "let answer = 42;", "expectedStatus": "accepted", "tags": ["precedence", "statements"] },
+    { "id": "mini-precedence", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "print 1 + 2 * 3;", "expectedStatus": "accepted", "tags": ["left-recursion", "precedence"] },
+    { "id": "mini-missing-semicolon", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "print 1", "expectedStatus": "rejected", "tags": ["diagnostic", "malformed-input"] },
+    { "id": "json-null", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "null", "expectedStatus": "accepted", "tags": ["literal"] },
+    { "id": "json-nested", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "{\"items\":[1,true,null,{\"name\":\"x\"}]}", "expectedStatus": "accepted", "tags": ["nullable", "recursive"] },
+    { "id": "json-empty-containers", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "{\"array\":[],\"object\":{}}", "expectedStatus": "accepted", "tags": ["epsilon", "recursive"] },
+    { "id": "json-trailing-comma", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "[1,]", "expectedStatus": "acceptedWithRecovery", "tags": ["diagnostic", "malformed-input", "recovery"] }
+  ]
+}

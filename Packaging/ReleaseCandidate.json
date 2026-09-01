@@ -39,6 +39,8 @@
   "requiredSourceProjects": [
     "Examples/SourceProject/.grammar-workbench-source.json"
   ],
+  "ecosystemCompatibilityManifest": "Packaging/EcosystemCompatibility.json",
+  "ecosystemConformanceCorpus": "Validation/Ecosystem/Corpus.json",
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,

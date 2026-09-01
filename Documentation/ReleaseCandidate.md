@@ -48,6 +48,10 @@ The release-candidate gate verifies the product from four perspectives:
 24. The collaborative host must fill its declared workspace, participant, and
     document capacities, preserve ordered bounded events, reject stale edits,
     and replay retained operation identifiers without duplicate mutation.
+25. The ecosystem compatibility manifest must pin full revisions for Grammar,
+    Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
+    corpus must satisfy its versioned schema, and the packaged Workbench CLI
+    must produce every normalized expected status.
 
 Run the normal gate:
 
@@ -64,3 +68,8 @@ Scripts/validate-release-candidate.sh --package
 Developer ID signing and notarization remain credential-gated. Supply `SIGNING_IDENTITY` and `NOTARY_PROFILE` to the packaging gate when validating a distribution candidate.
 
 Budgets and required consumer fixtures are declared in `Packaging/ReleaseCandidate.json`. Budget changes should be reviewed as release-policy changes, not silently adjusted to accommodate regressions.
+
+The scheduled `Ecosystem compatibility` workflow additionally checks out every
+downstream repository at its exact manifest revision and runs its test suite.
+Entries marked `pending-adapter` are build-validated but make no behavioral
+conformance claim until that repository adds a corpus adapter.

@@ -100,6 +100,8 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredGraphFixtures: [String]
     let requiredResearchProgrammes: [String]
     let requiredSourceProjects: [String]
+    let ecosystemCompatibilityManifest: String
+    let ecosystemConformanceCorpus: String
     let budgets: Budgets
 }
 
@@ -158,6 +160,24 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
+    let ecosystemURL = packageRoot().appendingPathComponent(policy.ecosystemCompatibilityManifest)
+    let ecosystem = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: ecosystemURL)
+    ) as? [String: Any]
+    #expect(ecosystem?["schemaVersion"] as? Int == 1)
+    let repositories = ecosystem?["repositories"] as? [[String: Any]]
+    #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
+        "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
+    ])
+    #expect(repositories?.allSatisfy {
+        (($0["revision"] as? String)?.count == 40)
+    } == true)
+    let corpusURL = packageRoot().appendingPathComponent(policy.ecosystemConformanceCorpus)
+    let corpus = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: corpusURL)
+    ) as? [String: Any]
+    #expect(corpus?["schemaVersion"] as? Int == 1)
+    #expect((corpus?["cases"] as? [[String: Any]])?.isEmpty == false)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

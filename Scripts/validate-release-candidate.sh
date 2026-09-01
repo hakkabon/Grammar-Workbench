@@ -14,12 +14,14 @@ plutil -lint "$ROOT_DIR/Packaging/Info.plist" \
     "$ROOT_DIR/Packaging/GrammarWorkbench.entitlements"
 node -e 'const m=require(process.argv[1]); if (m.schemaVersion !== 1 || !m.wasi.swiftSDKID || !m.wasi.swiftSDKBundleSHA256) process.exit(1)' \
     "$ROOT_DIR/Packaging/PortabilityToolchain.json"
+node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs"
 
 swift test --package-path "$ROOT_DIR"
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench-lsp
 swift build --package-path "$ROOT_DIR" -c release --product grammar-workbench-service
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" -c release --show-bin-path)"
+node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$BIN_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$BIN_DIR/grammar-workbench-service"

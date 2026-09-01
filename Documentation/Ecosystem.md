@@ -1,5 +1,12 @@
 # Ecosystem expansion
 
+Cross-repository ownership, semantic-versioning rules, pinned revisions, and
+the adapter-first convergence process are defined by
+[EcosystemContract.md](EcosystemContract.md). The release gate validates the
+versioned shared corpus, while the scheduled integration workflow builds
+Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
+declared in `Packaging/EcosystemCompatibility.json`.
+
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
 Language-kit package manifests add semantic versions and explicit prerequisites;

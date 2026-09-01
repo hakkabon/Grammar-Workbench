@@ -1,0 +1,54 @@
+{
+  "schemaVersion": 1,
+  "contractVersion": "0.1.0",
+  "swiftIntegrationVersion": "6.0",
+  "corpus": {
+    "path": "Validation/Ecosystem/Corpus.json",
+    "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
+    "version": 1
+  },
+  "repositories": [
+    {
+      "name": "Grammar",
+      "repository": "https://github.com/hakkabon/Grammar.git",
+      "revision": "b965098a7a6b85be53f0b21dba5db2d13e7132af",
+      "role": "grammar-model",
+      "adoption": "pinned"
+    },
+    {
+      "name": "Parser",
+      "repository": "https://github.com/hakkabon/Parser.git",
+      "revision": "057ab080755e7a4e68a0fed7edd1e1e792b3c2bf",
+      "role": "parser-contracts",
+      "adoption": "pinned"
+    },
+    {
+      "name": "LR-Parsing",
+      "repository": "https://github.com/hakkabon/LR-Parsing.git",
+      "revision": "6a55a43bc8e22ec7748cb5c3b55878674486ea44",
+      "role": "lr-engine",
+      "adoption": "pending-adapter"
+    },
+    {
+      "name": "Compiler",
+      "repository": "https://github.com/hakkabon/Compiler.git",
+      "revision": "919551381e5f4bcfe51fb2d20f5441a51571a433",
+      "role": "downstream-consumer",
+      "adoption": "pending-adapter"
+    },
+    {
+      "name": "Grammar-REPL",
+      "repository": "https://github.com/hakkabon/Grammar-REPL.git",
+      "revision": "c82eaae2ca4d8c1310632e37704c2e4427497c08",
+      "role": "downstream-consumer",
+      "adoption": "pending-adapter"
+    },
+    {
+      "name": "Grammar-Workbench",
+      "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
+      "revision": "9783cf5ee2c895a5acd0fcd0dabd6aeae20e4100",
+      "role": "integration-coordinator",
+      "adoption": "conformance"
+    }
+  ]
+}

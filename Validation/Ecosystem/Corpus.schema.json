@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hakkabon/Grammar-Workbench/Validation/Ecosystem/Corpus.schema.json",
+  "title": "Grammar parser ecosystem conformance corpus",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "cases"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "grammar", "input", "expectedStatus", "tags"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+          "grammar": { "type": "string", "pattern": "^Examples/Corpus/[^/]+\\.grammar$" },
+          "input": { "type": "string" },
+          "expectedStatus": { "enum": ["accepted", "acceptedWithRecovery", "rejected", "lexicalError"] },
+          "tags": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z0-9-]+$" }
+          }
+        }
+      }
+    }
+  }
+}

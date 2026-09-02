@@ -26,6 +26,13 @@ must land in the owning repository before its manifest entry advances.
 
 ## Compiler
 
+The integration coordinator checks the pinned repository externally on Swift
+6.0. No Compiler source or public model is changed by that validation. At the
+recorded revision, dependency resolution currently fails because Compiler asks
+for Grammar on `main` while the released Parser asks for Grammar by exact
+revision. The dedicated compatibility job records this as a failure, and the
+adoption state remains `pending-adapter`.
+
 - Replace Grammar and Parser branch dependencies with compatible releases.
 - Add a corpus adapter without replacing compiler-specific syntax or semantic
   models.
@@ -33,6 +40,13 @@ must land in the owning repository before its manifest entry advances.
   skipping cases.
 
 ## Grammar-REPL
+
+The integration coordinator checks the pinned repository externally in a
+separate Swift 6.1 job. This preserves the Swift 6.0 foundational baseline and
+does not change REPL commands, rendering, or session state. At the recorded
+revision, dependency resolution currently fails because GrammarDiagram is
+requested both from `main` and by exact revision. The dedicated compatibility
+job records this as a failure, and the adoption state remains `pending-adapter`.
 
 - Replace all mutable Hakkabon package dependencies.
 - Expose a non-terminal corpus adapter through `GrammarREPLCore`.

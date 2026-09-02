@@ -21,6 +21,54 @@ permissions:
   contents: read
 
 jobs:
+  compiler-compatibility:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate pinned Compiler without source changes
+        env:
+          ECOSYSTEM_REPOSITORIES: Compiler
+          ECOSYSTEM_SKIP_WORKBENCH: 1
+          ECOSYSTEM_REPORT_PATH: artifacts/compiler-compatibility.json
+        run: Scripts/validate-ecosystem-integration.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: compiler-compatibility-${{ github.sha }}
+          path: artifacts/compiler-compatibility.json
+          if-no-files-found: error
+          retention-days: 30
+
+  grammar-repl-compatibility:
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate pinned Grammar-REPL without source changes
+        env:
+          ECOSYSTEM_REPOSITORIES: Grammar-REPL
+          ECOSYSTEM_SKIP_WORKBENCH: 1
+          ECOSYSTEM_REPORT_PATH: artifacts/grammar-repl-compatibility.json
+        run: Scripts/validate-ecosystem-integration.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: grammar-repl-compatibility-${{ github.sha }}
+          path: artifacts/grammar-repl-compatibility.json
+          if-no-files-found: error
+          retention-days: 30
+
   pinned-integration:
     runs-on: macos-15
     timeout-minutes: 90

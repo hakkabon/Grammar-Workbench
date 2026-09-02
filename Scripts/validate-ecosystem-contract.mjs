@@ -21,6 +21,7 @@ for (const repository of manifest.repositories) {
   names.add(repository.name);
   if (!/^https:\/\/github\.com\/hakkabon\/[A-Za-z0-9-]+\.git$/.test(repository.repository)) fail(`invalid repository URL for ${repository.name}`);
   if (!/^[0-9a-f]{40}$/.test(repository.revision)) fail(`revision for ${repository.name} is not a full commit`);
+  if (repository.swiftVersion !== undefined && !/^\d+\.\d+$/.test(repository.swiftVersion)) fail(`invalid Swift version for ${repository.name}`);
   if (!["pinned", "conformance", "pending-adapter"].includes(repository.adoption)) fail(`invalid adoption state for ${repository.name}`);
 }
 for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"]) {

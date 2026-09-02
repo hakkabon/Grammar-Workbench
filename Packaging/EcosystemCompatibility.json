@@ -41,12 +41,13 @@
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
       "revision": "c82eaae2ca4d8c1310632e37704c2e4427497c08",
       "role": "downstream-consumer",
+      "swiftVersion": "6.1",
       "adoption": "pending-adapter"
     },
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "4aeed6d78b393e5a95293fa1a08e7bba2d7a0c9b",
+      "revision": "b67e23cec32e9ff79a983da5df082c5566c110b1",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

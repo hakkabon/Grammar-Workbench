@@ -6,6 +6,8 @@ MANIFEST="$ROOT_DIR/Packaging/EcosystemCompatibility.json"
 KEEP_CHECKOUTS="${ECOSYSTEM_KEEP_CHECKOUTS:-0}"
 MIRROR_ROOT="${ECOSYSTEM_REPOSITORY_MIRROR_ROOT:-}"
 REPORT_PATH="${ECOSYSTEM_REPORT_PATH:-}"
+REPOSITORY_FILTER="${ECOSYSTEM_REPOSITORIES:-}"
+SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
 
 if [ -n "${ECOSYSTEM_CHECKOUT_ROOT:-}" ]; then
     CHECKOUT_ROOT="$ECOSYSTEM_CHECKOUT_ROOT"
@@ -33,11 +35,11 @@ ACTUAL_SWIFT_VERSION="$(swift --version | sed -n 's/.*Apple Swift version \([0-9
 if [ -z "$ACTUAL_SWIFT_VERSION" ]; then
     ACTUAL_SWIFT_VERSION="$(swift --version | sed -n 's/.*Swift version \([0-9]*\.[0-9]*\).*/\1/p' | head -1)"
 fi
-if [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ] && [ "${ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH:-0}" != "1" ]; then
+if [ -z "$REPOSITORY_FILTER" ] && [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ] && [ "${ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH:-0}" != "1" ]; then
     echo "Swift $MANIFEST_SWIFT_VERSION is required by the ecosystem manifest; found ${ACTUAL_SWIFT_VERSION:-unknown}." >&2
     exit 1
 fi
-if [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ]; then
+if [ -z "$REPOSITORY_FILTER" ] && [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ]; then
     echo "Warning: validating with Swift ${ACTUAL_SWIFT_VERSION:-unknown} instead of manifest baseline $MANIFEST_SWIFT_VERSION." >&2
 fi
 
@@ -46,12 +48,25 @@ node -e '
 const manifest = require(process.argv[1]);
 for (const repository of manifest.repositories) {
   if (repository.name !== "Grammar-Workbench") {
-    process.stdout.write([repository.name, repository.repository, repository.revision, repository.adoption].join("\t") + "\n");
+    process.stdout.write([repository.name, repository.repository, repository.revision, repository.adoption, repository.swiftVersion ?? manifest.swiftIntegrationVersion].join("\t") + "\n");
   }
 }
 ' "$MANIFEST" > "$REPOSITORY_ROWS"
 
-while IFS=$'\t' read -r name repository revision adoption; do
+while IFS=$'\t' read -r name repository revision adoption swift_version; do
+    if [ -n "$REPOSITORY_FILTER" ]; then
+        case " $REPOSITORY_FILTER " in
+            *" $name "*) ;;
+            *) continue ;;
+        esac
+    elif [ "$swift_version" != "$ACTUAL_SWIFT_VERSION" ]; then
+        echo "==> $name requires Swift $swift_version; deferred to its compatible job"
+        continue
+    fi
+    if [ "$swift_version" != "$ACTUAL_SWIFT_VERSION" ] && [ "${ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH:-0}" != "1" ]; then
+        echo "$name requires Swift $swift_version; found ${ACTUAL_SWIFT_VERSION:-unknown}." >&2
+        exit 1
+    fi
     source_repository="$repository"
     if [ -n "$MIRROR_ROOT" ] && [ -d "$MIRROR_ROOT/$name/.git" ]; then
         source_repository="$MIRROR_ROOT/$name"
@@ -72,10 +87,16 @@ while IFS=$'\t' read -r name repository revision adoption; do
     swift test --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name"
 done < "$REPOSITORY_ROWS"
 
-WORKBENCH_SCRATCH="$CHECKOUT_ROOT/build/Grammar-Workbench"
-swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --product grammar-workbench
-BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --show-bin-path)"
-node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
+if [ "$SKIP_WORKBENCH" != "1" ]; then
+    if [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ] && [ "${ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH:-0}" != "1" ]; then
+        echo "Workbench conformance requires Swift $MANIFEST_SWIFT_VERSION; found ${ACTUAL_SWIFT_VERSION:-unknown}." >&2
+        exit 1
+    fi
+    WORKBENCH_SCRATCH="$CHECKOUT_ROOT/build/Grammar-Workbench"
+    swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --product grammar-workbench
+    BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --show-bin-path)"
+    node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
+fi
 
 if [ -n "$REPORT_PATH" ]; then
     mkdir -p "$(dirname "$REPORT_PATH")"
@@ -93,7 +114,7 @@ const report = {
   manifestSHA256: crypto.createHash("sha256").update(manifestBytes).digest("hex"),
   swiftIntegrationVersion: swiftVersion,
   corpusVersion: manifest.corpus.version,
-  repositories: manifest.repositories.map(({name, revision, adoption}) => ({name, revision, adoption})),
+  repositories: manifest.repositories.map(({name, revision, adoption, swiftVersion}) => ({name, revision, adoption, swiftVersion: swiftVersion ?? manifest.swiftIntegrationVersion})),
   result: "passed"
 };
 fs.writeFileSync(reportPath, JSON.stringify(report, null, 2) + "\n");

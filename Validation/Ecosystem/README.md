@@ -41,6 +41,12 @@ the same exact commit checks still apply. Developers may set
 `ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH=1` for an additional local toolchain check;
 CI never sets it, so the manifest baseline remains mandatory evidence.
 
+`ECOSYSTEM_REPOSITORIES` selects a space-separated subset for an independent
+compatibility job, and `ECOSYSTEM_SKIP_WORKBENCH=1` omits the coordinator build
+from that job. CI uses these controls to evaluate Compiler on Swift 6.0 and
+Grammar-REPL on Swift 6.1. A dependency-resolution failure is a compatibility
+failure: the coordinator never rewrites a downstream manifest to make it pass.
+
 Corpus cases must not contain LR state identifiers, implementation trace text,
 or UI-specific diagnostic wording. The Workbench adapter verifies both the
 normalized token kinds and parse status. A rejected case is conformant when the

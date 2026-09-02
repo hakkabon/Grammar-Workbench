@@ -6,6 +6,10 @@
       "source": "Examples/Corpus/MiniLanguage.grammar",
       "start": "Program",
       "terminals": ["LET", "PRINT", "ID", "NUMBER", "ASSIGN", "PLUS", "STAR", "LPAREN", "RPAREN", "SEMICOLON"],
+      "precedence": [
+        { "associativity": "left", "terminals": ["PLUS"] },
+        { "associativity": "left", "terminals": ["STAR"] }
+      ],
       "productions": [
         { "lhs": "Program", "rhs": ["Statements"] },
         { "lhs": "Statements", "rhs": ["Statements", "Statement"] },
@@ -24,6 +28,7 @@
       "source": "Examples/Corpus/JSONSubset.grammar",
       "start": "Value",
       "terminals": ["LBRACE", "RBRACE", "LBRACKET", "RBRACKET", "COLON", "COMMA", "TRUE", "FALSE", "NULL", "NUMBER", "STRING"],
+      "precedence": [],
       "productions": [
         { "lhs": "Value", "rhs": ["Object"] }, { "lhs": "Value", "rhs": ["Array"] },
         { "lhs": "Value", "rhs": ["STRING"] }, { "lhs": "Value", "rhs": ["NUMBER"] },

@@ -5,6 +5,7 @@
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
     "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
+    "lrConvergencePath": "Validation/Ecosystem/LRConvergence.json",
     "version": 1
   },
   "repositories": [
@@ -25,9 +26,9 @@
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "6a55a43bc8e22ec7748cb5c3b55878674486ea44",
+      "revision": "76be20733a116d0d7c74a1dbf2d5145804939483",
       "role": "lr-engine",
-      "adoption": "pending-adapter"
+      "adoption": "conformance"
     },
     {
       "name": "Compiler",
@@ -47,7 +48,7 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "e8f36a3059bbcbfdb9341e56eda69e5e4ecd9282",
+      "revision": "e04e3d95f64f885328f078f2299150eaab802952",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

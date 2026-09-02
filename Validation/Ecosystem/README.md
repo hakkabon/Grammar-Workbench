@@ -2,7 +2,8 @@
 
 `Corpus.json` is the engine-neutral behavioral contract shared by Grammar,
 Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. Version one
-contains normalized grammar models, token-kind sequences, and parse statuses.
+contains normalized grammar models, precedence declarations, token-kind
+sequences, and parse statuses.
 Adapters therefore do not need to read another implementation's grammar syntax
 or use its lexer. The `source` path on each grammar points to a Workbench fixture
 and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
@@ -11,6 +12,11 @@ An empty production right-hand side represents epsilon. Every other symbol must
 be declared either as a terminal or as the left-hand side of a production.
 Later additive fields may cover source ranges, expected symbols, reductions,
 and syntax trees after every consumer has a lossless adapter.
+
+`LRConvergence.json` is the reviewed differential policy. Exact Workbench/LR
+status agreement is the default. Every mismatch must name a corpus case, both
+observed statuses, and a reason. The validator also rejects stale exceptions
+after the implementations begin to agree.
 
 Run the structural validation only:
 
@@ -24,6 +30,12 @@ Run structural validation and the Workbench adapter:
 node Scripts/validate-ecosystem-contract.mjs --cli .build/release/grammar-workbench
 ```
 
+Run structural validation and the LR differential adapter:
+
+```sh
+node Scripts/validate-ecosystem-contract.mjs --lr-adapter /path/to/lr-conformance
+```
+
 Run the complete pinned cross-repository workflow with the Swift version named
 by `Packaging/EcosystemCompatibility.json`:
 
@@ -33,7 +45,8 @@ Scripts/validate-ecosystem-integration.sh
 
 The workflow checks out every non-Workbench repository at its full manifest
 revision, verifies the detached checkout, gives each package an isolated build
-directory, runs its test suite, and finally runs the Workbench corpus adapter.
+directory, runs its test suite, builds the pinned LR adapter, and finally runs
+both corpus adapters through the convergence policy.
 Set `ECOSYSTEM_REPORT_PATH` to retain immutable JSON evidence containing the
 manifest digest and tested revisions. For offline development,
 `ECOSYSTEM_REPOSITORY_MIRROR_ROOT` may name a directory containing local clones;

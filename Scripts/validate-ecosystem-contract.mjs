@@ -30,9 +30,11 @@ for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-
 
 const corpusPath = join(root, manifest.corpus.path);
 const schemaPath = join(root, manifest.corpus.schemaPath);
-if (!existsSync(corpusPath) || !existsSync(schemaPath)) fail("corpus or schema is missing");
+const convergencePath = join(root, manifest.corpus.lrConvergencePath ?? "");
+if (!existsSync(corpusPath) || !existsSync(schemaPath) || !existsSync(convergencePath)) fail("corpus, schema, or LR convergence policy is missing");
 const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const corpus = JSON.parse(readFileSync(corpusPath, "utf8"));
+const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
 if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length === 0) fail("invalid corpus envelope");
 
@@ -44,9 +46,18 @@ for (const grammar of corpus.grammars) {
   grammars.set(grammar.id, grammar);
   if (!grammar.source.startsWith("Examples/Corpus/") || !grammar.source.endsWith(".grammar") || !existsSync(join(root, grammar.source))) fail(`missing source fixture for grammar ${grammar.id}`);
   if (typeof grammar.start !== "string" || !Array.isArray(grammar.terminals) || grammar.terminals.length === 0 || new Set(grammar.terminals).size !== grammar.terminals.length) fail(`invalid terminals for grammar ${grammar.id}`);
+  if (!Array.isArray(grammar.precedence)) fail(`invalid precedence for grammar ${grammar.id}`);
   if (!Array.isArray(grammar.productions) || grammar.productions.length === 0) fail(`grammar ${grammar.id} has no productions`);
   const nonterminals = new Set(grammar.productions.map(production => production.lhs));
   const terminals = new Set(grammar.terminals);
+  const precedenceTerminals = new Set();
+  for (const level of grammar.precedence) {
+    if (!["left", "right", "nonAssociative"].includes(level.associativity) || !Array.isArray(level.terminals) || level.terminals.length === 0) fail(`invalid precedence level for grammar ${grammar.id}`);
+    for (const terminal of level.terminals) {
+      if (!terminals.has(terminal) || precedenceTerminals.has(terminal)) fail(`invalid precedence terminal ${terminal} in grammar ${grammar.id}`);
+      precedenceTerminals.add(terminal);
+    }
+  }
   if (!nonterminals.has(grammar.start)) fail(`start symbol is not defined for grammar ${grammar.id}`);
   for (const production of grammar.productions) {
     if (typeof production.lhs !== "string" || production.lhs.length === 0 || !Array.isArray(production.rhs)) fail(`invalid production in grammar ${grammar.id}`);
@@ -67,6 +78,16 @@ for (const testCase of corpus.cases) {
   if (typeof testCase.input !== "string" || !statuses.has(testCase.expectedStatus)) fail(`invalid expectation for ${testCase.id}`);
   if (!Array.isArray(testCase.expectedTokenKinds) || testCase.expectedTokenKinds.some(kind => !grammar.terminals.includes(kind))) fail(`invalid expected tokens for ${testCase.id}`);
   if (!Array.isArray(testCase.tags) || testCase.tags.length === 0 || new Set(testCase.tags).size !== testCase.tags.length) fail(`invalid tags for ${testCase.id}`);
+}
+
+if (convergence.schemaVersion !== corpus.schemaVersion || convergence.algorithm !== "lalr" || !Array.isArray(convergence.acceptedDifferences)) fail("invalid LR convergence policy");
+const acceptedLRDifferences = new Map();
+for (const difference of convergence.acceptedDifferences) {
+  if (!caseIDs.has(difference.case)) fail(`accepted LR difference references unknown case ${difference.case}`);
+  if (acceptedLRDifferences.has(difference.case)) fail("duplicate accepted LR difference");
+  if (!statuses.has(difference.workbenchStatus) || !statuses.has(difference.lrParsingStatus) || difference.workbenchStatus === difference.lrParsingStatus) fail(`invalid accepted LR statuses for ${difference.case}`);
+  if (typeof difference.reason !== "string" || difference.reason.length < 20) fail(`missing accepted LR rationale for ${difference.case}`);
+  acceptedLRDifferences.set(difference.case, difference);
 }
 
 const cliIndex = process.argv.indexOf("--cli");
@@ -92,4 +113,31 @@ if (cliIndex >= 0) {
   }
 }
 
-console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}.`);
+const lrIndex = process.argv.indexOf("--lr-adapter");
+if (lrIndex >= 0) {
+  const adapter = process.argv[lrIndex + 1];
+  if (!adapter) fail("--lr-adapter requires a path");
+  const work = mkdtempSync(join(tmpdir(), "grammar-lr-convergence-"));
+  try {
+    const output = join(work, "lr-observations.json");
+    const result = spawnSync(resolve(adapter), [corpusPath, output], { encoding: "utf8" });
+    if (result.status !== 0 || !existsSync(output)) fail(`LR adapter failed: ${result.stderr.trim()}`);
+    const observations = JSON.parse(readFileSync(output, "utf8"));
+    const byID = new Map(observations.map(item => [item.id, item]));
+    if (byID.size !== corpus.cases.length) fail("LR adapter did not report every corpus case exactly once");
+    for (const testCase of corpus.cases) {
+      const observed = byID.get(testCase.id);
+      if (!observed) fail(`LR adapter omitted ${testCase.id}`);
+      const difference = acceptedLRDifferences.get(testCase.id);
+      if (observed.status === testCase.expectedStatus) {
+        if (difference) fail(`accepted LR difference for ${testCase.id} is stale`);
+      } else if (!difference || difference.workbenchStatus !== testCase.expectedStatus || difference.lrParsingStatus !== observed.status || typeof difference.reason !== "string" || difference.reason.length < 20) {
+        fail(`${testCase.id}: Workbench ${testCase.expectedStatus}, LR-Parsing ${observed.status}`);
+      }
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}.`);

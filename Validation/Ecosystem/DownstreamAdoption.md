@@ -19,10 +19,13 @@ must land in the owning repository before its manifest entry advances.
 
 ## LR-Parsing
 
-- Replace Grammar, Parser, Lexer, and GrammarDiagram branch dependencies.
-- Add a corpus adapter that emits the normalized status contract.
-- Advance from `pending-adapter` to `conformance` only when the adapter passes
-  the complete corpus at the pinned revision.
+LR-Parsing now pins Grammar, Parser, Lexer, and GrammarDiagram, and its
+`lr-conformance` executable consumes the complete normalized-token corpus. Its
+LALR statuses agree with Workbench for seven cases. The JSON trailing-comma case
+is an explicit, machine-checked difference: Workbench recovers, while the LR
+token-stream entry point is intentionally strict. The adoption state is
+`conformance`; canonical LR ownership remains deferred until that recovery
+boundary is either unified or accepted as the long-term public contract.
 
 ## Compiler
 

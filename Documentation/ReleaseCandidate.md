@@ -51,7 +51,9 @@ The release-candidate gate verifies the product from four perspectives:
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
     corpus must satisfy its versioned schema, and the packaged Workbench CLI
-    must produce every normalized expected status.
+    must produce every normalized expected status. The pinned LR adapter must
+    also cover every case; only exact agreements or reviewed, non-stale
+    differences may pass.
 
 Run the normal gate:
 
@@ -72,4 +74,5 @@ Budgets and required consumer fixtures are declared in `Packaging/ReleaseCandida
 The scheduled `Ecosystem compatibility` workflow additionally checks out every
 downstream repository at its exact manifest revision and runs its test suite.
 Entries marked `pending-adapter` are build-validated but make no behavioral
-conformance claim until that repository adds a corpus adapter.
+conformance claim until that repository adds a corpus adapter. LR-Parsing is a
+`conformance` consumer and is differentially checked against Workbench.

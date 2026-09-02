@@ -11,12 +11,23 @@
       "type": "array", "minItems": 1,
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["id", "source", "start", "terminals", "productions"],
+        "required": ["id", "source", "start", "terminals", "precedence", "productions"],
         "properties": {
           "id": { "$ref": "#/$defs/identifier" },
           "source": { "type": "string", "pattern": "^Examples/Corpus/[^/]+\\.grammar$" },
           "start": { "$ref": "#/$defs/symbol" },
           "terminals": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/symbol" } },
+          "precedence": {
+            "type": "array",
+            "items": {
+              "type": "object", "additionalProperties": false,
+              "required": ["associativity", "terminals"],
+              "properties": {
+                "associativity": { "enum": ["left", "right", "nonAssociative"] },
+                "terminals": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/symbol" } }
+              }
+            }
+          },
           "productions": {
             "type": "array", "minItems": 1,
             "items": {

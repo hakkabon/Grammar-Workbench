@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "algorithm": "lalr",
+  "acceptedDifferences": [
+    {
+      "case": "json-trailing-comma",
+      "workbenchStatus": "acceptedWithRecovery",
+      "lrParsingStatus": "rejected",
+      "reason": "LR-Parsing's normalized-token adapter currently exposes strict parsing; its recovery API still accepts source text rather than a TokenStream."
+    }
+  ]
+}

@@ -7,6 +7,10 @@ versioned shared corpus, while the scheduled integration workflow builds
 Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
 declared in `Packaging/EcosystemCompatibility.json`.
 
+LR behavioral convergence is specified in [LRConvergence.md](LRConvergence.md).
+The integration gate builds the pinned adapter and rejects undocumented or
+stale status differences.
+
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
 Language-kit package manifests add semantic versions and explicit prerequisites;

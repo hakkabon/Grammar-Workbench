@@ -8,6 +8,7 @@ MIRROR_ROOT="${ECOSYSTEM_REPOSITORY_MIRROR_ROOT:-}"
 REPORT_PATH="${ECOSYSTEM_REPORT_PATH:-}"
 REPOSITORY_FILTER="${ECOSYSTEM_REPOSITORIES:-}"
 SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
+LR_ADAPTER=""
 
 if [ -n "${ECOSYSTEM_CHECKOUT_ROOT:-}" ]; then
     CHECKOUT_ROOT="$ECOSYSTEM_CHECKOUT_ROOT"
@@ -84,7 +85,17 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
         echo "$name checkout is not clean at $revision" >&2
         exit 1
     fi
+    if [ "$name" = "LR-Parsing" ] && [ -n "$MIRROR_ROOT" ] && [ -d "$MIRROR_ROOT/Lexer/.git" ]; then
+        swift package --package-path "$checkout" config set-mirror \
+            --original https://github.com/hakkabon/Lexer.git \
+            --mirror "file://$MIRROR_ROOT/Lexer"
+    fi
     swift test --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name"
+    if [ "$name" = "LR-Parsing" ] && [ "$adoption" = "conformance" ]; then
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product lr-conformance
+        lr_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
+        LR_ADAPTER="$lr_bin_dir/lr-conformance"
+    fi
 done < "$REPOSITORY_ROWS"
 
 if [ "$SKIP_WORKBENCH" != "1" ]; then
@@ -95,7 +106,11 @@ if [ "$SKIP_WORKBENCH" != "1" ]; then
     WORKBENCH_SCRATCH="$CHECKOUT_ROOT/build/Grammar-Workbench"
     swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --product grammar-workbench
     BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --show-bin-path)"
-    node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
+    validation_arguments=(--cli "$BIN_DIR/grammar-workbench")
+    if [ -n "$LR_ADAPTER" ]; then
+        validation_arguments+=(--lr-adapter "$LR_ADAPTER")
+    fi
+    node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" "${validation_arguments[@]}"
 fi
 
 if [ -n "$REPORT_PATH" ]; then

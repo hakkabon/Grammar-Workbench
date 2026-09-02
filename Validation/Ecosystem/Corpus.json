@@ -1,13 +1,52 @@
 {
   "schemaVersion": 1,
+  "grammars": [
+    {
+      "id": "mini-language",
+      "source": "Examples/Corpus/MiniLanguage.grammar",
+      "start": "Program",
+      "terminals": ["LET", "PRINT", "ID", "NUMBER", "ASSIGN", "PLUS", "STAR", "LPAREN", "RPAREN", "SEMICOLON"],
+      "productions": [
+        { "lhs": "Program", "rhs": ["Statements"] },
+        { "lhs": "Statements", "rhs": ["Statements", "Statement"] },
+        { "lhs": "Statements", "rhs": [] },
+        { "lhs": "Statement", "rhs": ["LET", "ID", "ASSIGN", "Expression", "SEMICOLON"] },
+        { "lhs": "Statement", "rhs": ["PRINT", "Expression", "SEMICOLON"] },
+        { "lhs": "Expression", "rhs": ["Expression", "PLUS", "Expression"] },
+        { "lhs": "Expression", "rhs": ["Expression", "STAR", "Expression"] },
+        { "lhs": "Expression", "rhs": ["LPAREN", "Expression", "RPAREN"] },
+        { "lhs": "Expression", "rhs": ["ID"] },
+        { "lhs": "Expression", "rhs": ["NUMBER"] }
+      ]
+    },
+    {
+      "id": "json-subset",
+      "source": "Examples/Corpus/JSONSubset.grammar",
+      "start": "Value",
+      "terminals": ["LBRACE", "RBRACE", "LBRACKET", "RBRACKET", "COLON", "COMMA", "TRUE", "FALSE", "NULL", "NUMBER", "STRING"],
+      "productions": [
+        { "lhs": "Value", "rhs": ["Object"] }, { "lhs": "Value", "rhs": ["Array"] },
+        { "lhs": "Value", "rhs": ["STRING"] }, { "lhs": "Value", "rhs": ["NUMBER"] },
+        { "lhs": "Value", "rhs": ["TRUE"] }, { "lhs": "Value", "rhs": ["FALSE"] },
+        { "lhs": "Value", "rhs": ["NULL"] },
+        { "lhs": "Object", "rhs": ["LBRACE", "MembersOpt", "RBRACE"] },
+        { "lhs": "MembersOpt", "rhs": ["Members"] }, { "lhs": "MembersOpt", "rhs": [] },
+        { "lhs": "Members", "rhs": ["Pair"] }, { "lhs": "Members", "rhs": ["Members", "COMMA", "Pair"] },
+        { "lhs": "Pair", "rhs": ["STRING", "COLON", "Value"] },
+        { "lhs": "Array", "rhs": ["LBRACKET", "ElementsOpt", "RBRACKET"] },
+        { "lhs": "ElementsOpt", "rhs": ["Elements"] }, { "lhs": "ElementsOpt", "rhs": [] },
+        { "lhs": "Elements", "rhs": ["Value"] }, { "lhs": "Elements", "rhs": ["Elements", "COMMA", "Value"] }
+      ]
+    }
+  ],
   "cases": [
-    { "id": "mini-empty", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "", "expectedStatus": "accepted", "tags": ["epsilon", "statements"] },
-    { "id": "mini-let", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "let answer = 42;", "expectedStatus": "accepted", "tags": ["precedence", "statements"] },
-    { "id": "mini-precedence", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "print 1 + 2 * 3;", "expectedStatus": "accepted", "tags": ["left-recursion", "precedence"] },
-    { "id": "mini-missing-semicolon", "grammar": "Examples/Corpus/MiniLanguage.grammar", "input": "print 1", "expectedStatus": "rejected", "tags": ["diagnostic", "malformed-input"] },
-    { "id": "json-null", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "null", "expectedStatus": "accepted", "tags": ["literal"] },
-    { "id": "json-nested", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "{\"items\":[1,true,null,{\"name\":\"x\"}]}", "expectedStatus": "accepted", "tags": ["nullable", "recursive"] },
-    { "id": "json-empty-containers", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "{\"array\":[],\"object\":{}}", "expectedStatus": "accepted", "tags": ["epsilon", "recursive"] },
-    { "id": "json-trailing-comma", "grammar": "Examples/Corpus/JSONSubset.grammar", "input": "[1,]", "expectedStatus": "acceptedWithRecovery", "tags": ["diagnostic", "malformed-input", "recovery"] }
+    { "id": "mini-empty", "grammar": "mini-language", "input": "", "expectedTokenKinds": [], "expectedStatus": "accepted", "tags": ["epsilon", "statements"] },
+    { "id": "mini-let", "grammar": "mini-language", "input": "let answer = 42;", "expectedTokenKinds": ["LET", "ID", "ASSIGN", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "tags": ["precedence", "statements"] },
+    { "id": "mini-precedence", "grammar": "mini-language", "input": "print 1 + 2 * 3;", "expectedTokenKinds": ["PRINT", "NUMBER", "PLUS", "NUMBER", "STAR", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "tags": ["left-recursion", "precedence"] },
+    { "id": "mini-missing-semicolon", "grammar": "mini-language", "input": "print 1", "expectedTokenKinds": ["PRINT", "NUMBER"], "expectedStatus": "rejected", "tags": ["diagnostic", "malformed-input"] },
+    { "id": "json-null", "grammar": "json-subset", "input": "null", "expectedTokenKinds": ["NULL"], "expectedStatus": "accepted", "tags": ["literal"] },
+    { "id": "json-nested", "grammar": "json-subset", "input": "{\"items\":[1,true,null,{\"name\":\"x\"}]}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "NUMBER", "COMMA", "TRUE", "COMMA", "NULL", "COMMA", "LBRACE", "STRING", "COLON", "STRING", "RBRACE", "RBRACKET", "RBRACE"], "expectedStatus": "accepted", "tags": ["nullable", "recursive"] },
+    { "id": "json-empty-containers", "grammar": "json-subset", "input": "{\"array\":[],\"object\":{}}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "RBRACKET", "COMMA", "STRING", "COLON", "LBRACE", "RBRACE", "RBRACE"], "expectedStatus": "accepted", "tags": ["epsilon", "recursive"] },
+    { "id": "json-trailing-comma", "grammar": "json-subset", "input": "[1,]", "expectedTokenKinds": ["LBRACKET", "NUMBER", "COMMA", "RBRACKET"], "expectedStatus": "acceptedWithRecovery", "tags": ["diagnostic", "malformed-input", "recovery"] }
   ]
 }

@@ -14,6 +14,8 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 - Selected research catalog, study, observation, plain-language preview, and underlying evidence contracts.
 - Source-project descriptors, rooted source associations, safe filesystem loading, and explicit LSP grammar associations.
 - `GrammarSyntaxNode`, `GrammarSemanticReducer`, declarative `GrammarSemanticActions`, semantic coverage validation, and semantic evaluation.
+- `GrammarWorkbenchConsoleSession`, `GrammarWorkbenchConsoleEntry`, and
+  `GrammarWorkbenchConsoleEntryKind` for the Workbench-specific parse console.
 - `GrammarGenerator`, its registry, built-in generators, standalone Swift generation, and the SwiftPM plugin.
 - `GrammarWorkbenchLSP`, the stdio server, document synchronization, diagnostics, grammar completion/definition/quick fixes, and source completion/hover/outline services.
 - SLR(1), LALR(1), canonical LR(1), lexer modes, EBNF input and production-origin mapping, algorithm comparison, and artifact diffs.

@@ -2,7 +2,7 @@
 
 This experimental platform increment establishes an installable iPadOS 17 host
 and a touch-first subset of Grammar Workbench. The grammar engine, document
-format, DiagramKit adapter, test runner, and Grammar REPL remain shared with the
+format, DiagramKit adapter, test runner, and Workbench parse console remain shared with the
 macOS product; the iPad interface does not introduce alternate implementations.
 
 ## Included pilot workflows
@@ -18,7 +18,7 @@ macOS product; the iPad interface does not introduce alternate implementations.
 - Inspect diagnostics, grammar and LR summaries, productions, parse outcomes,
   recovered trees, and saved-test results.
 - Render live railroad diagrams through Grammar-DiagramKit and use the shared
-  Grammar REPL below the diagram.
+  parse console below the diagram.
 - Resize naturally in portrait, landscape, Split View, and Stage Manager.
 
 Generation remains a prototype because iPad export needs a product-level Files

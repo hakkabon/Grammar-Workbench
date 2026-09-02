@@ -22,7 +22,7 @@ struct WorkbenchNavigationTests {
 
     @Test("Destination metadata is stable and usable without SwiftUI")
     func metadata() throws {
-        #expect(GrammarWorkbenchDestination.diagram.title == "Diagram & REPL")
+        #expect(GrammarWorkbenchDestination.diagram.title == "Diagram & Console")
         #expect(GrammarWorkbenchDestination.explore.section == .grammar)
         #expect(GrammarWorkbenchDestination.allCases.allSatisfy {
             !$0.title.isEmpty && !$0.systemImage.isEmpty

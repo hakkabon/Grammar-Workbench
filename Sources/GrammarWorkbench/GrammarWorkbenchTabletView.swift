@@ -31,7 +31,7 @@ public struct GrammarWorkbenchTabletView: View {
 
     @State private var store: ExplorerStore
     @State private var destination: TabletDestination? = .guide
-    @State private var replSession: GrammarREPLSession
+    @State private var replSession: GrammarWorkbenchConsoleSession
     @State private var replCommand = ""
     @State private var testReport: WorkbenchTestReport?
     @State private var showsSourceEditor = false
@@ -47,7 +47,7 @@ public struct GrammarWorkbenchTabletView: View {
             sampleInput: value.samples.first(where: { $0.id == value.selectedSampleID })?.input ?? "",
             documentName: documentName
         ))
-        _replSession = State(initialValue: GrammarREPLSession(compilation: GrammarWorkbenchAPI.compile(.init(
+        _replSession = State(initialValue: GrammarWorkbenchConsoleSession(compilation: GrammarWorkbenchAPI.compile(.init(
             source: value.source,
             algorithm: GrammarAlgorithm(rawValue: value.algorithm) ?? .lalr,
             notation: value.notation
@@ -275,10 +275,10 @@ public struct GrammarWorkbenchTabletView: View {
             Divider()
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 6) {
-                    if replSession.transcript.isEmpty {
+                    if replSession.entries.isEmpty {
                         Text("Enter source text to parse, or :help for commands.").foregroundStyle(.secondary)
                     }
-                    ForEach(replSession.transcript) { entry in
+                    ForEach(replSession.entries) { entry in
                         Text(entry.text).font(.caption.monospaced())
                             .foregroundStyle(entry.kind == .error ? .red : .primary)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -286,7 +286,7 @@ public struct GrammarWorkbenchTabletView: View {
                 }.padding()
             }.frame(minHeight: 100, maxHeight: 190)
             HStack {
-                TextField("Grammar REPL input", text: $replCommand).textFieldStyle(.roundedBorder)
+                TextField("Parse console input", text: $replCommand).textFieldStyle(.roundedBorder)
                     .onSubmit(submitREPL)
                 Button("Run", action: submitREPL).buttonStyle(.borderedProminent)
             }.padding()
@@ -330,7 +330,7 @@ public struct GrammarWorkbenchTabletView: View {
     }
 
     private func refreshREPL() {
-        replSession = GrammarREPLSession(compilation: GrammarWorkbenchAPI.compile(.init(
+        replSession = GrammarWorkbenchConsoleSession(compilation: GrammarWorkbenchAPI.compile(.init(
             source: document.source,
             algorithm: GrammarAlgorithm(rawValue: document.algorithm) ?? .lalr,
             notation: document.notation

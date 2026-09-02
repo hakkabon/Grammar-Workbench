@@ -93,28 +93,28 @@ public enum GrammarDiagramAdapter {
     }
 }
 
-public enum GrammarREPLTranscriptKind: String, Hashable, Codable, Sendable {
+public enum GrammarWorkbenchConsoleEntryKind: String, Hashable, Codable, Sendable {
     case input, result, information, error
 }
 
-public struct GrammarREPLTranscriptEntry: Identifiable, Hashable, Codable, Sendable {
+public struct GrammarWorkbenchConsoleEntry: Identifiable, Hashable, Codable, Sendable {
     public let id: Int
-    public let kind: GrammarREPLTranscriptKind
+    public let kind: GrammarWorkbenchConsoleEntryKind
     public let text: String
     public let parse: GrammarParseResult?
 
-    public init(id: Int, kind: GrammarREPLTranscriptKind, text: String,
+    public init(id: Int, kind: GrammarWorkbenchConsoleEntryKind, text: String,
                 parse: GrammarParseResult? = nil) {
         self.id = id; self.kind = kind; self.text = text; self.parse = parse
     }
 }
 
-/// Stateful, UI-neutral Grammar-REPL facade. Parsing delegates to the same
-/// immutable compilation used by the Workbench, so REPL and Sample results
-/// cannot drift into separate parser implementations.
-public struct GrammarREPLSession: Sendable {
+/// Stateful parse console for the Workbench UI. This is not the ecosystem's
+/// Grammar-REPL command or transcript model; Grammar-REPL owns those contracts.
+/// Parsing delegates to the same immutable compilation used by the Workbench.
+public struct GrammarWorkbenchConsoleSession: Sendable {
     public let compilation: GrammarCompilation
-    public private(set) var transcript: [GrammarREPLTranscriptEntry] = []
+    public private(set) var entries: [GrammarWorkbenchConsoleEntry] = []
     public private(set) var selectedRule: String?
     private var nextID = 0
 
@@ -125,12 +125,15 @@ public struct GrammarREPLSession: Sendable {
             ?? rules.first
     }
 
+    @available(*, deprecated, renamed: "entries")
+    public var transcript: [GrammarWorkbenchConsoleEntry] { entries }
+
     @discardableResult
-    public mutating func submit(_ rawInput: String) -> [GrammarREPLTranscriptEntry] {
+    public mutating func submit(_ rawInput: String) -> [GrammarWorkbenchConsoleEntry] {
         let input = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty else { return [] }
         if input == ":clear" {
-            transcript.removeAll(keepingCapacity: true)
+            entries.removeAll(keepingCapacity: true)
             return []
         }
 
@@ -139,7 +142,7 @@ public struct GrammarREPLSession: Sendable {
             emitted.append(command(input))
         } else {
             let parse = compilation.parse(input)
-            let kind: GrammarREPLTranscriptKind = switch parse.status {
+            let kind: GrammarWorkbenchConsoleEntryKind = switch parse.status {
             case .accepted, .acceptedWithRecovery: .result
             case .rejected, .conflict, .looping, .invalidGrammar: .error
             }
@@ -153,11 +156,11 @@ public struct GrammarREPLSession: Sendable {
             if let tree = parse.tree { lines.append(tree) }
             emitted.append(entry(kind, lines.joined(separator: "\n"), parse: parse))
         }
-        transcript.append(contentsOf: emitted)
+        entries.append(contentsOf: emitted)
         return emitted
     }
 
-    private mutating func command(_ input: String) -> GrammarREPLTranscriptEntry {
+    private mutating func command(_ input: String) -> GrammarWorkbenchConsoleEntry {
         let fields = input.split(maxSplits: 1, whereSeparator: \Character.isWhitespace)
         switch fields.first.map(String.init) {
         case ":help":
@@ -165,7 +168,7 @@ public struct GrammarREPLSession: Sendable {
         case ":rules":
             return entry(.information, GrammarDiagramAdapter.availableRules(in: compilation).joined(separator: "\n"))
         case ":history":
-            let values = transcript.filter { $0.kind == .input }.map(\.text)
+            let values = entries.filter { $0.kind == .input }.map(\.text)
             return entry(.information, values.isEmpty ? "No input history." : values.joined(separator: "\n"))
         case ":rule":
             guard fields.count == 2 else { return entry(.error, "Usage: :rule <name>") }
@@ -181,9 +184,18 @@ public struct GrammarREPLSession: Sendable {
     }
 
     private mutating func entry(
-        _ kind: GrammarREPLTranscriptKind, _ text: String, parse: GrammarParseResult? = nil
-    ) -> GrammarREPLTranscriptEntry {
+        _ kind: GrammarWorkbenchConsoleEntryKind, _ text: String, parse: GrammarParseResult? = nil
+    ) -> GrammarWorkbenchConsoleEntry {
         defer { nextID += 1 }
         return .init(id: nextID, kind: kind, text: text, parse: parse)
     }
 }
+
+@available(*, deprecated, renamed: "GrammarWorkbenchConsoleEntryKind")
+public typealias GrammarREPLTranscriptKind = GrammarWorkbenchConsoleEntryKind
+
+@available(*, deprecated, renamed: "GrammarWorkbenchConsoleEntry")
+public typealias GrammarREPLTranscriptEntry = GrammarWorkbenchConsoleEntry
+
+@available(*, deprecated, renamed: "GrammarWorkbenchConsoleSession")
+public typealias GrammarREPLSession = GrammarWorkbenchConsoleSession

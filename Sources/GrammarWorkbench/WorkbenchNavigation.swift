@@ -39,7 +39,7 @@ public enum GrammarWorkbenchDestination: String, CaseIterable, Identifiable, Cod
         case .semantics: "Semantics"
         case .comparison: "Compare"
         case .explore: "Explore"
-        case .diagram: "Diagram & REPL"
+        case .diagram: "Diagram & Console"
         case .decisions: "Decisions"
         case .sample: "Sample"
         case .tests: "Tests"

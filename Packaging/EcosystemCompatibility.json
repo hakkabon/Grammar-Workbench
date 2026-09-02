@@ -47,7 +47,7 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "b67e23cec32e9ff79a983da5df082c5566c110b1",
+      "revision": "e8f36a3059bbcbfdb9341e56eda69e5e4ecd9282",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

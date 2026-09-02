@@ -2,7 +2,7 @@ import Testing
 import GrammarDiagramKit
 @testable import GrammarWorkbench
 
-@Suite("Diagram and REPL product integration")
+@Suite("Diagram and parse-console product integration")
 struct DiagramAndREPLIntegrationTests {
     private let source = """
     %start S
@@ -38,23 +38,23 @@ struct DiagramAndREPLIntegrationTests {
         #expect(GrammarDiagramAdapter.availableRules(in: invalid).isEmpty)
     }
 
-    @Test("REPL uses compilation parsing and records inspectable results")
+    @Test("Parse console uses compilation parsing and records inspectable results")
     func replParsing() throws {
         let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
-        var session = GrammarREPLSession(compilation: compilation)
+        var session = GrammarWorkbenchConsoleSession(compilation: compilation)
         let emitted = session.submit("a b")
 
         #expect(emitted.map(\.kind) == [.input, .result])
         let parse = try #require(emitted.last?.parse)
         #expect(parse.status == .accepted)
         #expect(parse.tokens.map(\.kind) == ["a", "b"])
-        #expect(session.transcript == emitted)
+        #expect(session.entries == emitted)
     }
 
-    @Test("REPL commands select diagram rules, report history, and clear state")
+    @Test("Parse-console commands select diagram rules, report history, and clear state")
     func replCommands() {
         let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
-        var session = GrammarREPLSession(compilation: compilation)
+        var session = GrammarWorkbenchConsoleSession(compilation: compilation)
 
         #expect(session.submit(":rule Tail").last?.kind == .information)
         #expect(session.selectedRule == "Tail")
@@ -62,6 +62,6 @@ struct DiagramAndREPLIntegrationTests {
         #expect(session.submit(":history").last?.text.contains(":rule Tail") == true)
         #expect(session.submit(":help").last?.text.contains(":rules") == true)
         _ = session.submit(":clear")
-        #expect(session.transcript.isEmpty)
+        #expect(session.entries.isEmpty)
     }
 }

@@ -4,7 +4,7 @@ The native macOS application now uses a sectioned, selectable sidebar instead
 of a segmented workspace picker and an Expert-mode toggle. The hierarchy is:
 
 - **Start:** Guide and Project;
-- **Grammar:** Analysis, Semantics, Compare, Explore, Diagram & REPL, Decisions;
+- **Grammar:** Analysis, Semantics, Compare, Explore, Diagram & Console, Decisions;
 - **Run & Deliver:** Sample, Tests, Generate;
 - **Expert:** Automaton, Table, Bootstrap, Research, Visuals.
 

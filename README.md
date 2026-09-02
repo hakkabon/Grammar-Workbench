@@ -23,7 +23,7 @@ Phase 37 durable collaborative workspaces are described in
 Phase 35 interactive grammar exploration is described in
 [`Documentation/InteractiveGrammarExploration.md`](Documentation/InteractiveGrammarExploration.md).
 
-Phase 36 diagram and REPL integration is described in
+Phase 36 diagram and parse-console integration is described in
 [`Documentation/DiagramAndREPLProductIntegration.md`](Documentation/DiagramAndREPLProductIntegration.md).
 
 A native macOS SwiftUI foundation for inspecting generated LR parser artifacts.

@@ -1,5 +1,14 @@
 # Compatibility and migration
 
+## Workbench parse-console naming
+
+Use `GrammarWorkbenchConsoleSession`, `GrammarWorkbenchConsoleEntry`, and
+`GrammarWorkbenchConsoleEntryKind` for the embedded Workbench parse console.
+The former `GrammarREPLSession`, `GrammarREPLTranscriptEntry`, and
+`GrammarREPLTranscriptKind` names are deprecated aliases for one migration
+release. Grammar-REPL remains the canonical owner of REPL commands, history,
+and transcript contracts.
+
 ## Semantic language kits
 
 Existing project manifests and separate semantic-schema files remain valid. Adopt a kit when the same grammar and semantic policy must be shared by more than one project or tool. The kit format is additive: create a `GrammarSemanticLanguageKitManifest`, move the existing grammar and schema into it, add a namespaced identifier, version, file extensions, and conformance tests, then run `grammar-workbench kit-validate`. Production identities in semantic selectors are checked during kit compilation.

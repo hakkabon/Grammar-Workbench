@@ -7,14 +7,14 @@ struct GrammarDiagramREPLView: View {
     let compilation: GrammarCompilation
     let onSelectSource: (SourceRange) -> Void
 
-    @State private var session: GrammarREPLSession
+    @State private var session: GrammarWorkbenchConsoleSession
     @State private var command = ""
     @State private var selectedElementIDs: Set<DiagramElementID> = []
 
     init(compilation: GrammarCompilation, onSelectSource: @escaping (SourceRange) -> Void) {
         self.compilation = compilation
         self.onSelectSource = onSelectSource
-        _session = State(initialValue: GrammarREPLSession(compilation: compilation))
+        _session = State(initialValue: GrammarWorkbenchConsoleSession(compilation: compilation))
     }
 
     private var rules: [String] { GrammarDiagramAdapter.availableRules(in: compilation) }
@@ -28,7 +28,7 @@ struct GrammarDiagramREPLView: View {
             replPane.frame(minHeight: 220)
         }
         .onChange(of: compilation.request.source) { _, _ in
-            session = GrammarREPLSession(compilation: compilation, selectedRule: session.selectedRule)
+            session = GrammarWorkbenchConsoleSession(compilation: compilation, selectedRule: session.selectedRule)
             selectedElementIDs = []
         }
     }
@@ -75,21 +75,21 @@ struct GrammarDiagramREPLView: View {
     private var replPane: some View {
         VStack(spacing: 0) {
             HStack {
-                Label("Grammar REPL", systemImage: "terminal").font(.headline)
+                Label("Parse Console", systemImage: "terminal").font(.headline)
                 Spacer()
                 Button("Clear") { _ = session.submit(":clear") }
-                    .disabled(session.transcript.isEmpty)
+                    .disabled(session.entries.isEmpty)
             }
             .padding(10)
             Divider()
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 8) {
-                        if session.transcript.isEmpty {
+                        if session.entries.isEmpty {
                             Text("Enter source text to parse, or :help for commands.")
                                 .foregroundStyle(.secondary)
                         }
-                        ForEach(session.transcript) { entry in
+                        ForEach(session.entries) { entry in
                             HStack(alignment: .top, spacing: 8) {
                                 Text(prompt(for: entry.kind)).foregroundStyle(color(for: entry.kind))
                                 Text(entry.text).textSelection(.enabled)
@@ -101,8 +101,8 @@ struct GrammarDiagramREPLView: View {
                     }
                     .padding()
                 }
-                .onChange(of: session.transcript.count) { _, _ in
-                    if let id = session.transcript.last?.id { proxy.scrollTo(id, anchor: .bottom) }
+                .onChange(of: session.entries.count) { _, _ in
+                    if let id = session.entries.last?.id { proxy.scrollTo(id, anchor: .bottom) }
                 }
             }
             Divider()
@@ -117,7 +117,7 @@ struct GrammarDiagramREPLView: View {
             }
             .padding(10)
         }
-        .accessibilityIdentifier("grammar-repl")
+        .accessibilityIdentifier("grammar-parse-console")
     }
 
     private var ruleBinding: Binding<String> {
@@ -145,11 +145,11 @@ struct GrammarDiagramREPLView: View {
         selectedElementIDs = []
     }
 
-    private func prompt(for kind: GrammarREPLTranscriptKind) -> String {
+    private func prompt(for kind: GrammarWorkbenchConsoleEntryKind) -> String {
         switch kind { case .input: "›"; case .result: "✓"; case .information: "·"; case .error: "!" }
     }
 
-    private func color(for kind: GrammarREPLTranscriptKind) -> Color {
+    private func color(for kind: GrammarWorkbenchConsoleEntryKind) -> Color {
         switch kind { case .input: .secondary; case .result: .green; case .information: .blue; case .error: .red }
     }
 }

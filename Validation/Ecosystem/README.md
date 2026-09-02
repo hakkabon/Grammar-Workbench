@@ -24,6 +24,23 @@ Run structural validation and the Workbench adapter:
 node Scripts/validate-ecosystem-contract.mjs --cli .build/release/grammar-workbench
 ```
 
+Run the complete pinned cross-repository workflow with the Swift version named
+by `Packaging/EcosystemCompatibility.json`:
+
+```sh
+Scripts/validate-ecosystem-integration.sh
+```
+
+The workflow checks out every non-Workbench repository at its full manifest
+revision, verifies the detached checkout, gives each package an isolated build
+directory, runs its test suite, and finally runs the Workbench corpus adapter.
+Set `ECOSYSTEM_REPORT_PATH` to retain immutable JSON evidence containing the
+manifest digest and tested revisions. For offline development,
+`ECOSYSTEM_REPOSITORY_MIRROR_ROOT` may name a directory containing local clones;
+the same exact commit checks still apply. Developers may set
+`ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH=1` for an additional local toolchain check;
+CI never sets it, so the manifest baseline remains mandatory evidence.
+
 Corpus cases must not contain LR state identifiers, implementation trace text,
 or UI-specific diagnostic wording. The Workbench adapter verifies both the
 normalized token kinds and parse status. A rejected case is conformant when the

@@ -11,14 +11,14 @@
     {
       "name": "Grammar",
       "repository": "https://github.com/hakkabon/Grammar.git",
-      "revision": "b965098a7a6b85be53f0b21dba5db2d13e7132af",
+      "revision": "69f85d7a493e1862412c34493e3656e94331df06",
       "role": "grammar-model",
       "adoption": "pinned"
     },
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "057ab080755e7a4e68a0fed7edd1e1e792b3c2bf",
+      "revision": "3663097550f3ed1b8dcad8a26f4c2c55cc61b4e1",
       "role": "parser-contracts",
       "adoption": "pinned"
     },
@@ -46,7 +46,7 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "9783cf5ee2c895a5acd0fcd0dabd6aeae20e4100",
+      "revision": "4aeed6d78b393e5a95293fa1a08e7bba2d7a0c9b",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

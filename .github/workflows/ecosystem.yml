@@ -2,8 +2,20 @@ name: Ecosystem compatibility
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/ecosystem.yml"
+      - "Examples/Corpus/**"
+      - "Packaging/EcosystemCompatibility.json"
+      - "Scripts/validate-ecosystem-contract.mjs"
+      - "Scripts/validate-ecosystem-integration.sh"
+      - "Validation/Ecosystem/**"
   schedule:
     - cron: "17 3 * * 1"
+
+concurrency:
+  group: ecosystem-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -11,13 +23,24 @@ permissions:
 jobs:
   pinned-integration:
     runs-on: macos-15
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
       - uses: swift-actions/setup-swift@v2
         with:
-          swift-version: "6.1"
+          swift-version: "6.0"
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Build pinned repositories and run shared conformance corpus
+        env:
+          ECOSYSTEM_REPORT_PATH: artifacts/ecosystem-integration-report.json
         run: Scripts/validate-ecosystem-integration.sh
+      - name: Upload integration evidence
+        if: always() && hashFiles('artifacts/ecosystem-integration-report.json') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecosystem-integration-${{ github.sha }}
+          path: artifacts/ecosystem-integration-report.json
+          if-no-files-found: error
+          retention-days: 30

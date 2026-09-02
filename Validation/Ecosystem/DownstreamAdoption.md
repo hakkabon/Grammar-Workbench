@@ -19,24 +19,20 @@ must land in the owning repository before its manifest entry advances.
 
 ## LR-Parsing
 
-LR-Parsing now pins Grammar, Parser, Lexer, and GrammarDiagram, and its
-`lr-conformance` executable consumes the complete normalized-token corpus. Its
-LALR statuses agree with Workbench for seven cases. The JSON trailing-comma case
-is an explicit, machine-checked difference: Workbench recovers, while the LR
-token-stream entry point is intentionally strict. The adoption state is
-`conformance`; canonical LR ownership remains deferred until that recovery
-boundary is either unified or accepted as the long-term public contract.
+LR-Parsing pins Grammar, Parser, Lexer, and GrammarDiagram, and its
+`lr-conformance` executable consumes the complete normalized-token corpus with
+the same bounded recovery policy as Workbench. It owns LR automaton generation,
+stable artifact identities, conflict decisions, tracing, recovery, checkpoints,
+and neutral persisted-table execution. Workbench retains adapters only.
 
 ## Compiler
 
 The integration coordinator checks the pinned repository externally on Swift
-6.0. No Compiler source or public model is changed by that validation. At the
-recorded revision, dependency resolution currently fails because Compiler asks
-for Grammar on `main` while the released Parser asks for Grammar by exact
-revision. The dedicated compatibility job records this as a failure, and the
-adoption state remains `pending-adapter`.
+6.0. No Compiler source or public model is changed by that validation. Its
+foundational dependencies are exact and its independent suite passes. The
+adoption state remains `pending-adapter` solely because it does not yet expose a
+shared-corpus adapter.
 
-- Replace Grammar and Parser branch dependencies with compatible releases.
 - Add a corpus adapter without replacing compiler-specific syntax or semantic
   models.
 - Record unsupported engine features as explicit adapter results rather than
@@ -46,13 +42,12 @@ adoption state remains `pending-adapter`.
 
 The integration coordinator checks the pinned repository externally in a
 separate Swift 6.1 job. This preserves the Swift 6.0 foundational baseline and
-does not change REPL commands, rendering, or session state. At the recorded
-revision, dependency resolution currently fails because GrammarDiagram is
-requested both from `main` and by exact revision. The dedicated compatibility
-job records this as a failure, and the adoption state remains `pending-adapter`.
+does not change REPL commands, rendering, or session state. All ecosystem
+dependencies are exact and its independent suite passes. The adoption state
+remains `pending-adapter` solely because it does not yet expose a shared-corpus
+adapter through `GrammarReplLib`.
 
-- Replace all mutable Hakkabon package dependencies.
-- Expose a non-terminal corpus adapter through `GrammarREPLCore`.
+- Expose a non-terminal corpus adapter through `GrammarReplLib`.
 - Keep command rendering and readline behavior outside the shared parse result.
 
 ## Promotion rule

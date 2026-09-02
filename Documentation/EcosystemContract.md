@@ -12,7 +12,7 @@ make stronger promises but must not contradict this contract.
 | --- | --- | --- |
 | Grammar symbols, productions, precedence, grammar loading, and grammar analysis | `Grammar` | Must not depend on a parser implementation or application. |
 | Generic parser protocols, syntax trees, parse results, and parser diagnostics | `Parser` | Engine-neutral contracts only. |
-| LR construction and execution | `LR-Parsing` and `Grammar-Workbench`, temporarily | Neither implementation is canonical until differential conformance is demonstrated. |
+| LR construction and execution | `LR-Parsing` | Grammar-Workbench adapts the canonical automaton and neutral persisted-table runtime into its UI artifact model. |
 | Compiler syntax and semantic models | `Compiler` | Compiler ASTs remain distinct from engine-neutral parse trees. |
 | REPL commands, command history, and transcripts | `Grammar-REPL` | Terminal presentation and readline integration are not shared contracts. |
 | Portable interchange, editor services, SDK envelopes, and language-kit tooling | `Grammar-Workbench` | May adapt upstream contracts but must not redefine their semantics. |
@@ -75,9 +75,9 @@ for foundational packages.
 6. Publish the manifest and conformance report with the release notes.
 
 Grammar and Parser should initially use pre-1.0 releases while diagnostic and
-syntax-tree convergence is in progress. Selecting a canonical LR engine is
-explicitly deferred until the two engines agree on the shared differential
-corpus or every remaining difference is accepted and documented.
+syntax-tree convergence is in progress. LR-Parsing became the canonical LR
+owner after normalized-token recovery convergence; downstream products retain
+only adapters and presentation-specific artifact models.
 
 ## Adoption states
 

@@ -53,7 +53,9 @@ import Testing
     #expect(preview.removedLines == [3])
     #expect(preview.isSafeToApply)
     #expect(preview.regressedExamples.isEmpty)
-    #expect(preview.changedExamples.count == 1)
+    // Canonical LR construction coalesces semantically equal declarations, so
+    // removing a duplicate source occurrence no longer changes parse status.
+    #expect(preview.changedExamples.isEmpty)
     #expect(preview.testsAfter?.allPassed == true)
     #expect(GrammarWorkbenchAPI.compile(.init(source: preview.proposedSource)).succeeded)
 }

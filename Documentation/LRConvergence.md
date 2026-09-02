@@ -1,8 +1,10 @@
 # LR convergence
 
-Grammar-Workbench and LR-Parsing still temporarily co-own LR construction and
-execution. Convergence is measured behaviorally before either implementation is
-declared canonical.
+LR-Parsing owns LR construction and deterministic table execution.
+Grammar-Workbench converts its source-oriented grammar model into the neutral
+LR specification, then adapts the resulting automaton and persisted-table
+runtime output into Workbench artifacts. It no longer contains an independent
+LR constructor or shift/reduce runtime.
 
 The shared corpus supplies engine-neutral productions, precedence levels, and
 normalized token kinds. LR-Parsing's `lr-conformance` executable constructs a
@@ -12,8 +14,5 @@ expectations through `Validation/Ecosystem/LRConvergence.json`.
 
 Agreement is closed by default: a missing case, duplicate observation,
 unexpected status, undocumented mismatch, or obsolete exception fails the
-gate. The current corpus has one reviewed boundary. Workbench's source-oriented
-parser accepts the JSON trailing-comma fixture with recovery; LR-Parsing's
-normalized `TokenStream` entry point is strict and rejects it. This difference
-does not select a canonical LR owner. It makes the remaining recovery API gap
-explicit and prevents either implementation from drifting silently.
+gate. LR-Parsing's generic `TokenStream` entry point now supports structured
+recovery, so the former JSON trailing-comma exception is removed.

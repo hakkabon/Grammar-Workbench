@@ -20,32 +20,32 @@
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "d6269bb4e7c1366be172565f19707e7a9de54313",
-      "version": "0.2.0",
+      "revision": "a0b9fe9e26e5f97b64e1ba85ba5ce85c9df52c8f",
+      "version": "0.2.1",
       "role": "parser-contracts",
       "adoption": "pinned"
     },
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "09da3ad3a909af86709887c20dd5bd31ffea86c2",
-      "version": "0.1.0",
+      "revision": "8cea403a900c239bdb3b23590e1ba85ba5ce85c9",
+      "version": "0.1.1",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "17ea7bdf85acbc0fd911d39cb9d855c99d8b2740",
-      "version": "0.1.0",
+      "revision": "8d88e36a9c09789f8a2e9de2ee7c09ca6f68d2be",
+      "version": "0.1.1",
       "role": "downstream-consumer",
       "adoption": "pending-adapter"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "5f7b2fddf4ddb8981651621fa7adb399060a12eb",
-      "version": "0.2.0",
+      "revision": "2661db5d3d5fc0513b256f3dcf6633db490a1ce3",
+      "version": "0.2.1",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "pending-adapter"

@@ -36,10 +36,10 @@
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "8d88e36a9c09789f8a2e9de2ee7c09ca6f68d2be",
-      "version": "0.1.1",
+      "revision": "871244f3b3d201bb7ef920a3a7f3d323147a7c09",
+      "version": "0.1.2",
       "role": "downstream-consumer",
-      "adoption": "pending-adapter"
+      "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",

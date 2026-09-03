@@ -36,6 +36,12 @@ Run structural validation and the LR differential adapter:
 node Scripts/validate-ecosystem-contract.mjs --lr-adapter /path/to/lr-conformance
 ```
 
+Run the Compiler adapter, including explicit unsupported-capability records:
+
+```sh
+node Scripts/validate-ecosystem-contract.mjs --compiler-adapter /path/to/compiler-conformance
+```
+
 Run the complete pinned cross-repository workflow with the Swift version named
 by `Packaging/EcosystemCompatibility.json`:
 
@@ -45,8 +51,9 @@ Scripts/validate-ecosystem-integration.sh
 
 The workflow checks out every non-Workbench repository at its full manifest
 revision, verifies the detached checkout, gives each package an isolated build
-directory, runs its test suite, builds the pinned LR adapter, and finally runs
-both corpus adapters through the convergence policy.
+directory, runs its test suite, builds the pinned LR and Compiler adapters, and
+finally validates all available corpus observations through the convergence
+policy.
 Set `ECOSYSTEM_REPORT_PATH` to retain immutable JSON evidence containing the
 manifest digest and tested revisions. For offline development,
 `ECOSYSTEM_REPOSITORY_MIRROR_ROOT` may name a directory containing local clones;

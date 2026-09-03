@@ -9,6 +9,7 @@ REPORT_PATH="${ECOSYSTEM_REPORT_PATH:-}"
 REPOSITORY_FILTER="${ECOSYSTEM_REPOSITORIES:-}"
 SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
 LR_ADAPTER=""
+COMPILER_ADAPTER=""
 
 if [ -n "${ECOSYSTEM_CHECKOUT_ROOT:-}" ]; then
     CHECKOUT_ROOT="$ECOSYSTEM_CHECKOUT_ROOT"
@@ -96,8 +97,14 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
         lr_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         LR_ADAPTER="$lr_bin_dir/lr-conformance"
     fi
+    if [ "$name" = "Compiler" ] && [ "$adoption" = "conformance" ]; then
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product compiler-conformance
+        compiler_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
+        COMPILER_ADAPTER="$compiler_bin_dir/compiler-conformance"
+    fi
 done < "$REPOSITORY_ROWS"
 
+validation_arguments=()
 if [ "$SKIP_WORKBENCH" != "1" ]; then
     if [ "$ACTUAL_SWIFT_VERSION" != "$MANIFEST_SWIFT_VERSION" ] && [ "${ECOSYSTEM_ALLOW_TOOLCHAIN_MISMATCH:-0}" != "1" ]; then
         echo "Workbench conformance requires Swift $MANIFEST_SWIFT_VERSION; found ${ACTUAL_SWIFT_VERSION:-unknown}." >&2
@@ -106,10 +113,15 @@ if [ "$SKIP_WORKBENCH" != "1" ]; then
     WORKBENCH_SCRATCH="$CHECKOUT_ROOT/build/Grammar-Workbench"
     swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --product grammar-workbench
     BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --show-bin-path)"
-    validation_arguments=(--cli "$BIN_DIR/grammar-workbench")
-    if [ -n "$LR_ADAPTER" ]; then
-        validation_arguments+=(--lr-adapter "$LR_ADAPTER")
-    fi
+    validation_arguments+=(--cli "$BIN_DIR/grammar-workbench")
+fi
+if [ -n "$LR_ADAPTER" ]; then
+    validation_arguments+=(--lr-adapter "$LR_ADAPTER")
+fi
+if [ -n "$COMPILER_ADAPTER" ]; then
+    validation_arguments+=(--compiler-adapter "$COMPILER_ADAPTER")
+fi
+if [ "${#validation_arguments[@]}" -gt 0 ]; then
     node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" "${validation_arguments[@]}"
 fi
 

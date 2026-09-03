@@ -141,4 +141,42 @@ if (lrIndex >= 0) {
   }
 }
 
-console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}.`);
+const compilerIndex = process.argv.indexOf("--compiler-adapter");
+if (compilerIndex >= 0) {
+  const adapter = process.argv[compilerIndex + 1];
+  if (!adapter) fail("--compiler-adapter requires a path");
+  const work = mkdtempSync(join(tmpdir(), "grammar-compiler-conformance-"));
+  try {
+    const output = join(work, "compiler-observations.json");
+    const result = spawnSync(resolve(adapter), [corpusPath, output], { encoding: "utf8" });
+    if (result.status !== 0 || !existsSync(output)) fail(`Compiler adapter failed: ${result.stderr.trim()}`);
+    const observations = JSON.parse(readFileSync(output, "utf8"));
+    if (!Array.isArray(observations)) fail("Compiler adapter result is not an array");
+    const byID = new Map(observations.map(item => [item.id, item]));
+    if (observations.length !== corpus.cases.length || byID.size !== corpus.cases.length) {
+      fail("Compiler adapter did not report every corpus case exactly once");
+    }
+    for (const testCase of corpus.cases) {
+      const observed = byID.get(testCase.id);
+      if (!observed) fail(`Compiler adapter omitted ${testCase.id}`);
+      if (!statuses.has(observed.status)) fail(`${testCase.id}: Compiler emitted invalid status ${observed.status}`);
+      if (typeof observed.supported !== "boolean") fail(`${testCase.id}: Compiler omitted its support decision`);
+      if (!Number.isInteger(observed.diagnostics) || observed.diagnostics < 0) fail(`${testCase.id}: Compiler emitted an invalid diagnostic count`);
+      if (observed.supported) {
+        if (observed.status !== testCase.expectedStatus) {
+          fail(`${testCase.id}: expected ${testCase.expectedStatus}, Compiler reported ${observed.status}`);
+        }
+        if (observed.reason !== undefined) fail(`${testCase.id}: supported Compiler result carries an unsupported reason`);
+      } else {
+        if (testCase.expectedStatus !== "acceptedWithRecovery" || !testCase.tags.includes("recovery")) {
+          fail(`${testCase.id}: Compiler marked a required capability unsupported`);
+        }
+        if (typeof observed.reason !== "string" || observed.reason.length < 20) fail(`${testCase.id}: Compiler unsupported result has no rationale`);
+      }
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}${compilerIndex >= 0 ? ", Compiler corpus coverage recorded" : ""}.`);

@@ -15,6 +15,11 @@ LR behavioral convergence is specified in [LRConvergence.md](LRConvergence.md).
 The integration gate builds the pinned adapter and rejects undocumented or
 stale status differences.
 
+Compiler supplies a separate non-terminal corpus adapter that exercises its
+existing generalized-parser and parse-tree adaptation boundary without changing
+compiler-owned syntax or semantic models. Capabilities absent from that boundary,
+currently syntax recovery, remain explicit observations rather than skipped cases.
+
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
 Language-kit package manifests add semantic versions and explicit prerequisites;

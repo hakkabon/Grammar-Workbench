@@ -27,16 +27,13 @@ and neutral persisted-table execution. Workbench retains adapters only.
 
 ## Compiler
 
-The integration coordinator checks the pinned repository externally on Swift
-6.0. No Compiler source or public model is changed by that validation. Its
-foundational dependencies are exact and its independent suite passes. The
-adoption state remains `pending-adapter` solely because it does not yet expose a
-shared-corpus adapter.
-
-- Add a corpus adapter without replacing compiler-specific syntax or semantic
-  models.
-- Record unsupported engine features as explicit adapter results rather than
-  skipping cases.
+Compiler exposes a non-terminal `compiler-conformance` executable over a
+dedicated adapter target. It consumes normalized token kinds through the
+existing Earley integration and converts successful shared parse trees through
+the compiler-owned `GeneralizedParseTreeAdapter`; compiler syntax and semantic
+models remain unchanged. Recovery is explicitly reported as unsupported rather
+than skipped because the generalized-parser integration does not expose a
+recovery policy. The pinned Swift 6.0 job validates every corpus observation.
 
 ## Grammar-REPL
 

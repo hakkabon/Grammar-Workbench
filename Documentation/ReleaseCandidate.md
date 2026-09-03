@@ -53,7 +53,9 @@ The release-candidate gate verifies the product from four perspectives:
     corpus must satisfy its versioned schema, and the packaged Workbench CLI
     must produce every normalized expected status. The pinned LR adapter must
     also cover every case; only exact agreements or reviewed, non-stale
-    differences may pass.
+    differences may pass. The Compiler adapter must report every case exactly
+    once, agree for supported behavior, and provide a rationale for each
+    explicitly unsupported recovery capability.
 
 Run the normal gate:
 
@@ -74,5 +76,6 @@ Budgets and required consumer fixtures are declared in `Packaging/ReleaseCandida
 The scheduled `Ecosystem compatibility` workflow additionally checks out every
 downstream repository at its exact manifest revision and runs its test suite.
 Entries marked `pending-adapter` are build-validated but make no behavioral
-conformance claim until that repository adds a corpus adapter. LR-Parsing is a
-`conformance` consumer and is differentially checked against Workbench.
+conformance claim until that repository adds a corpus adapter. LR-Parsing is
+differentially checked against Workbench; Compiler is checked for exact supported
+behavior and explicit unsupported recovery observations.

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.1.0",
+  "contractVersion": "0.2.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -12,35 +12,40 @@
     {
       "name": "Grammar",
       "repository": "https://github.com/hakkabon/Grammar.git",
-      "revision": "69f85d7a493e1862412c34493e3656e94331df06",
+      "revision": "3816f5c668a98b29022a19757a40cb956b269f7e",
+      "version": "0.2.0",
       "role": "grammar-model",
       "adoption": "pinned"
     },
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "3663097550f3ed1b8dcad8a26f4c2c55cc61b4e1",
+      "revision": "d6269bb4e7c1366be172565f19707e7a9de54313",
+      "version": "0.2.0",
       "role": "parser-contracts",
       "adoption": "pinned"
     },
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "054c0b7b5acdac31814034d2271660fcdc86a092",
+      "revision": "09da3ad3a909af86709887c20dd5bd31ffea86c2",
+      "version": "0.1.0",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "429fc2bc5a481d9ca50ea951c4db766624c0b8b2",
+      "revision": "17ea7bdf85acbc0fd911d39cb9d855c99d8b2740",
+      "version": "0.1.0",
       "role": "downstream-consumer",
       "adoption": "pending-adapter"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "ebab466cc75ea1f6ed48975589ad797fb06f04dd",
+      "revision": "5f7b2fddf4ddb8981651621fa7adb399060a12eb",
+      "version": "0.2.0",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "pending-adapter"
@@ -48,7 +53,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "e04e3d95f64f885328f078f2299150eaab802952",
+      "revision": "17b572b8d389744f30206aa2c516ff38f4c875c4",
+      "version": "1.0.0",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

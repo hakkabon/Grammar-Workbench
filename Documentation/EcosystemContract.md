@@ -48,6 +48,10 @@ revisions.
 - Foundational packages must not depend on downstream applications.
 - Release and compatibility branches must not depend on a mutable branch such
   as `main`. They use a compatible tagged version or an exact revision.
+- Package manifests use compatible tagged versions. Because these packages are
+  pre-1.0, requirements advance only within the selected minor line. The
+  compatibility manifest separately records the exact commit resolved and
+  tested for reproducible ecosystem evidence.
 - A compatibility manifest is immutable evidence. Updating one revision
   requires running the complete integration workflow and reviewing the result.
 - Parser-engine details such as LR state numbers, table layout, trace wording,
@@ -69,7 +73,8 @@ for foundational packages.
 1. Update and validate the shared corpus without implementation-specific data.
 2. Test the proposed foundational release against pinned downstream revisions.
 3. Publish Grammar, then update and publish Parser against that Grammar release.
-4. Update the compatibility manifest to the released tags or exact commits.
+4. Update package manifests to the released tags and record their exact commits
+   in the compatibility manifest.
 5. Validate LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench at those
    revisions.
 6. Publish the manifest and conformance report with the release notes.

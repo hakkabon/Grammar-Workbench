@@ -7,6 +7,10 @@ versioned shared corpus, while the scheduled integration workflow builds
 Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
 declared in `Packaging/EcosystemCompatibility.json`.
 
+SwiftPM manifests follow compatible release tags, while the compatibility
+manifest pins the exact commit behind each tested release. This keeps routine
+dependency updates semantic and the cross-repository evidence reproducible.
+
 LR behavioral convergence is specified in [LRConvergence.md](LRConvergence.md).
 The integration gate builds the pinned adapter and rejects undocumented or
 stale status differences.

@@ -32,19 +32,19 @@ let package = Package(
     dependencies: [
         .package(
              url: "https://github.com/hakkabon/Swift-Layout.git",
-             revision: "1c282a3aafb03cb019a9966a42cfa568365f90a1"
+             .upToNextMinor(from: "0.0.3")
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",
-            revision: "69f85d7a493e1862412c34493e3656e94331df06"
+            .upToNextMinor(from: "0.2.0")
         ),
         .package(
             url: "https://github.com/hakkabon/LR-Parsing.git",
-            revision: "054c0b7b5acdac31814034d2271660fcdc86a092"
+            .upToNextMinor(from: "0.1.0")
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",
-            revision: "bf7d3738e8593899ec53dd823370e853e5b66d2b"
+            .upToNextMinor(from: "0.1.0")
         )
     ],
     targets: [

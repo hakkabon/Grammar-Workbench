@@ -11,7 +11,7 @@ const manifestPath = join(root, "Packaging/EcosystemCompatibility.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const fail = message => { throw new Error(message); };
 
-if (manifest.schemaVersion !== 1 || manifest.contractVersion !== "0.1.0") fail("unsupported ecosystem manifest");
+if (manifest.schemaVersion !== 1 || !/^0\.\d+\.\d+$/.test(manifest.contractVersion)) fail("unsupported ecosystem manifest");
 if (!/^\d+\.\d+$/.test(manifest.swiftIntegrationVersion)) fail("invalid Swift integration version");
 if (!Array.isArray(manifest.repositories) || manifest.repositories.length < 6) fail("ecosystem repositories are incomplete");
 
@@ -21,6 +21,7 @@ for (const repository of manifest.repositories) {
   names.add(repository.name);
   if (!/^https:\/\/github\.com\/hakkabon\/[A-Za-z0-9-]+\.git$/.test(repository.repository)) fail(`invalid repository URL for ${repository.name}`);
   if (!/^[0-9a-f]{40}$/.test(repository.revision)) fail(`revision for ${repository.name} is not a full commit`);
+  if (!/^\d+\.\d+\.\d+$/.test(repository.version)) fail(`invalid release version for ${repository.name}`);
   if (repository.swiftVersion !== undefined && !/^\d+\.\d+$/.test(repository.swiftVersion)) fail(`invalid Swift version for ${repository.name}`);
   if (!["pinned", "conformance", "pending-adapter"].includes(repository.adoption)) fail(`invalid adoption state for ${repository.name}`);
 }

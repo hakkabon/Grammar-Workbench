@@ -63,6 +63,12 @@ Run the normal gate:
 Scripts/validate-release-candidate.sh
 ```
 
+SwiftPM concurrency defaults to two jobs for the release gate and its isolated
+downstream-consumer builds. This bounds peak memory on standard hosted macOS
+runners while preserving the external-consumer checks. Set `SWIFT_BUILD_JOBS`
+to a different positive integer when the host has a measured reason to use more
+or less parallelism.
+
 Run the complete packaging gate:
 
 ```sh

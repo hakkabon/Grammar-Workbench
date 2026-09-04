@@ -75,6 +75,8 @@ jobs:
 
   test:
     runs-on: macos-14
+    env:
+      SWIFT_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
       - uses: swift-actions/setup-swift@v2

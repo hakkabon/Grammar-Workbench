@@ -50,13 +50,15 @@ The release-candidate gate verifies the product from four perspectives:
     and replay retained operation identifiers without duplicate mutation.
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
-    corpus must satisfy its versioned schema, and the packaged Workbench CLI
-    must produce every normalized expected status. The pinned LR adapter must
-    also cover every case; only exact agreements or reviewed, non-stale
-    differences may pass. The Compiler adapter must report every case exactly
-    once, agree for supported behavior, and provide a rationale for each
-    explicitly unsupported recovery capability. The Grammar-REPL adapter must
-    report every case exactly once and agree on status and recovery behavior.
+    version-2 corpus must contain at least 25 cases, satisfy its schema, and the
+    packaged Workbench CLI must produce every normalized token sequence, status,
+    tree root, first diagnostic, and recovery expectation. The pinned LR adapter
+    must also cover every case and agree on status and tree root; only reviewed,
+    non-stale status differences may pass. The Compiler adapter must report every
+    case exactly once, agree on supported status and tree roots, and provide a
+    rationale for each explicitly unsupported recovery capability. The
+    Grammar-REPL adapter must report every case exactly once and agree on status,
+    tree root, and recovery behavior.
 
 Run the normal gate:
 

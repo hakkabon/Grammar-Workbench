@@ -180,8 +180,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)
     ) as? [String: Any]
-    #expect(corpus?["schemaVersion"] as? Int == 1)
-    #expect((corpus?["cases"] as? [[String: Any]])?.isEmpty == false)
+    #expect(corpus?["schemaVersion"] as? Int == 2)
+    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 25)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

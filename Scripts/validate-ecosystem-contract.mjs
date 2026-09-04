@@ -37,7 +37,7 @@ const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const corpus = JSON.parse(readFileSync(corpusPath, "utf8"));
 const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
-if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length === 0) fail("invalid corpus envelope");
+if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length < 25) fail("invalid corpus envelope");
 
 const grammarIDs = new Set();
 const grammars = new Map();
@@ -49,6 +49,7 @@ for (const grammar of corpus.grammars) {
   if (typeof grammar.start !== "string" || !Array.isArray(grammar.terminals) || grammar.terminals.length === 0 || new Set(grammar.terminals).size !== grammar.terminals.length) fail(`invalid terminals for grammar ${grammar.id}`);
   if (!Array.isArray(grammar.precedence)) fail(`invalid precedence for grammar ${grammar.id}`);
   if (!Array.isArray(grammar.productions) || grammar.productions.length === 0) fail(`grammar ${grammar.id} has no productions`);
+  const productionIDs = new Set();
   const nonterminals = new Set(grammar.productions.map(production => production.lhs));
   const terminals = new Set(grammar.terminals);
   const precedenceTerminals = new Set();
@@ -61,6 +62,8 @@ for (const grammar of corpus.grammars) {
   }
   if (!nonterminals.has(grammar.start)) fail(`start symbol is not defined for grammar ${grammar.id}`);
   for (const production of grammar.productions) {
+    if (!/^[a-z0-9][a-z0-9-]*$/.test(production.id) || productionIDs.has(production.id)) fail(`invalid or duplicate production id ${production.id} in grammar ${grammar.id}`);
+    productionIDs.add(production.id);
     if (typeof production.lhs !== "string" || production.lhs.length === 0 || !Array.isArray(production.rhs)) fail(`invalid production in grammar ${grammar.id}`);
     if (terminals.has(production.lhs)) fail(`terminal ${production.lhs} appears on the left side in grammar ${grammar.id}`);
     for (const symbol of production.rhs) {
@@ -78,6 +81,24 @@ for (const testCase of corpus.cases) {
   if (!grammar) fail(`unknown grammar ${testCase.grammar} for ${testCase.id}`);
   if (typeof testCase.input !== "string" || !statuses.has(testCase.expectedStatus)) fail(`invalid expectation for ${testCase.id}`);
   if (!Array.isArray(testCase.expectedTokenKinds) || testCase.expectedTokenKinds.some(kind => !grammar.terminals.includes(kind))) fail(`invalid expected tokens for ${testCase.id}`);
+  const succeeds = testCase.expectedStatus === "accepted" || testCase.expectedStatus === "acceptedWithRecovery";
+  if ((typeof testCase.expectedRoot === "string") !== succeeds) fail(`invalid expected root for ${testCase.id}`);
+  if (succeeds && testCase.expectedRoot !== grammar.start) fail(`expected root is not the start symbol for ${testCase.id}`);
+  if (typeof testCase.expectedAmbiguous !== "boolean") fail(`missing ambiguity expectation for ${testCase.id}`);
+  if (testCase.expectedAmbiguous) fail(`version 2 has no ambiguous grammar fixture for ${testCase.id}`);
+  if (testCase.expectedDiagnostic !== null) {
+    const diagnostic = testCase.expectedDiagnostic;
+    if (!Number.isInteger(diagnostic.tokenIndex) || diagnostic.tokenIndex < 0 || typeof diagnostic.unexpected !== "string") fail(`invalid diagnostic position for ${testCase.id}`);
+    if (!Array.isArray(diagnostic.expectedTerminals) || diagnostic.expectedTerminals.length === 0 || new Set(diagnostic.expectedTerminals).size !== diagnostic.expectedTerminals.length || diagnostic.expectedTerminals.some(symbol => !grammar.terminals.includes(symbol))) fail(`invalid diagnostic expectation for ${testCase.id}`);
+  } else if (testCase.expectedStatus === "rejected" || testCase.expectedStatus === "acceptedWithRecovery") {
+    fail(`missing diagnostic expectation for ${testCase.id}`);
+  }
+  if (testCase.expectedRecovery !== null) {
+    const recovery = testCase.expectedRecovery;
+    if (testCase.expectedStatus !== "acceptedWithRecovery" || !["insert", "delete"].includes(recovery.kind) || !grammar.terminals.includes(recovery.terminal) || !Number.isInteger(recovery.tokenIndex) || recovery.tokenIndex < 0) fail(`invalid recovery expectation for ${testCase.id}`);
+  } else if (testCase.expectedStatus === "acceptedWithRecovery") {
+    fail(`missing recovery expectation for ${testCase.id}`);
+  }
   if (!Array.isArray(testCase.tags) || testCase.tags.length === 0 || new Set(testCase.tags).size !== testCase.tags.length) fail(`invalid tags for ${testCase.id}`);
 }
 
@@ -106,6 +127,18 @@ if (cliIndex >= 0) {
       if (parsed.status !== testCase.expectedStatus) fail(`${testCase.id}: expected ${testCase.expectedStatus}, got ${parsed.status}`);
       const tokenKinds = parsed.tokens?.map(token => token.kind);
       if (JSON.stringify(tokenKinds) !== JSON.stringify(testCase.expectedTokenKinds)) fail(`${testCase.id}: normalized token kinds disagree`);
+      if ((parsed.syntaxTree?.symbol ?? null) !== testCase.expectedRoot) fail(`${testCase.id}: normalized tree root disagrees`);
+      const firstDiagnostic = parsed.diagnostics?.[0] ?? null;
+      if (testCase.expectedDiagnostic === null) {
+        if (firstDiagnostic !== null) fail(`${testCase.id}: unexpected diagnostic`);
+      } else {
+        if (!firstDiagnostic) fail(`${testCase.id}: expected diagnostic was omitted`);
+        if (firstDiagnostic.tokenIndex !== testCase.expectedDiagnostic.tokenIndex || firstDiagnostic.unexpected !== testCase.expectedDiagnostic.unexpected || JSON.stringify(firstDiagnostic.expected) !== JSON.stringify(testCase.expectedDiagnostic.expectedTerminals)) fail(`${testCase.id}: normalized diagnostic disagrees`);
+      }
+      if (testCase.expectedRecovery !== null) {
+        const expectedKind = testCase.expectedRecovery.kind === "insert" ? "insertedToken" : "deletedToken";
+        if (firstDiagnostic?.recovery !== expectedKind || firstDiagnostic?.recoverySymbol !== testCase.expectedRecovery.terminal || firstDiagnostic?.tokenIndex !== testCase.expectedRecovery.tokenIndex) fail(`${testCase.id}: normalized recovery disagrees`);
+      }
       const shouldSucceed = testCase.expectedStatus === "accepted" || testCase.expectedStatus === "acceptedWithRecovery";
       if ((result.status === 0) !== shouldSucceed) fail(`${testCase.id}: exit status disagrees with normalized status`);
     }
@@ -129,6 +162,7 @@ if (lrIndex >= 0) {
     for (const testCase of corpus.cases) {
       const observed = byID.get(testCase.id);
       if (!observed) fail(`LR adapter omitted ${testCase.id}`);
+      if ((observed.root ?? null) !== testCase.expectedRoot && observed.status === testCase.expectedStatus) fail(`${testCase.id}: LR-Parsing tree root disagrees`);
       const difference = acceptedLRDifferences.get(testCase.id);
       if (observed.status === testCase.expectedStatus) {
         if (difference) fail(`accepted LR difference for ${testCase.id} is stale`);
@@ -167,6 +201,7 @@ if (compilerIndex >= 0) {
           fail(`${testCase.id}: expected ${testCase.expectedStatus}, Compiler reported ${observed.status}`);
         }
         if (observed.reason !== undefined) fail(`${testCase.id}: supported Compiler result carries an unsupported reason`);
+        if ((observed.root ?? null) !== testCase.expectedRoot) fail(`${testCase.id}: Compiler tree root disagrees`);
       } else {
         if (testCase.expectedStatus !== "acceptedWithRecovery" || !testCase.tags.includes("recovery")) {
           fail(`${testCase.id}: Compiler marked a required capability unsupported`);
@@ -203,6 +238,7 @@ if (grammarREPLIndex >= 0) {
       if (observed.status !== testCase.expectedStatus) {
         fail(`${testCase.id}: expected ${testCase.expectedStatus}, Grammar-REPL reported ${observed.status}`);
       }
+      if ((observed.root ?? null) !== testCase.expectedRoot) fail(`${testCase.id}: Grammar-REPL tree root disagrees`);
       if (observed.status === "accepted" && (observed.diagnostics !== 0 || observed.recoveryEdits !== 0)) {
         fail(`${testCase.id}: clean Grammar-REPL acceptance reported diagnostics or recovery edits`);
       }

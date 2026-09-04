@@ -7,6 +7,12 @@ versioned shared corpus, while the scheduled integration workflow builds
 Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
 declared in `Packaging/EcosystemCompatibility.json`.
 
+Shared corpus version 2 expands the executable baseline from eight to 29 cases
+and promotes stable production IDs, normalized tree roots, ambiguity flags,
+first-diagnostic expectations, and recovery edits into the compatibility
+contract. Complete trees and reduction sequences remain deferred until the
+engine-neutral Parser tree can retain production identity without loss.
+
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine
 dependency updates semantic and the cross-repository evidence reproducible.

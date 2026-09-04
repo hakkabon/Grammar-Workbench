@@ -1,17 +1,21 @@
 # Shared ecosystem conformance corpus
 
 `Corpus.json` is the engine-neutral behavioral contract shared by Grammar,
-Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. Version one
-contains normalized grammar models, precedence declarations, token-kind
-sequences, and parse statuses.
+Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. Version two
+contains 29 cases with normalized grammar models, stable production IDs,
+precedence declarations, token-kind sequences, parse statuses, tree roots,
+ambiguity declarations, first-diagnostic expectations, and successful recovery
+edits.
 Adapters therefore do not need to read another implementation's grammar syntax
 or use its lexer. The `source` path on each grammar points to a Workbench fixture
 and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
 
 An empty production right-hand side represents epsilon. Every other symbol must
 be declared either as a terminal or as the left-hand side of a production.
-Later additive fields may cover source ranges, expected symbols, reductions,
-and syntax trees after every consumer has a lossless adapter.
+Production IDs are stable corpus identities rather than engine table indices.
+Version two intentionally stops at normalized tree roots: exact source spans,
+reduction sequences, and complete trees remain future fields until every shared
+parser tree retains production identity losslessly.
 
 `LRConvergence.json` is the reviewed differential policy. Exact Workbench/LR
 status agreement is the default. Every mismatch must name a corpus case, both
@@ -74,6 +78,8 @@ Grammar-REPL on Swift 6.1. A dependency-resolution failure is a compatibility
 failure: the coordinator never rewrites a downstream manifest to make it pass.
 
 Corpus cases must not contain LR state identifiers, implementation trace text,
-or UI-specific diagnostic wording. The Workbench adapter verifies both the
-normalized token kinds and parse status. A rejected case is conformant when the
-normalized status matches even though the CLI exits unsuccessfully.
+or UI-specific diagnostic wording. The Workbench adapter verifies normalized
+token kinds, status, tree root, first diagnostic, and successful recovery. The
+other adapters verify status and tree root for supported behavior. A rejected
+case is conformant when the normalized status matches even though the CLI exits
+unsuccessfully.

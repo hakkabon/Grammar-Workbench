@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.2.0",
+  "contractVersion": "0.3.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
     "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
     "lrConvergencePath": "Validation/Ecosystem/LRConvergence.json",
-    "version": 1
+    "version": 2
   },
   "repositories": [
     {
@@ -28,24 +28,24 @@
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "2bb06de3859248f053976eb105598439f1857a61",
-      "version": "0.1.2",
+      "revision": "21bbab32c652336f124342f1b7dd9c45ad509416",
+      "version": "0.1.3",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "871244f3b3d201bb7ef920a3a7f3d323147a7c09",
-      "version": "0.1.2",
+      "revision": "15c5a761cac9fab3bc4ecd6ad801b8249062ea8a",
+      "version": "0.1.3",
       "role": "downstream-consumer",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "6a5632ec0193e338cd33107b19cd6389ef85df6f",
-      "version": "0.2.2",
+      "revision": "97147008e5f6f46d66d9c5f7b585ebf9a0ef64d7",
+      "version": "0.2.3",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"

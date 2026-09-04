@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "grammars": [
     {
       "id": "mini-language",
@@ -11,16 +11,16 @@
         { "associativity": "left", "terminals": ["STAR"] }
       ],
       "productions": [
-        { "lhs": "Program", "rhs": ["Statements"] },
-        { "lhs": "Statements", "rhs": ["Statements", "Statement"] },
-        { "lhs": "Statements", "rhs": [] },
-        { "lhs": "Statement", "rhs": ["LET", "ID", "ASSIGN", "Expression", "SEMICOLON"] },
-        { "lhs": "Statement", "rhs": ["PRINT", "Expression", "SEMICOLON"] },
-        { "lhs": "Expression", "rhs": ["Expression", "PLUS", "Expression"] },
-        { "lhs": "Expression", "rhs": ["Expression", "STAR", "Expression"] },
-        { "lhs": "Expression", "rhs": ["LPAREN", "Expression", "RPAREN"] },
-        { "lhs": "Expression", "rhs": ["ID"] },
-        { "lhs": "Expression", "rhs": ["NUMBER"] }
+        { "id": "program-statements", "lhs": "Program", "rhs": ["Statements"] },
+        { "id": "statements-append", "lhs": "Statements", "rhs": ["Statements", "Statement"] },
+        { "id": "statements-empty", "lhs": "Statements", "rhs": [] },
+        { "id": "statement-let", "lhs": "Statement", "rhs": ["LET", "ID", "ASSIGN", "Expression", "SEMICOLON"] },
+        { "id": "statement-print", "lhs": "Statement", "rhs": ["PRINT", "Expression", "SEMICOLON"] },
+        { "id": "expression-plus", "lhs": "Expression", "rhs": ["Expression", "PLUS", "Expression"] },
+        { "id": "expression-star", "lhs": "Expression", "rhs": ["Expression", "STAR", "Expression"] },
+        { "id": "expression-parenthesized", "lhs": "Expression", "rhs": ["LPAREN", "Expression", "RPAREN"] },
+        { "id": "expression-id", "lhs": "Expression", "rhs": ["ID"] },
+        { "id": "expression-number", "lhs": "Expression", "rhs": ["NUMBER"] }
       ]
     },
     {
@@ -30,28 +30,56 @@
       "terminals": ["LBRACE", "RBRACE", "LBRACKET", "RBRACKET", "COLON", "COMMA", "TRUE", "FALSE", "NULL", "NUMBER", "STRING"],
       "precedence": [],
       "productions": [
-        { "lhs": "Value", "rhs": ["Object"] }, { "lhs": "Value", "rhs": ["Array"] },
-        { "lhs": "Value", "rhs": ["STRING"] }, { "lhs": "Value", "rhs": ["NUMBER"] },
-        { "lhs": "Value", "rhs": ["TRUE"] }, { "lhs": "Value", "rhs": ["FALSE"] },
-        { "lhs": "Value", "rhs": ["NULL"] },
-        { "lhs": "Object", "rhs": ["LBRACE", "MembersOpt", "RBRACE"] },
-        { "lhs": "MembersOpt", "rhs": ["Members"] }, { "lhs": "MembersOpt", "rhs": [] },
-        { "lhs": "Members", "rhs": ["Pair"] }, { "lhs": "Members", "rhs": ["Members", "COMMA", "Pair"] },
-        { "lhs": "Pair", "rhs": ["STRING", "COLON", "Value"] },
-        { "lhs": "Array", "rhs": ["LBRACKET", "ElementsOpt", "RBRACKET"] },
-        { "lhs": "ElementsOpt", "rhs": ["Elements"] }, { "lhs": "ElementsOpt", "rhs": [] },
-        { "lhs": "Elements", "rhs": ["Value"] }, { "lhs": "Elements", "rhs": ["Elements", "COMMA", "Value"] }
+        { "id": "value-object", "lhs": "Value", "rhs": ["Object"] },
+        { "id": "value-array", "lhs": "Value", "rhs": ["Array"] },
+        { "id": "value-string", "lhs": "Value", "rhs": ["STRING"] },
+        { "id": "value-number", "lhs": "Value", "rhs": ["NUMBER"] },
+        { "id": "value-true", "lhs": "Value", "rhs": ["TRUE"] },
+        { "id": "value-false", "lhs": "Value", "rhs": ["FALSE"] },
+        { "id": "value-null", "lhs": "Value", "rhs": ["NULL"] },
+        { "id": "object", "lhs": "Object", "rhs": ["LBRACE", "MembersOpt", "RBRACE"] },
+        { "id": "members-opt-value", "lhs": "MembersOpt", "rhs": ["Members"] },
+        { "id": "members-opt-empty", "lhs": "MembersOpt", "rhs": [] },
+        { "id": "members-pair", "lhs": "Members", "rhs": ["Pair"] },
+        { "id": "members-append", "lhs": "Members", "rhs": ["Members", "COMMA", "Pair"] },
+        { "id": "pair", "lhs": "Pair", "rhs": ["STRING", "COLON", "Value"] },
+        { "id": "array", "lhs": "Array", "rhs": ["LBRACKET", "ElementsOpt", "RBRACKET"] },
+        { "id": "elements-opt-value", "lhs": "ElementsOpt", "rhs": ["Elements"] },
+        { "id": "elements-opt-empty", "lhs": "ElementsOpt", "rhs": [] },
+        { "id": "elements-value", "lhs": "Elements", "rhs": ["Value"] },
+        { "id": "elements-append", "lhs": "Elements", "rhs": ["Elements", "COMMA", "Value"] }
       ]
     }
   ],
   "cases": [
-    { "id": "mini-empty", "grammar": "mini-language", "input": "", "expectedTokenKinds": [], "expectedStatus": "accepted", "tags": ["epsilon", "statements"] },
-    { "id": "mini-let", "grammar": "mini-language", "input": "let answer = 42;", "expectedTokenKinds": ["LET", "ID", "ASSIGN", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "tags": ["precedence", "statements"] },
-    { "id": "mini-precedence", "grammar": "mini-language", "input": "print 1 + 2 * 3;", "expectedTokenKinds": ["PRINT", "NUMBER", "PLUS", "NUMBER", "STAR", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "tags": ["left-recursion", "precedence"] },
-    { "id": "mini-missing-semicolon", "grammar": "mini-language", "input": "print 1", "expectedTokenKinds": ["PRINT", "NUMBER"], "expectedStatus": "rejected", "tags": ["diagnostic", "malformed-input"] },
-    { "id": "json-null", "grammar": "json-subset", "input": "null", "expectedTokenKinds": ["NULL"], "expectedStatus": "accepted", "tags": ["literal"] },
-    { "id": "json-nested", "grammar": "json-subset", "input": "{\"items\":[1,true,null,{\"name\":\"x\"}]}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "NUMBER", "COMMA", "TRUE", "COMMA", "NULL", "COMMA", "LBRACE", "STRING", "COLON", "STRING", "RBRACE", "RBRACKET", "RBRACE"], "expectedStatus": "accepted", "tags": ["nullable", "recursive"] },
-    { "id": "json-empty-containers", "grammar": "json-subset", "input": "{\"array\":[],\"object\":{}}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "RBRACKET", "COMMA", "STRING", "COLON", "LBRACE", "RBRACE", "RBRACE"], "expectedStatus": "accepted", "tags": ["epsilon", "recursive"] },
-    { "id": "json-trailing-comma", "grammar": "json-subset", "input": "[1,]", "expectedTokenKinds": ["LBRACKET", "NUMBER", "COMMA", "RBRACKET"], "expectedStatus": "acceptedWithRecovery", "tags": ["diagnostic", "malformed-input", "recovery"] }
+    { "id": "mini-empty", "grammar": "mini-language", "input": "", "expectedTokenKinds": [], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["epsilon", "statements"] },
+    { "id": "mini-let", "grammar": "mini-language", "input": "let answer = 42;", "expectedTokenKinds": ["LET", "ID", "ASSIGN", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["precedence", "statements"] },
+    { "id": "mini-print", "grammar": "mini-language", "input": "print 7;", "expectedTokenKinds": ["PRINT", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal", "statements"] },
+    { "id": "mini-identifier", "grammar": "mini-language", "input": "print answer;", "expectedTokenKinds": ["PRINT", "ID", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["identifier", "statements"] },
+    { "id": "mini-precedence", "grammar": "mini-language", "input": "print 1 + 2 * 3;", "expectedTokenKinds": ["PRINT", "NUMBER", "PLUS", "NUMBER", "STAR", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["left-recursion", "precedence"] },
+    { "id": "mini-parenthesized", "grammar": "mini-language", "input": "print (1 + 2) * 3;", "expectedTokenKinds": ["PRINT", "LPAREN", "NUMBER", "PLUS", "NUMBER", "RPAREN", "STAR", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["parentheses", "precedence"] },
+    { "id": "mini-multiple-statements", "grammar": "mini-language", "input": "let x = 1; print x;", "expectedTokenKinds": ["LET", "ID", "ASSIGN", "NUMBER", "SEMICOLON", "PRINT", "ID", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["identifier", "statements"] },
+    { "id": "mini-left-associative", "grammar": "mini-language", "input": "print 1 + 2 + 3;", "expectedTokenKinds": ["PRINT", "NUMBER", "PLUS", "NUMBER", "PLUS", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["left-recursion", "precedence"] },
+    { "id": "mini-star-chain", "grammar": "mini-language", "input": "print 2 * 3 * 4;", "expectedTokenKinds": ["PRINT", "NUMBER", "STAR", "NUMBER", "STAR", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["left-recursion", "precedence"] },
+    { "id": "mini-nested-parentheses", "grammar": "mini-language", "input": "print ((1));", "expectedTokenKinds": ["PRINT", "LPAREN", "LPAREN", "NUMBER", "RPAREN", "RPAREN", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["parentheses", "recursive"] },
+    { "id": "mini-two-lets", "grammar": "mini-language", "input": "let x = 1; let y = x + 2;", "expectedTokenKinds": ["LET", "ID", "ASSIGN", "NUMBER", "SEMICOLON", "LET", "ID", "ASSIGN", "ID", "PLUS", "NUMBER", "SEMICOLON"], "expectedStatus": "accepted", "expectedRoot": "Program", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["identifier", "statements"] },
+    { "id": "mini-missing-semicolon", "grammar": "mini-language", "input": "print 1", "expectedTokenKinds": ["PRINT", "NUMBER"], "expectedStatus": "rejected", "expectedRoot": null, "expectedAmbiguous": false, "expectedDiagnostic": { "tokenIndex": 2, "unexpected": "$", "expectedTerminals": ["PLUS", "RPAREN", "SEMICOLON", "STAR"] }, "expectedRecovery": null, "tags": ["diagnostic", "malformed-input"] },
+    { "id": "json-null", "grammar": "json-subset", "input": "null", "expectedTokenKinds": ["NULL"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal"] },
+    { "id": "json-true", "grammar": "json-subset", "input": "true", "expectedTokenKinds": ["TRUE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal"] },
+    { "id": "json-false", "grammar": "json-subset", "input": "false", "expectedTokenKinds": ["FALSE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal"] },
+    { "id": "json-number", "grammar": "json-subset", "input": "-12.5", "expectedTokenKinds": ["NUMBER"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal", "number"] },
+    { "id": "json-string", "grammar": "json-subset", "input": "\"hello\"", "expectedTokenKinds": ["STRING"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["literal", "string"] },
+    { "id": "json-empty-array", "grammar": "json-subset", "input": "[]", "expectedTokenKinds": ["LBRACKET", "RBRACKET"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["epsilon", "recursive"] },
+    { "id": "json-empty-object", "grammar": "json-subset", "input": "{}", "expectedTokenKinds": ["LBRACE", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["epsilon", "recursive"] },
+    { "id": "json-flat-array", "grammar": "json-subset", "input": "[1,2,3]", "expectedTokenKinds": ["LBRACKET", "NUMBER", "COMMA", "NUMBER", "COMMA", "NUMBER", "RBRACKET"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["list", "recursive"] },
+    { "id": "json-boolean-array", "grammar": "json-subset", "input": "[true,false,null]", "expectedTokenKinds": ["LBRACKET", "TRUE", "COMMA", "FALSE", "COMMA", "NULL", "RBRACKET"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["list", "literal"] },
+    { "id": "json-simple-object", "grammar": "json-subset", "input": "{\"answer\":42}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "NUMBER", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["object", "recursive"] },
+    { "id": "json-multiple-members", "grammar": "json-subset", "input": "{\"a\":1,\"b\":true}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "NUMBER", "COMMA", "STRING", "COLON", "TRUE", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["list", "object"] },
+    { "id": "json-nested-arrays", "grammar": "json-subset", "input": "[[[]]]", "expectedTokenKinds": ["LBRACKET", "LBRACKET", "LBRACKET", "RBRACKET", "RBRACKET", "RBRACKET"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["recursive"] },
+    { "id": "json-array-of-objects", "grammar": "json-subset", "input": "[{\"x\":1},{\"x\":2}]", "expectedTokenKinds": ["LBRACKET", "LBRACE", "STRING", "COLON", "NUMBER", "RBRACE", "COMMA", "LBRACE", "STRING", "COLON", "NUMBER", "RBRACE", "RBRACKET"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["object", "recursive"] },
+    { "id": "json-object-with-array", "grammar": "json-subset", "input": "{\"items\":[1,2]}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "NUMBER", "COMMA", "NUMBER", "RBRACKET", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["object", "recursive"] },
+    { "id": "json-nested", "grammar": "json-subset", "input": "{\"items\":[1,true,null,{\"name\":\"x\"}]}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "NUMBER", "COMMA", "TRUE", "COMMA", "NULL", "COMMA", "LBRACE", "STRING", "COLON", "STRING", "RBRACE", "RBRACKET", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["nullable", "recursive"] },
+    { "id": "json-empty-containers", "grammar": "json-subset", "input": "{\"array\":[],\"object\":{}}", "expectedTokenKinds": ["LBRACE", "STRING", "COLON", "LBRACKET", "RBRACKET", "COMMA", "STRING", "COLON", "LBRACE", "RBRACE", "RBRACE"], "expectedStatus": "accepted", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "tags": ["epsilon", "recursive"] },
+    { "id": "json-trailing-comma", "grammar": "json-subset", "input": "[1,]", "expectedTokenKinds": ["LBRACKET", "NUMBER", "COMMA", "RBRACKET"], "expectedStatus": "acceptedWithRecovery", "expectedRoot": "Value", "expectedAmbiguous": false, "expectedDiagnostic": { "tokenIndex": 3, "unexpected": "RBRACKET", "expectedTerminals": ["FALSE", "LBRACE", "LBRACKET", "NULL", "NUMBER", "STRING", "TRUE"] }, "expectedRecovery": { "kind": "insert", "terminal": "FALSE", "tokenIndex": 3 }, "tags": ["diagnostic", "malformed-input", "recovery"] }
   ]
 }

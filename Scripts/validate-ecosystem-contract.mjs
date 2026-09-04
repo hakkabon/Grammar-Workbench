@@ -179,4 +179,40 @@ if (compilerIndex >= 0) {
   }
 }
 
-console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}${compilerIndex >= 0 ? ", Compiler corpus coverage recorded" : ""}.`);
+const grammarREPLIndex = process.argv.indexOf("--grammar-repl-adapter");
+if (grammarREPLIndex >= 0) {
+  const adapter = process.argv[grammarREPLIndex + 1];
+  if (!adapter) fail("--grammar-repl-adapter requires a path");
+  const work = mkdtempSync(join(tmpdir(), "grammar-repl-conformance-"));
+  try {
+    const output = join(work, "grammar-repl-observations.json");
+    const result = spawnSync(resolve(adapter), [corpusPath, output], { encoding: "utf8" });
+    if (result.status !== 0 || !existsSync(output)) fail(`Grammar-REPL adapter failed: ${result.stderr.trim()}`);
+    const observations = JSON.parse(readFileSync(output, "utf8"));
+    if (!Array.isArray(observations)) fail("Grammar-REPL adapter result is not an array");
+    const byID = new Map(observations.map(item => [item.id, item]));
+    if (observations.length !== corpus.cases.length || byID.size !== corpus.cases.length) {
+      fail("Grammar-REPL adapter did not report every corpus case exactly once");
+    }
+    for (const testCase of corpus.cases) {
+      const observed = byID.get(testCase.id);
+      if (!observed) fail(`Grammar-REPL adapter omitted ${testCase.id}`);
+      if (!statuses.has(observed.status)) fail(`${testCase.id}: Grammar-REPL emitted invalid status ${observed.status}`);
+      if (!Number.isInteger(observed.diagnostics) || observed.diagnostics < 0) fail(`${testCase.id}: Grammar-REPL emitted an invalid diagnostic count`);
+      if (!Number.isInteger(observed.recoveryEdits) || observed.recoveryEdits < 0) fail(`${testCase.id}: Grammar-REPL emitted an invalid recovery edit count`);
+      if (observed.status !== testCase.expectedStatus) {
+        fail(`${testCase.id}: expected ${testCase.expectedStatus}, Grammar-REPL reported ${observed.status}`);
+      }
+      if (observed.status === "accepted" && (observed.diagnostics !== 0 || observed.recoveryEdits !== 0)) {
+        fail(`${testCase.id}: clean Grammar-REPL acceptance reported diagnostics or recovery edits`);
+      }
+      if (observed.status === "acceptedWithRecovery" && (observed.diagnostics === 0 || observed.recoveryEdits === 0)) {
+        fail(`${testCase.id}: Grammar-REPL recovery omitted diagnostics or edits`);
+      }
+    }
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}${compilerIndex >= 0 ? ", Compiler corpus coverage recorded" : ""}${grammarREPLIndex >= 0 ? ", Grammar-REPL conformant" : ""}.`);

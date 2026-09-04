@@ -37,15 +37,12 @@ recovery policy. The pinned Swift 6.0 job validates every corpus observation.
 
 ## Grammar-REPL
 
-The integration coordinator checks the pinned repository externally in a
-separate Swift 6.1 job. This preserves the Swift 6.0 foundational baseline and
-does not change REPL commands, rendering, or session state. All ecosystem
-dependencies are exact and its independent suite passes. The adoption state
-remains `pending-adapter` solely because it does not yet expose a shared-corpus
-adapter through `GrammarReplLib`.
-
-- Expose a non-terminal corpus adapter through `GrammarReplLib`.
-- Keep command rendering and readline behavior outside the shared parse result.
+Grammar-REPL exposes a non-terminal `grammar-repl-conformance` executable over
+`GrammarReplLib`. It constructs the shared normalized grammars and token streams,
+executes its existing LALR path with bounded recovery, and reports structured
+status, diagnostic, and recovery-edit observations. Command rendering, history,
+readline behavior, and session state remain outside the shared result. The pinned
+Swift 6.1 job requires exact agreement for every corpus case.
 
 ## Promotion rule
 

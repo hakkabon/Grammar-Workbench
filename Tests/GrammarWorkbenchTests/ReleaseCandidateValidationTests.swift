@@ -174,6 +174,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     } == true)
     let compilerRepository = repositories?.first { $0["name"] as? String == "Compiler" }
     #expect(compilerRepository?["adoption"] as? String == "conformance")
+    let grammarREPLRepository = repositories?.first { $0["name"] as? String == "Grammar-REPL" }
+    #expect(grammarREPLRepository?["adoption"] as? String == "conformance")
     let corpusURL = packageRoot().appendingPathComponent(policy.ecosystemConformanceCorpus)
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)

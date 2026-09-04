@@ -10,6 +10,7 @@ REPOSITORY_FILTER="${ECOSYSTEM_REPOSITORIES:-}"
 SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
 LR_ADAPTER=""
 COMPILER_ADAPTER=""
+GRAMMAR_REPL_ADAPTER=""
 
 if [ -n "${ECOSYSTEM_CHECKOUT_ROOT:-}" ]; then
     CHECKOUT_ROOT="$ECOSYSTEM_CHECKOUT_ROOT"
@@ -102,6 +103,11 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
         compiler_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         COMPILER_ADAPTER="$compiler_bin_dir/compiler-conformance"
     fi
+    if [ "$name" = "Grammar-REPL" ] && [ "$adoption" = "conformance" ]; then
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product grammar-repl-conformance
+        grammar_repl_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
+        GRAMMAR_REPL_ADAPTER="$grammar_repl_bin_dir/grammar-repl-conformance"
+    fi
 done < "$REPOSITORY_ROWS"
 
 validation_arguments=()
@@ -120,6 +126,9 @@ if [ -n "$LR_ADAPTER" ]; then
 fi
 if [ -n "$COMPILER_ADAPTER" ]; then
     validation_arguments+=(--compiler-adapter "$COMPILER_ADAPTER")
+fi
+if [ -n "$GRAMMAR_REPL_ADAPTER" ]; then
+    validation_arguments+=(--grammar-repl-adapter "$GRAMMAR_REPL_ADAPTER")
 fi
 if [ "${#validation_arguments[@]}" -gt 0 ]; then
     node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" "${validation_arguments[@]}"

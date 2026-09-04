@@ -55,7 +55,8 @@ The release-candidate gate verifies the product from four perspectives:
     also cover every case; only exact agreements or reviewed, non-stale
     differences may pass. The Compiler adapter must report every case exactly
     once, agree for supported behavior, and provide a rationale for each
-    explicitly unsupported recovery capability.
+    explicitly unsupported recovery capability. The Grammar-REPL adapter must
+    report every case exactly once and agree on status and recovery behavior.
 
 Run the normal gate:
 
@@ -84,4 +85,5 @@ downstream repository at its exact manifest revision and runs its test suite.
 Entries marked `pending-adapter` are build-validated but make no behavioral
 conformance claim until that repository adds a corpus adapter. LR-Parsing is
 differentially checked against Workbench; Compiler is checked for exact supported
-behavior and explicit unsupported recovery observations.
+behavior and explicit unsupported recovery observations; Grammar-REPL is checked
+for exact status and recovery agreement.

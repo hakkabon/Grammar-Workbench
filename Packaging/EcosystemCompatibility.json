@@ -28,8 +28,8 @@
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "8cea403a900c239bdb3b23590e1ba85ba5ce85c9",
-      "version": "0.1.1",
+      "revision": "2bb06de3859248f053976eb105598439f1857a61",
+      "version": "0.1.2",
       "role": "lr-engine",
       "adoption": "conformance"
     },
@@ -44,11 +44,11 @@
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "2661db5d3d5fc0513b256f3dcf6633db490a1ce3",
-      "version": "0.2.1",
+      "revision": "6a5632ec0193e338cd33107b19cd6389ef85df6f",
+      "version": "0.2.2",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
-      "adoption": "pending-adapter"
+      "adoption": "conformance"
     },
     {
       "name": "Grammar-Workbench",

@@ -20,6 +20,12 @@ existing generalized-parser and parse-tree adaptation boundary without changing
 compiler-owned syntax or semantic models. Capabilities absent from that boundary,
 currently syntax recovery, remain explicit observations rather than skipped cases.
 
+Grammar-REPL supplies a separate non-terminal corpus adapter through
+`GrammarReplLib`. It exercises the REPL's existing LALR and bounded-recovery path
+over normalized tokens while keeping readline, commands, rendering, and retained
+session state outside the conformance boundary. Its Swift 6.1 integration job
+requires exact corpus agreement.
+
 Semantic language kits are the portable distribution unit for language-specific configuration. They can be validated in-process or through `languageKitValidate`, analyzed through `languageKitAnalyze`, and supplied directly to `sessionOpen`. This keeps editor, CI, and service-host consumers on one grammar and semantic contract.
 
 Language-kit package manifests add semantic versions and explicit prerequisites;

@@ -24,6 +24,8 @@ plutil -lint "$ROOT_DIR/Packaging/Info.plist" \
 node -e 'const m=require(process.argv[1]); if (m.schemaVersion !== 1 || !m.wasi.swiftSDKID || !m.wasi.swiftSDKBundleSHA256) process.exit(1)' \
     "$ROOT_DIR/Packaging/PortabilityToolchain.json"
 node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs"
+node "$ROOT_DIR/Scripts/audit-dependency-boundaries.mjs" \
+    --package "Grammar-Workbench=$ROOT_DIR"
 
 swift test --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS"
 swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench

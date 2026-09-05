@@ -7,6 +7,11 @@ versioned shared corpus, while the scheduled integration workflow builds
 Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
 declared in `Packaging/EcosystemCompatibility.json`.
 
+The executable [dependency-boundary audit](DependencyBoundaryAudit.md) checks
+those manifests against reviewed owners, architectural layers, direct dependency
+allowlists, and release-based or exact SwiftPM requirements. New edges fail
+closed until the policy is reviewed.
+
 Shared corpus version 2 expands the executable baseline from eight to 29 cases
 and promotes stable production IDs, normalized tree roots, ambiguity flags,
 first-diagnostic expectations, and recovery edits into the compatibility

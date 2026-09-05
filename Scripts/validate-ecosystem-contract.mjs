@@ -29,6 +29,15 @@ for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-
   if (!names.has(required)) fail(`missing repository ${required}`);
 }
 
+const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
+const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");
+if (!existsSync(boundaryPath) || !existsSync(boundarySchemaPath)) fail("dependency boundary policy or schema is missing");
+const boundaryPolicy = JSON.parse(readFileSync(boundaryPath, "utf8"));
+const boundarySchema = JSON.parse(readFileSync(boundarySchemaPath, "utf8"));
+if (boundarySchema.properties?.schemaVersion?.const !== manifest.dependencyBoundaries.version || boundaryPolicy.schemaVersion !== manifest.dependencyBoundaries.version) fail("dependency boundary version differs from manifest");
+const auditedBoundaryNames = new Set(boundaryPolicy.packages?.filter(entry => entry.audited).map(entry => entry.name));
+if (auditedBoundaryNames.size !== names.size || [...names].some(name => !auditedBoundaryNames.has(name))) fail("dependency boundary scope differs from compatibility repositories");
+
 const corpusPath = join(root, manifest.corpus.path);
 const schemaPath = join(root, manifest.corpus.schemaPath);
 const convergencePath = join(root, manifest.corpus.lrConvergencePath ?? "");

@@ -22,6 +22,12 @@ status agreement is the default. Every mismatch must name a corpus case, both
 observed statuses, and a reason. The validator also rejects stale exceptions
 after the implementations begin to agree.
 
+`DependencyBoundaries.json` classifies the direct package graph by owner and
+layer. `Scripts/audit-dependency-boundaries.mjs` evaluates real SwiftPM manifests
+and rejects unreviewed edges, reverse ownership, mutable branches, local package
+dependencies, duplicates, and stale allowlists. See
+`Documentation/DependencyBoundaryAudit.md` for the scope and promotion rule.
+
 Run the structural validation only:
 
 ```sh

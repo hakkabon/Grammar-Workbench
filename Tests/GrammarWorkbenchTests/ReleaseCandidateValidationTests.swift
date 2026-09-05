@@ -102,6 +102,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredSourceProjects: [String]
     let ecosystemCompatibilityManifest: String
     let ecosystemConformanceCorpus: String
+    let dependencyBoundaryPolicy: String
     let budgets: Budgets
 }
 
@@ -165,6 +166,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
+    #expect(ecosystem?["contractVersion"] as? String == "0.4.0")
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
@@ -182,6 +184,18 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     ) as? [String: Any]
     #expect(corpus?["schemaVersion"] as? Int == 2)
     #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 25)
+    let boundariesURL = packageRoot().appendingPathComponent(policy.dependencyBoundaryPolicy)
+    let boundaries = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: boundariesURL)
+    ) as? [String: Any]
+    #expect(boundaries?["schemaVersion"] as? Int == 1)
+    let boundaryPackages = boundaries?["packages"] as? [[String: Any]]
+    #expect(Set(boundaryPackages?.compactMap { package -> String? in
+        guard package["audited"] as? Bool == true else { return nil }
+        return package["name"] as? String
+    } ?? []) == [
+        "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
+    ])
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

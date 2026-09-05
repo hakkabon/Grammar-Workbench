@@ -1,12 +1,17 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.3.0",
+  "contractVersion": "0.4.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
     "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
     "lrConvergencePath": "Validation/Ecosystem/LRConvergence.json",
     "version": 2
+  },
+  "dependencyBoundaries": {
+    "path": "Validation/Ecosystem/DependencyBoundaries.json",
+    "schemaPath": "Validation/Ecosystem/DependencyBoundaries.schema.json",
+    "version": 1
   },
   "repositories": [
     {

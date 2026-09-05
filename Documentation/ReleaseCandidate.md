@@ -59,6 +59,9 @@ The release-candidate gate verifies the product from four perspectives:
     rationale for each explicitly unsupported recovery capability. The
     Grammar-REPL adapter must report every case exactly once and agree on status,
     tree root, and recovery behavior.
+26. The dependency-boundary audit must evaluate the parsed SwiftPM manifest,
+    classify every direct dependency, enforce the reviewed ownership layering,
+    reject mutable or local requirements, and reject stale allowlists.
 
 Run the normal gate:
 

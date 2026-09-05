@@ -11,6 +11,7 @@ SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
 LR_ADAPTER=""
 COMPILER_ADAPTER=""
 GRAMMAR_REPL_ADAPTER=""
+BOUNDARY_ARGUMENTS=()
 
 if [ -n "${ECOSYSTEM_CHECKOUT_ROOT:-}" ]; then
     CHECKOUT_ROOT="$ECOSYSTEM_CHECKOUT_ROOT"
@@ -87,6 +88,7 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
         echo "$name checkout is not clean at $revision" >&2
         exit 1
     fi
+    BOUNDARY_ARGUMENTS+=(--package "$name=$checkout")
     if [ "$name" = "LR-Parsing" ] && [ -n "$MIRROR_ROOT" ] && [ -d "$MIRROR_ROOT/Lexer/.git" ]; then
         swift package --package-path "$checkout" config set-mirror \
             --original https://github.com/hakkabon/Lexer.git \
@@ -109,6 +111,16 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
         GRAMMAR_REPL_ADAPTER="$grammar_repl_bin_dir/grammar-repl-conformance"
     fi
 done < "$REPOSITORY_ROWS"
+
+if [ "$SKIP_WORKBENCH" != "1" ]; then
+    BOUNDARY_ARGUMENTS+=(--package "Grammar-Workbench=$ROOT_DIR")
+fi
+boundary_report_arguments=()
+if [ -n "$REPORT_PATH" ]; then
+    boundary_report_arguments+=(--report "${REPORT_PATH%.json}-dependency-boundaries.json")
+fi
+node "$ROOT_DIR/Scripts/audit-dependency-boundaries.mjs" \
+    "${BOUNDARY_ARGUMENTS[@]}" "${boundary_report_arguments[@]}"
 
 validation_arguments=()
 if [ "$SKIP_WORKBENCH" != "1" ]; then

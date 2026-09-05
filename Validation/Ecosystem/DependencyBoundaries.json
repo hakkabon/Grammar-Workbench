@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "policyVersion": "1.0.0",
+  "packages": [
+    { "name": "TerminalColors", "identity": "terminalcolors", "owner": "terminal-presentation", "layer": 0, "kind": "ecosystem", "audited": false },
+    { "name": "GrammarTokenizer", "identity": "grammartokenizer", "owner": "grammar-tokenization", "layer": 0, "kind": "ecosystem", "audited": false },
+    { "name": "GrammarDiagram", "identity": "grammardiagram", "owner": "grammar-diagram-model", "layer": 0, "kind": "ecosystem", "audited": false },
+    { "name": "Grammar-DiagramKit", "identity": "grammar-diagramkit", "owner": "grammar-diagram-ui", "layer": 0, "kind": "ecosystem", "audited": false },
+    { "name": "Swift-Layout", "identity": "swift-layout", "owner": "graph-layout", "layer": 0, "kind": "ecosystem", "audited": false },
+    { "name": "Lexer-FSA", "identity": "lexer-fsa", "owner": "finite-state-lexing", "layer": 1, "kind": "ecosystem", "audited": false },
+    { "name": "Grammar", "manifestName": "Grammar", "identity": "grammar", "owner": "grammar-model", "layer": 1, "kind": "ecosystem", "audited": true, "allowedDependencies": ["grammardiagram", "grammartokenizer", "swift-algorithms", "swift-argument-parser", "terminalcolors"] },
+    { "name": "Parser", "manifestName": "Parser", "identity": "parser", "owner": "parser-contracts", "layer": 2, "kind": "ecosystem", "audited": true, "allowedDependencies": ["grammar", "terminalcolors"] },
+    { "name": "Lexer", "identity": "lexer", "owner": "lexical-runtime", "layer": 2, "kind": "ecosystem", "audited": false },
+    { "name": "Earley-Parser", "identity": "earley-parser", "owner": "earley-engine", "layer": 3, "kind": "ecosystem", "audited": false },
+    { "name": "CYK-Parser", "identity": "cyk-parser", "owner": "cyk-engine", "layer": 3, "kind": "ecosystem", "audited": false },
+    { "name": "RNGLR-Parser", "identity": "rnglr-parser", "owner": "rnglr-engine", "layer": 3, "kind": "ecosystem", "audited": false },
+    { "name": "LR-Parsing", "manifestName": "LR-Parsing", "identity": "lr-parsing", "owner": "lr-engine", "layer": 3, "kind": "ecosystem", "audited": true, "allowedDependencies": ["grammar", "grammardiagram", "lexer", "parser", "shellout", "swift-argument-parser", "terminalcolors"] },
+    { "name": "Compiler", "manifestName": "Compiler", "identity": "compiler", "owner": "compiler-models", "layer": 4, "kind": "ecosystem", "audited": true, "allowedDependencies": ["cyk-parser", "earley-parser", "grammar", "lexer", "lexer-fsa", "parser", "rnglr-parser", "swift-argument-parser"] },
+    { "name": "Grammar-REPL", "manifestName": "grammar-repl", "identity": "grammar-repl", "owner": "repl-interaction", "layer": 4, "kind": "ecosystem", "audited": true, "allowedDependencies": ["cyk-parser", "earley-parser", "grammar", "grammardiagram", "lexer", "lr-parsing", "parser", "rnglr-parser", "swift-argument-parser"] },
+    { "name": "Grammar-Workbench", "manifestName": "GrammarWorkbench", "identity": "grammar-workbench", "owner": "integration-coordinator", "layer": 5, "kind": "ecosystem", "audited": true, "allowedDependencies": ["grammar", "grammar-diagramkit", "lr-parsing", "swift-layout"] },
+    { "name": "swift-argument-parser", "identity": "swift-argument-parser", "owner": "external", "layer": 0, "kind": "external", "audited": false },
+    { "name": "swift-algorithms", "identity": "swift-algorithms", "owner": "external", "layer": 0, "kind": "external", "audited": false },
+    { "name": "ShellOut", "identity": "shellout", "owner": "external", "layer": 0, "kind": "external", "audited": false }
+  ],
+  "allowedRequirementKinds": ["exact", "range", "revision"]
+}

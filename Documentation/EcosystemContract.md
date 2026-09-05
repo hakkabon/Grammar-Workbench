@@ -59,6 +59,9 @@ revisions.
   explicitly promotes them.
 - Compiler semantic ASTs, UI diagnostics, and terminal rendering remain wrapper
   contracts. They adapt the shared parser contracts rather than expanding them.
+- The dependency-boundary policy is closed by default. Every direct dependency
+  of a compatibility repository has a reviewed owner and layer; new, lateral,
+  reverse, local-path, or mutable-branch edges fail the release gate.
 
 ## Supported baseline
 

@@ -17,8 +17,8 @@
     {
       "name": "Grammar",
       "repository": "https://github.com/hakkabon/Grammar.git",
-      "revision": "3816f5c668a98b29022a19757a40cb956b269f7e",
-      "version": "0.2.0",
+      "revision": "67ed762c7d03cac10c2bbb35551fd0a6fa790c0a",
+      "version": "0.2.1",
       "role": "grammar-model",
       "adoption": "pinned"
     },
@@ -41,8 +41,8 @@
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "15c5a761cac9fab3bc4ecd6ad801b8249062ea8a",
-      "version": "0.1.3",
+      "revision": "ae36cd0df8646f09d970a31093590680079caa71",
+      "version": "0.1.4",
       "role": "downstream-consumer",
       "adoption": "conformance"
     },

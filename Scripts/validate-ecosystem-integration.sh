@@ -8,6 +8,7 @@ MIRROR_ROOT="${ECOSYSTEM_REPOSITORY_MIRROR_ROOT:-}"
 REPORT_PATH="${ECOSYSTEM_REPORT_PATH:-}"
 REPOSITORY_FILTER="${ECOSYSTEM_REPOSITORIES:-}"
 SKIP_WORKBENCH="${ECOSYSTEM_SKIP_WORKBENCH:-0}"
+SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-2}"
 LR_ADAPTER=""
 COMPILER_ADAPTER=""
 GRAMMAR_REPL_ADAPTER=""
@@ -31,6 +32,12 @@ trap cleanup EXIT
 command -v git >/dev/null
 command -v node >/dev/null
 command -v swift >/dev/null
+case "$SWIFT_BUILD_JOBS" in
+    ''|*[!0-9]*|0)
+        echo "SWIFT_BUILD_JOBS must be a positive integer." >&2
+        exit 2
+        ;;
+esac
 node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs"
 mkdir -p "$CHECKOUT_ROOT/checkouts" "$CHECKOUT_ROOT/build"
 
@@ -94,19 +101,23 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
             --original https://github.com/hakkabon/Lexer.git \
             --mirror "file://$MIRROR_ROOT/Lexer"
     fi
-    swift test --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name"
+    swift test --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
+        --jobs "$SWIFT_BUILD_JOBS"
     if [ "$name" = "LR-Parsing" ] && [ "$adoption" = "conformance" ]; then
-        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product lr-conformance
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
+            --jobs "$SWIFT_BUILD_JOBS" --product lr-conformance
         lr_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         LR_ADAPTER="$lr_bin_dir/lr-conformance"
     fi
     if [ "$name" = "Compiler" ] && [ "$adoption" = "conformance" ]; then
-        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product compiler-conformance
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
+            --jobs "$SWIFT_BUILD_JOBS" --product compiler-conformance
         compiler_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         COMPILER_ADAPTER="$compiler_bin_dir/compiler-conformance"
     fi
     if [ "$name" = "Grammar-REPL" ] && [ "$adoption" = "conformance" ]; then
-        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --product grammar-repl-conformance
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
+            --jobs "$SWIFT_BUILD_JOBS" --product grammar-repl-conformance
         grammar_repl_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         GRAMMAR_REPL_ADAPTER="$grammar_repl_bin_dir/grammar-repl-conformance"
     fi
@@ -129,7 +140,8 @@ if [ "$SKIP_WORKBENCH" != "1" ]; then
         exit 1
     fi
     WORKBENCH_SCRATCH="$CHECKOUT_ROOT/build/Grammar-Workbench"
-    swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --product grammar-workbench
+    swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" \
+        --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench
     BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$WORKBENCH_SCRATCH" -c release --show-bin-path)"
     validation_arguments+=(--cli "$BIN_DIR/grammar-workbench")
 fi

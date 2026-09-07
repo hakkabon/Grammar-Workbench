@@ -70,6 +70,8 @@ revision, verifies the detached checkout, gives each package an isolated build
 directory, runs its test suite, builds the pinned LR, Compiler, and Grammar-REPL
 adapters, and finally validates all available corpus observations through the
 convergence policy.
+Pinned SwiftPM builds default to two concurrent jobs through
+`SWIFT_BUILD_JOBS`, matching the memory-bounded release gate.
 Set `ECOSYSTEM_REPORT_PATH` to retain immutable JSON evidence containing the
 manifest digest and tested revisions. For offline development,
 `ECOSYSTEM_REPOSITORY_MIRROR_ROOT` may name a directory containing local clones;

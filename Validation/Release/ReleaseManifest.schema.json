@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grammar-workbench.dev/schemas/release-manifest-v1.json",
+  "title": "Grammar Workbench release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "release",
+    "source",
+    "toolchain",
+    "platform",
+    "security",
+    "checksumAlgorithm",
+    "checksums",
+    "artifacts"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "buildNumber", "tag"],
+      "properties": {
+        "version": { "type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$" },
+        "buildNumber": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+        "tag": { "type": ["string", "null"] }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision", "clean", "dependencyLock"],
+      "properties": {
+        "repository": { "type": "string", "format": "uri" },
+        "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "clean": { "type": "boolean" },
+        "dependencyLock": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "sha256", "pins"],
+          "properties": {
+            "file": { "const": "Package.resolved" },
+            "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+            "pins": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["identity", "version", "revision"],
+                "properties": {
+                  "identity": { "type": "string", "minLength": 1 },
+                  "version": { "type": "string", "minLength": 1 },
+                  "revision": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["swiftVersion"],
+      "properties": { "swiftVersion": { "type": "string", "minLength": 1 } }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "architectures"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "architectures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executablesSigned", "applicationNotarized"],
+      "properties": {
+        "executablesSigned": { "type": "boolean" },
+        "applicationNotarized": { "type": "boolean" }
+      }
+    },
+    "checksumAlgorithm": { "const": "sha256" },
+    "checksums": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256"],
+      "properties": {
+        "file": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "bytes", "sha256"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,9 @@
 FROM swift:6.0-jammy AS builder
 WORKDIR /src
 COPY . .
-RUN swift build -c release --product grammar-workbench \
- && swift build -c release --product grammar-workbench-lsp \
- && swift build -c release --product grammar-workbench-service
+RUN swift build --force-resolved-versions -c release --product grammar-workbench \
+ && swift build --force-resolved-versions -c release --product grammar-workbench-lsp \
+ && swift build --force-resolved-versions -c release --product grammar-workbench-service
 
 FROM swift:6.0-jammy
 LABEL org.opencontainers.image.title="Grammar Workbench"

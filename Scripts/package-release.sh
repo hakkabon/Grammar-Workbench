@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_VERSION="$(sed -n 's/.*public static let version = "\([0-9.]*\)".*/\1/p' "$ROOT_DIR/Sources/GrammarWorkbench/ProductionSupport.swift")"
+SOURCE_VERSION="$(node "$ROOT_DIR/Scripts/release-artifacts.mjs" source --print-version)"
 VERSION="${VERSION:-$SOURCE_VERSION}"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-com.grammar-workbench.app}"
@@ -10,6 +10,10 @@ ARCHS="${ARCHS:-$(uname -m)}"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT_DIR/dist}"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"
+RELEASE_TAG="${RELEASE_TAG:-}"
+RELEASE_REVISION="${RELEASE_REVISION:-}"
+RELEASE_REQUIRE_CLEAN="${RELEASE_REQUIRE_CLEAN:-0}"
+SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-2}"
 APP_ICON="${APP_ICON:-$ROOT_DIR/Packaging/AppIcon.icns}"
 APP_NAME="Grammar Workbench.app"
 APP_PATH="$OUTPUT_DIR/$APP_NAME"
@@ -24,6 +28,20 @@ fi
 case "$BUILD_NUMBER" in
     *[!0-9]*|"") echo "BUILD_NUMBER must be numeric." >&2; exit 2 ;;
 esac
+case "$SWIFT_BUILD_JOBS" in
+    ''|*[!0-9]*|0) echo "SWIFT_BUILD_JOBS must be a positive integer." >&2; exit 2 ;;
+esac
+
+SOURCE_ARGUMENTS=(source --version "$VERSION")
+if [ -n "$RELEASE_TAG" ]; then SOURCE_ARGUMENTS+=(--tag "$RELEASE_TAG"); fi
+if [ -n "$RELEASE_REVISION" ]; then SOURCE_ARGUMENTS+=(--revision "$RELEASE_REVISION"); fi
+if [ "$RELEASE_REQUIRE_CLEAN" = "1" ]; then
+    SOURCE_ARGUMENTS+=(--require-clean)
+elif [ "$RELEASE_REQUIRE_CLEAN" != "0" ]; then
+    echo "RELEASE_REQUIRE_CLEAN must be 0 or 1." >&2
+    exit 2
+fi
+node "$ROOT_DIR/Scripts/release-artifacts.mjs" "${SOURCE_ARGUMENTS[@]}"
 
 mkdir -p "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-release.XXXXXX")"
@@ -36,11 +54,11 @@ SERVICE_BINARIES=()
 RESOURCE_BUNDLE=""
 for ARCH in $ARCHS; do
     SCRATCH="$WORK_DIR/build-$ARCH"
-    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product GrammarWorkbenchApp
-    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench
-    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-lsp
-    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --product grammar-workbench-service
-    BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" -c release --arch "$ARCH" --show-bin-path)"
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --arch "$ARCH" --product GrammarWorkbenchApp
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --arch "$ARCH" --product grammar-workbench
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --arch "$ARCH" --product grammar-workbench-lsp
+    swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --arch "$ARCH" --product grammar-workbench-service
+    BIN_DIR="$(swift build --package-path "$ROOT_DIR" --scratch-path "$SCRATCH" --force-resolved-versions -c release --arch "$ARCH" --show-bin-path)"
     APP_BINARIES+=("$BIN_DIR/GrammarWorkbenchApp")
     CLI_BINARIES+=("$BIN_DIR/grammar-workbench")
     LSP_BINARIES+=("$BIN_DIR/grammar-workbench-lsp")
@@ -128,14 +146,42 @@ if [ -n "$NOTARY_PROFILE" ]; then
     ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$ZIP_PATH"
 fi
 
-BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" "$ROOT_DIR/Scripts/validate-release.sh" "$APP_PATH" "$OUTPUT_DIR/grammar-workbench" "$OUTPUT_DIR/grammar-workbench-lsp"
+VALIDATION_ARGUMENTS=(
+    "$APP_PATH" "$OUTPUT_DIR/grammar-workbench"
+    "$OUTPUT_DIR/grammar-workbench-lsp" "$OUTPUT_DIR/grammar-workbench-service"
+)
+EXPECTED_VERSION="$VERSION" EXPECTED_BUILD_NUMBER="$BUILD_NUMBER" EXPECTED_ARCHS="$ARCHS" \
+    REQUIRE_SIGNED_RELEASE="$([ -n "$SIGNING_IDENTITY" ] && echo 1 || echo 0)" \
+    REQUIRE_NOTARIZED_RELEASE="$([ -n "$NOTARY_PROFILE" ] && echo 1 || echo 0)" \
+    BUNDLE_IDENTIFIER="$BUNDLE_IDENTIFIER" \
+    "$ROOT_DIR/Scripts/validate-release.sh" "${VALIDATION_ARGUMENTS[@]}"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$OUTPUT_DIR/grammar-workbench-service"
 (cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$SERVICE_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
+for ARCHIVE in "$ZIP_PATH" "$CLI_ZIP" "$LSP_ZIP" "$SERVICE_ZIP" "$CLIENTS_ZIP"; do
+    unzip -t "$ARCHIVE" >/dev/null
+done
+MANIFEST_ARGUMENTS=(
+    create --directory "$OUTPUT_DIR" --version "$VERSION" --build "$BUILD_NUMBER"
+    --platform macos --architectures "$ARCHS" --checksums SHA256SUMS
+    --artifact "$(basename "$ZIP_PATH")" --artifact "$(basename "$CLI_ZIP")"
+    --artifact "$(basename "$LSP_ZIP")" --artifact "$(basename "$SERVICE_ZIP")"
+    --artifact "$(basename "$CLIENTS_ZIP")"
+)
+if [ -n "$RELEASE_TAG" ]; then MANIFEST_ARGUMENTS+=(--tag "$RELEASE_TAG"); fi
+if [ -n "$RELEASE_REVISION" ]; then MANIFEST_ARGUMENTS+=(--revision "$RELEASE_REVISION"); fi
+if [ "$RELEASE_REQUIRE_CLEAN" = "1" ]; then MANIFEST_ARGUMENTS+=(--require-clean); fi
+if [ -n "$SIGNING_IDENTITY" ]; then MANIFEST_ARGUMENTS+=(--signed); fi
+if [ -n "$NOTARY_PROFILE" ]; then MANIFEST_ARGUMENTS+=(--notarized); fi
+node "$ROOT_DIR/Scripts/release-artifacts.mjs" "${MANIFEST_ARGUMENTS[@]}"
+node "$ROOT_DIR/Scripts/release-artifacts.mjs" verify \
+    --manifest "$OUTPUT_DIR/ReleaseManifest.json"
 echo "Created $ZIP_PATH"
 echo "Created $CLI_ZIP"
 echo "Created $LSP_ZIP"
 echo "Created $SERVICE_ZIP"
 echo "Created $CLIENTS_ZIP"
 echo "Created $OUTPUT_DIR/SHA256SUMS"
+echo "Created $OUTPUT_DIR/ReleaseManifest.json"
+echo "Created $OUTPUT_DIR/ReleaseManifest.json.sha256"

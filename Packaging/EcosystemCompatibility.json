@@ -25,7 +25,7 @@
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "a0b9fe9e26e5f97b64e1ba85ba5ce85c9df52c8f",
+      "revision": "a0b9fe9e26e5f97b64eb648e0ab6e3439df52c8f",
       "version": "0.2.1",
       "role": "parser-contracts",
       "adoption": "pinned"

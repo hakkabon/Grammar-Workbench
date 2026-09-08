@@ -66,6 +66,10 @@ The release-candidate gate verifies the product from four perspectives:
     source exactly once, reject native-framework imports from portable
     candidates, preserve the reviewed mixed-file extraction queue, and match
     the checked structural baseline.
+28. Release packaging must bind a stable semantic version, full source revision,
+    toolchain, architecture set, signing state, checksum file, and every archive
+    digest in a verified schema-versioned provenance manifest. Tagged automation
+    additionally requires a clean checkout whose tag and revision match source.
 
 Run the normal gate:
 

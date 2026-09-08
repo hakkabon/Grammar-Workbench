@@ -27,12 +27,14 @@ node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs"
 node "$ROOT_DIR/Scripts/audit-dependency-boundaries.mjs" \
     --package "Grammar-Workbench=$ROOT_DIR"
 node "$ROOT_DIR/Scripts/measure-workbench-core.mjs" --check
+node "$ROOT_DIR/Scripts/release-artifacts.mjs" source
+node "$ROOT_DIR/Scripts/release-artifacts.mjs" self-test
 
-swift test --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS"
-swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench
-swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench-lsp
-swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench-service
-BIN_DIR="$(swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --show-bin-path)"
+swift test --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS"
+swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench
+swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench-lsp
+swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench-service
+BIN_DIR="$(swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --show-bin-path)"
 node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$BIN_DIR/grammar-workbench-lsp"

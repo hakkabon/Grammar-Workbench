@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags: ["v*.*.*", "[0-9]*.[0-9]*.[0-9]*"]
   workflow_dispatch:
 
 permissions:
@@ -19,11 +19,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify tag matches source version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          SOURCE_VERSION=$(sed -n 's/.*public static let version = "\([0-9.]*\)".*/\1/p' Sources/GrammarWorkbench/ProductionSupport.swift)
-          test "v$SOURCE_VERSION" = "${{ github.ref_name }}"
+      - name: Verify immutable release source
+        if: github.ref_type == 'tag'
+        run: >-
+          node Scripts/release-artifacts.mjs source
+          --tag "${{ github.ref_name }}" --revision "${{ github.sha }}"
+          --require-clean
       - name: Release-candidate gate
         run: Scripts/validate-release-candidate.sh
       - name: Package unsigned release artifacts
@@ -31,6 +32,9 @@ jobs:
           ARCHS: arm64 x86_64
           BUILD_NUMBER: ${{ github.run_number }}
           OUTPUT_DIR: ${{ runner.temp }}/release
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          RELEASE_REVISION: ${{ github.sha }}
+          RELEASE_REQUIRE_CLEAN: 1
         run: Scripts/package-release.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -38,6 +42,8 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.zip
             ${{ runner.temp }}/release/SHA256SUMS
+            ${{ runner.temp }}/release/ReleaseManifest.json
+            ${{ runner.temp }}/release/ReleaseManifest.json.sha256
           if-no-files-found: error
 
   linux:
@@ -47,16 +53,24 @@ jobs:
       - uses: swift-actions/setup-swift@v2
         with:
           swift-version: "6.0"
-      - name: Verify tag matches source version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          SOURCE_VERSION=$(sed -n 's/.*public static let version = "\([0-9.]*\)".*/\1/p' Sources/GrammarWorkbench/ProductionSupport.swift)
-          test "v$SOURCE_VERSION" = "${{ github.ref_name }}"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify immutable release source
+        if: github.ref_type == 'tag'
+        run: >-
+          node Scripts/release-artifacts.mjs source
+          --tag "${{ github.ref_name }}" --revision "${{ github.sha }}"
+          --require-clean
       - name: Validate Linux delivery
         run: Scripts/validate-linux-delivery.sh
       - name: Package Linux release
         env:
           OUTPUT_DIR: ${{ runner.temp }}/release
+          BUILD_NUMBER: ${{ github.run_number }}
+          RELEASE_TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+          RELEASE_REVISION: ${{ github.sha }}
+          RELEASE_REQUIRE_CLEAN: 1
         run: Scripts/package-linux.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -64,4 +78,5 @@ jobs:
           path: |
             ${{ runner.temp }}/release/*.tar.gz
             ${{ runner.temp }}/release/*.sha256
+            ${{ runner.temp }}/release/*-manifest.json
           if-no-files-found: error

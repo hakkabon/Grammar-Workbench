@@ -1,0 +1,141 @@
+{
+  "originHash" : "52ef3523513e90c37f9ea5cdadf0e891fb2d164d609b94d49ff06ee89cac6214",
+  "pins" : [
+    {
+      "identity" : "grammar",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Grammar.git",
+      "state" : {
+        "revision" : "67ed762c7d03cac10c2bbb35551fd0a6fa790c0a",
+        "version" : "0.2.1"
+      }
+    },
+    {
+      "identity" : "grammar-diagramkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Grammar-DiagramKit.git",
+      "state" : {
+        "revision" : "bf7d3738e8593899ec53dd823370e853e5b66d2b",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "grammardiagram",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/GrammarDiagram.git",
+      "state" : {
+        "revision" : "dc17ab061a1614ba0692be06aa69043b45bbbcd4",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "grammartokenizer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/GrammarTokenizer.git",
+      "state" : {
+        "revision" : "71a0bf3fa9f2bfe3399ba10ffd2b33eb4826c989",
+        "version" : "0.1.0"
+      }
+    },
+    {
+      "identity" : "graphviz",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/SwiftDocOrg/GraphViz",
+      "state" : {
+        "revision" : "74b6cbd8c5ecea9f64d84c4e1c88d65604dd033f",
+        "version" : "0.4.1"
+      }
+    },
+    {
+      "identity" : "lexer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Lexer.git",
+      "state" : {
+        "revision" : "a1dc43335fe04029ca26da18457be7108283b72d",
+        "version" : "0.1.1"
+      }
+    },
+    {
+      "identity" : "lexer-fsa",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Lexer-FSA.git",
+      "state" : {
+        "revision" : "777ea30c2f1d5f929e94971c2176b45c2ce8fae5",
+        "version" : "0.2.0"
+      }
+    },
+    {
+      "identity" : "lr-parsing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/LR-Parsing.git",
+      "state" : {
+        "revision" : "21bbab32c652336f124342f1b7dd9c45ad509416",
+        "version" : "0.1.3"
+      }
+    },
+    {
+      "identity" : "parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Parser.git",
+      "state" : {
+        "revision" : "a0b9fe9e26e5f97b64eb648e0ab6e3439df52c8f",
+        "version" : "0.2.1"
+      }
+    },
+    {
+      "identity" : "shellout",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/JohnSundell/ShellOut.git",
+      "state" : {
+        "revision" : "e1577acf2b6e90086d01a6d5e2b8efdaae033568",
+        "version" : "2.3.0"
+      }
+    },
+    {
+      "identity" : "swift-algorithms",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-algorithms",
+      "state" : {
+        "revision" : "87e50f483c54e6efd60e885f7f5aa946cee68023",
+        "version" : "1.2.1"
+      }
+    },
+    {
+      "identity" : "swift-argument-parser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-argument-parser.git",
+      "state" : {
+        "revision" : "6a52f3251125d74daf04fcbd5e6f08a75d074382",
+        "version" : "1.8.2"
+      }
+    },
+    {
+      "identity" : "swift-layout",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/Swift-Layout.git",
+      "state" : {
+        "revision" : "1c282a3aafb03cb019a9966a42cfa568365f90a1",
+        "version" : "0.0.3"
+      }
+    },
+    {
+      "identity" : "swift-numerics",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/apple/swift-numerics.git",
+      "state" : {
+        "revision" : "0c0290ff6b24942dadb83a929ffaaa1481df04a2",
+        "version" : "1.1.1"
+      }
+    },
+    {
+      "identity" : "terminalcolors",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/hakkabon/TerminalColors.git",
+      "state" : {
+        "revision" : "7e2d921425320e72822cbf5b8d17126b73655908",
+        "version" : "0.1.0"
+      }
+    }
+  ],
+  "version" : 3
+}

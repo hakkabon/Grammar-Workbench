@@ -105,6 +105,8 @@ private struct ReleaseCandidatePolicy: Decodable {
     let dependencyBoundaryPolicy: String
     let coreSeparationPlan: String
     let coreSeparationBaseline: String
+    let releaseArtifactManifestVersion: Int
+    let releaseArtifactManifestSchema: String
     let budgets: Budgets
 }
 
@@ -214,6 +216,11 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(coreBaseline?["schemaVersion"] as? Int == 1)
     #expect((coreBaseline?["state"] as? [String: Any])?["physicallySeparated"] as? Bool == false)
     #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 66)
+    #expect(policy.releaseArtifactManifestVersion == 1)
+    let releaseManifestSchema = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: packageRoot().appendingPathComponent(policy.releaseArtifactManifestSchema))
+    ) as? [String: Any]
+    #expect((releaseManifestSchema?["properties"] as? [String: Any])?["schemaVersion"] != nil)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

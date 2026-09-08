@@ -43,9 +43,11 @@ CI has two portability levels:
    both the module and `PortabilityToolchain.json`.
 
 The normal release-candidate gate verifies that the portability manifest is
-present and structurally valid. Platform packages continue to use their
-existing smoke tests, consumer fixtures, checksums, and optional credentialed
-macOS signing and notarization.
+present and structurally valid. Platform packages use their existing smoke
+tests and consumer fixtures together with fail-closed source identity,
+checksums, and schema-versioned provenance manifests. Optional credentialed
+macOS signing and notarization are verified across every delivered executable.
+See [release hardening](ReleaseHardening.md).
 
 ## Support policy
 

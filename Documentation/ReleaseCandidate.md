@@ -62,6 +62,10 @@ The release-candidate gate verifies the product from four perspectives:
 26. The dependency-boundary audit must evaluate the parsed SwiftPM manifest,
     classify every direct dependency, enforce the reviewed ownership layering,
     reject mutable or local requirements, and reject stale allowlists.
+27. The WorkbenchCore pre-split measurement must classify every implementation
+    source exactly once, reject native-framework imports from portable
+    candidates, preserve the reviewed mixed-file extraction queue, and match
+    the checked structural baseline.
 
 Run the normal gate:
 

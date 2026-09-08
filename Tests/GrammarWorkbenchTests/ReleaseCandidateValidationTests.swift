@@ -103,6 +103,8 @@ private struct ReleaseCandidatePolicy: Decodable {
     let ecosystemCompatibilityManifest: String
     let ecosystemConformanceCorpus: String
     let dependencyBoundaryPolicy: String
+    let coreSeparationPlan: String
+    let coreSeparationBaseline: String
     let budgets: Budgets
 }
 
@@ -196,6 +198,22 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     } ?? []) == [
         "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
     ])
+    let corePlanURL = packageRoot().appendingPathComponent(policy.coreSeparationPlan)
+    let corePlan = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: corePlanURL)
+    ) as? [String: Any]
+    #expect(corePlan?["schemaVersion"] as? Int == 1)
+    let classifications = corePlan?["classifications"] as? [String: Any]
+    #expect((classifications?["portable"] as? [String])?.count == 54)
+    #expect((classifications?["native"] as? [String])?.count == 9)
+    #expect((classifications?["mixed"] as? [[String: Any]])?.count == 3)
+    let coreBaselineURL = packageRoot().appendingPathComponent(policy.coreSeparationBaseline)
+    let coreBaseline = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: coreBaselineURL)
+    ) as? [String: Any]
+    #expect(coreBaseline?["schemaVersion"] as? Int == 1)
+    #expect((coreBaseline?["state"] as? [String: Any])?["physicallySeparated"] as? Bool == false)
+    #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 66)
 
     for fixture in policy.requiredConsumerFixtures {
         let manifest = packageRoot()

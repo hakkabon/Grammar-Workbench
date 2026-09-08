@@ -26,4 +26,4 @@ Attempting native layout in interchange-only mode returns `GrammarGraphLayoutErr
 
 `Scripts/validate-portable-core.sh` builds the dedicated target and exercises its public façade. `CoreConsumer` independently resolves the SwiftPM product, compiles a grammar, parses input, and round-trips portable graph data. The standard downstream validation includes this consumer.
 
-The first separation milestone deliberately preserves the existing `GrammarWorkbench` imports. Future extraction can move implementation files into physically smaller engine modules behind this façade once those module boundaries provide a measurable build-time or deployment benefit.
+The first separation milestone deliberately preserves the existing `GrammarWorkbench` imports. The [pre-split measurement](WorkbenchCoreMeasurement.md) now records the façade relationship, complete source ownership, mixed-file extraction queue, portable share, and an optional controlled build observation. Future extraction can move implementation files into physically smaller engine modules behind this façade and compare the result with that reviewed baseline.

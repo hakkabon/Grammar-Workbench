@@ -65,7 +65,7 @@ The automation-friendly executable is available with `swift run grammar-workbenc
 Language-tooling hosts can use the typed `GrammarWorkbenchSDK` product or its
 versioned JSON process protocol. See [the SDK guide](Documentation/LanguageToolingSDK.md).
 
-Cross-platform hosts can depend on the `GrammarWorkbenchCore` product. It exposes the same stable parser, semantic, project, generator, and interchange contracts while isolating native SwiftUI, AppKit, and WebKit surfaces. Graph interchange remains portable; `GrammarGraphLayoutEngine.availability` distinguishes the Rust-backed Swift-Layout backend from interchange-only platforms. See [cross-platform core separation](Documentation/CrossPlatformCoreSeparation.md).
+Cross-platform hosts can depend on the `GrammarWorkbenchCore` product. It exposes the same stable parser, semantic, project, generator, and interchange contracts while isolating native SwiftUI, AppKit, and WebKit surfaces. Graph interchange remains portable; `GrammarGraphLayoutEngine.availability` distinguishes the Rust-backed Swift-Layout backend from interchange-only platforms. See [cross-platform core separation](Documentation/CrossPlatformCoreSeparation.md) and its [pre-split measurement](Documentation/WorkbenchCoreMeasurement.md).
 
 Linux delivery includes release archives for the CLI, LSP server, and stateful tooling service, plus a container build and machine-readable `platform-info` report. Ubuntu CI builds, packages, and smoke-tests the complete headless toolchain; the macOS-only SwiftUI application remains a separate product. See [Documentation/LinuxDelivery.md](Documentation/LinuxDelivery.md).
 

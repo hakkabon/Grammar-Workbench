@@ -26,6 +26,7 @@ node -e 'const m=require(process.argv[1]); if (m.schemaVersion !== 1 || !m.wasi.
 node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs"
 node "$ROOT_DIR/Scripts/audit-dependency-boundaries.mjs" \
     --package "Grammar-Workbench=$ROOT_DIR"
+node "$ROOT_DIR/Scripts/measure-workbench-core.mjs" --check
 
 swift test --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS"
 swift build --package-path "$ROOT_DIR" --jobs "$SWIFT_BUILD_JOBS" -c release --product grammar-workbench

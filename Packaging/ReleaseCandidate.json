@@ -42,6 +42,8 @@
   "ecosystemCompatibilityManifest": "Packaging/EcosystemCompatibility.json",
   "ecosystemConformanceCorpus": "Validation/Ecosystem/Corpus.json",
   "dependencyBoundaryPolicy": "Validation/Ecosystem/DependencyBoundaries.json",
+  "coreSeparationPlan": "Validation/CoreSeparation/Plan.json",
+  "coreSeparationBaseline": "Validation/CoreSeparation/Baseline.json",
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,

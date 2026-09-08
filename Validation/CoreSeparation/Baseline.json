@@ -1,0 +1,68 @@
+{
+  "schemaVersion": 1,
+  "planVersion": "1.0.0",
+  "planSHA256": "54df0721d2bcdd1fd7e40474bc5599a90b4e828a2136cba167a8daf45559f2cd",
+  "state": {
+    "facadeTarget": "GrammarWorkbenchCore",
+    "implementationTarget": "GrammarWorkbench",
+    "facadeReexportsImplementation": true,
+    "facadeDependsOnImplementation": true,
+    "physicallySeparated": false
+  },
+  "totals": {
+    "files": 66,
+    "bytes": 1008154,
+    "lines": 21924,
+    "nonblankLines": 20274,
+    "publicDeclarations": 2383
+  },
+  "categories": {
+    "portable": {
+      "files": 54,
+      "bytes": 767174,
+      "lines": 16926,
+      "nonblankLines": 15601,
+      "publicDeclarations": 2286
+    },
+    "native": {
+      "files": 9,
+      "bytes": 208231,
+      "lines": 4289,
+      "nonblankLines": 4024,
+      "publicDeclarations": 15
+    },
+    "mixed": {
+      "files": 3,
+      "bytes": 32749,
+      "lines": 709,
+      "nonblankLines": 649,
+      "publicDeclarations": 82
+    }
+  },
+  "candidatePortablePercent": 77.2,
+  "extractionQueue": [
+    {
+      "path": "GrammarEditor.swift",
+      "reason": "Portable diagnostics, completion, and quick-fix logic shares a file with the AppKit editor."
+    },
+    {
+      "path": "GrammarWorkbenchDocument.swift",
+      "reason": "The Codable document model shares a file with UTType, FileDocument, and SwiftUI views."
+    },
+    {
+      "path": "ProductionSupport.swift",
+      "reason": "Portable release and capability declarations share a file with the SwiftUI settings view."
+    }
+  ],
+  "nativeFrameworkImports": [
+    "AppKit",
+    "SwiftUI",
+    "UniformTypeIdentifiers",
+    "WebKit"
+  ],
+  "resources": {
+    "files": 2,
+    "bytes": 6708
+  },
+  "sourceMetricsSHA256": "d4d1c66163d3e91a540251c8bb18d5251c06f1428b8c16d08c44315a2fa70cc1"
+}

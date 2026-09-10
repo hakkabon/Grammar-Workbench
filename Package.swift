@@ -36,11 +36,11 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",
-            .upToNextMinor(from: "0.2.0")
+            .upToNextMinor(from: "0.3.0")
         ),
         .package(
             url: "https://github.com/hakkabon/LR-Parsing.git",
-            .upToNextMinor(from: "0.1.0")
+            .upToNextMinor(from: "0.2.0")
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",

@@ -12,11 +12,11 @@ those manifests against reviewed owners, architectural layers, direct dependency
 allowlists, and release-based or exact SwiftPM requirements. New edges fail
 closed until the policy is reviewed.
 
-Shared corpus version 2 expands the executable baseline from eight to 29 cases
-and promotes stable production IDs, normalized tree roots, ambiguity flags,
-first-diagnostic expectations, and recovery edits into the compatibility
-contract. Complete trees and reduction sequences remain deferred until the
-engine-neutral Parser tree can retain production identity without loss.
+Shared corpus version 3 expands the executable baseline to 33 cases and the
+pinned ecosystem to ten repositories. It adds all seven parser engines,
+production-aware semantic replay, portable-forest evidence, exact generalized
+derivation counts, and ambiguity probes. Engine-specific differences are
+reviewed data and fail once stale.
 
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine

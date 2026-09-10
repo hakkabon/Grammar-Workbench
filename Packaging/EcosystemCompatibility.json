@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.4.0",
+  "contractVersion": "0.5.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
     "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
     "lrConvergencePath": "Validation/Ecosystem/LRConvergence.json",
-    "version": 2
+    "version": 3
   },
   "dependencyBoundaries": {
     "path": "Validation/Ecosystem/DependencyBoundaries.json",
@@ -17,40 +17,72 @@
     {
       "name": "Grammar",
       "repository": "https://github.com/hakkabon/Grammar.git",
-      "revision": "67ed762c7d03cac10c2bbb35551fd0a6fa790c0a",
-      "version": "0.2.1",
+      "revision": "d34a8da931f1f9e5ee56bee005388efc88125695",
+      "version": "0.3.0",
       "role": "grammar-model",
       "adoption": "pinned"
     },
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "a0b9fe9e26e5f97b64eb648e0ab6e3439df52c8f",
-      "version": "0.2.1",
+      "revision": "6f7a5891d71764b5e963eccdab78e121f4c5c435",
+      "version": "0.3.0",
       "role": "parser-contracts",
+      "adoption": "pinned"
+    },
+    {
+      "name": "Lexer",
+      "repository": "https://github.com/hakkabon/Lexer.git",
+      "revision": "cc3e964ac3312aa894243f4c3d32432976d93d90",
+      "version": "0.2.0",
+      "role": "lexical-runtime",
+      "adoption": "pinned"
+    },
+    {
+      "name": "Earley-Parser",
+      "repository": "https://github.com/hakkabon/Earley-Parser.git",
+      "revision": "063ece84236bb2b735bf9647852da64f988ec2ef",
+      "version": "0.2.0",
+      "role": "earley-engine",
+      "adoption": "pinned"
+    },
+    {
+      "name": "CYK-Parser",
+      "repository": "https://github.com/hakkabon/CYK-Parser.git",
+      "revision": "2bcff3d012d53f6c6061d0d1d3a2c87b5b80263f",
+      "version": "0.2.0",
+      "role": "cyk-engine",
+      "adoption": "pinned"
+    },
+    {
+      "name": "RNGLR-Parser",
+      "repository": "https://github.com/hakkabon/RNGLR-Parser.git",
+      "revision": "f3c6294bc50dd5b0d1f0371c1ad5f254e2f9efc1",
+      "version": "0.2.0",
+      "role": "rnglr-engine",
       "adoption": "pinned"
     },
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "21bbab32c652336f124342f1b7dd9c45ad509416",
-      "version": "0.1.3",
+      "revision": "19b3ae37c3c9803f213292521e743d1148d65c4b",
+      "version": "0.2.1",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "ae36cd0df8646f09d970a31093590680079caa71",
-      "version": "0.1.4",
+      "revision": "8d2540837643df6eeeada84da0438a0e0fc8eca9",
+      "version": "0.1.5",
       "role": "downstream-consumer",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "97147008e5f6f46d66d9c5f7b585ebf9a0ef64d7",
-      "version": "0.2.3",
+      "revision": "0adf6ef38f02b7d3ce0a0323db8b59fbe84616c9",
+      "version": "0.3.1",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -58,8 +90,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "17b572b8d389744f30206aa2c516ff38f4c875c4",
-      "version": "1.0.0",
+      "revision": "7188d198efafcaa370de25d34277f271217c37e6",
+      "version": "1.0.9",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

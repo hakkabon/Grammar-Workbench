@@ -50,7 +50,8 @@ The release-candidate gate verifies the product from four perspectives:
     and replay retained operation identifiers without duplicate mutation.
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
-    version-2 corpus must contain at least 25 cases, satisfy its schema, and the
+    version-3 corpus must contain at least 33 cases and three grammars, declare
+    all seven parser engines, satisfy its schema, and the
     packaged Workbench CLI must produce every normalized token sequence, status,
     tree root, first diagnostic, and recovery expectation. The pinned LR adapter
     must also cover every case and agree on status and tree root; only reviewed,
@@ -58,7 +59,9 @@ The release-candidate gate verifies the product from four perspectives:
     case exactly once, agree on supported status and tree roots, and provide a
     rationale for each explicitly unsupported recovery capability. The
     Grammar-REPL adapter must report every case exactly once and agree on status,
-    tree root, and recovery behavior.
+    tree root, and recovery behavior. Engine-comparison cases must also verify
+    production-aware replay and generalized forest ambiguity/derivation counts,
+    with every temporary engine difference explicit and non-stale.
 26. The dependency-boundary audit must evaluate the parsed SwiftPM manifest,
     classify every direct dependency, enforce the reviewed ownership layering,
     reject mutable or local requirements, and reject stale allowlists.

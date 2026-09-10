@@ -48,6 +48,17 @@ const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
 if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length < 25) fail("invalid corpus envelope");
 
+const expectedEngines = new Set(["earley", "cyk", "rnglr", "lr0", "slr", "lalr", "lr1"]);
+if (!Array.isArray(corpus.engines) || corpus.engines.length !== expectedEngines.size) fail("invalid parser engine catalog");
+const engineIDs = new Set();
+for (const engine of corpus.engines) {
+  if (!expectedEngines.has(engine.id) || engineIDs.has(engine.id)) fail(`invalid or duplicate parser engine ${engine.id}`);
+  engineIDs.add(engine.id);
+  if (!["generalized", "deterministic"].includes(engine.family)) fail(`invalid family for parser engine ${engine.id}`);
+  if (engine.family === "generalized" && (engine.forest !== "portable" || engine.replay !== "forestTraversal")) fail(`invalid generalized capabilities for ${engine.id}`);
+  if (engine.family === "deterministic" && (engine.forest !== "none" || engine.replay !== "runtimeTrace")) fail(`invalid deterministic capabilities for ${engine.id}`);
+}
+
 const grammarIDs = new Set();
 const grammars = new Map();
 for (const grammar of corpus.grammars) {
@@ -94,7 +105,6 @@ for (const testCase of corpus.cases) {
   if ((typeof testCase.expectedRoot === "string") !== succeeds) fail(`invalid expected root for ${testCase.id}`);
   if (succeeds && testCase.expectedRoot !== grammar.start) fail(`expected root is not the start symbol for ${testCase.id}`);
   if (typeof testCase.expectedAmbiguous !== "boolean") fail(`missing ambiguity expectation for ${testCase.id}`);
-  if (testCase.expectedAmbiguous) fail(`version 2 has no ambiguous grammar fixture for ${testCase.id}`);
   if (testCase.expectedDiagnostic !== null) {
     const diagnostic = testCase.expectedDiagnostic;
     if (!Number.isInteger(diagnostic.tokenIndex) || diagnostic.tokenIndex < 0 || typeof diagnostic.unexpected !== "string") fail(`invalid diagnostic position for ${testCase.id}`);
@@ -109,6 +119,23 @@ for (const testCase of corpus.cases) {
     fail(`missing recovery expectation for ${testCase.id}`);
   }
   if (!Array.isArray(testCase.tags) || testCase.tags.length === 0 || new Set(testCase.tags).size !== testCase.tags.length) fail(`invalid tags for ${testCase.id}`);
+  const isComparison = testCase.tags.includes("engine-comparison");
+  if (isComparison !== (testCase.expectedReplay !== undefined && testCase.expectedForest !== undefined)) fail(`engine comparison expectations are incomplete for ${testCase.id}`);
+  if (isComparison) {
+    const replay = testCase.expectedReplay;
+    const forest = testCase.expectedForest;
+    const expectedTerminal = succeeds ? "accept" : "reject";
+    if (replay.terminal !== expectedTerminal || !Array.isArray(replay.requiredEvents) || !replay.requiredEvents.includes("start") || !replay.requiredEvents.includes(expectedTerminal)) fail(`invalid replay envelope for ${testCase.id}`);
+    if (!Array.isArray(replay.productionIDs) || replay.productionIDs.some(id => !grammar.productions.some(production => production.id === id))) fail(`invalid replay production identity for ${testCase.id}`);
+    if (!Number.isInteger(forest.generalizedDerivations) || forest.generalizedDerivations < 1 || forest.ambiguous !== testCase.expectedAmbiguous || forest.productionIdentity !== "required") fail(`invalid forest expectation for ${testCase.id}`);
+    if ((forest.generalizedDerivations > 1) !== forest.ambiguous) fail(`derivation count and ambiguity disagree for ${testCase.id}`);
+    if (!Array.isArray(forest.acceptedDifferences)) fail(`missing accepted engine differences for ${testCase.id}`);
+    const differenceEngines = new Set();
+    for (const difference of forest.acceptedDifferences) {
+      if (!expectedEngines.has(difference.engine) || differenceEngines.has(difference.engine) || !statuses.has(difference.status) || difference.status === testCase.expectedStatus || typeof difference.reason !== "string" || difference.reason.length < 20) fail(`invalid accepted engine difference for ${testCase.id}`);
+      differenceEngines.add(difference.engine);
+    }
+  }
 }
 
 if (convergence.schemaVersion !== corpus.schemaVersion || convergence.algorithm !== "lalr" || !Array.isArray(convergence.acceptedDifferences)) fail("invalid LR convergence policy");
@@ -149,6 +176,21 @@ if (cliIndex >= 0) {
         if (firstDiagnostic?.recovery !== expectedKind || firstDiagnostic?.recoverySymbol !== testCase.expectedRecovery.terminal || firstDiagnostic?.tokenIndex !== testCase.expectedRecovery.tokenIndex) fail(`${testCase.id}: normalized recovery disagrees`);
       }
       const shouldSucceed = testCase.expectedStatus === "accepted" || testCase.expectedStatus === "acceptedWithRecovery";
+      if (testCase.expectedReplay !== undefined) {
+        const events = new Set(["start"]);
+        const productionIDs = [];
+        for (const frame of parsed.trace ?? []) {
+          if (frame.action === "accept") events.add("accept");
+          else if (frame.action.startsWith("shift")) events.add("consume");
+          else if (frame.action.startsWith("reduce")) events.add("applyProduction");
+          else if (frame.action.startsWith("recover")) events.add("recover");
+          else if (frame.action.startsWith("error")) events.add("reject");
+          if (Number.isInteger(frame.production)) productionIDs.push(grammar.productions[frame.production - 1]?.id);
+        }
+        const terminal = shouldSucceed ? "accept" : "reject";
+        if (terminal !== testCase.expectedReplay.terminal || testCase.expectedReplay.requiredEvents.some(event => !events.has(event))) fail(`${testCase.id}: Workbench replay milestones disagree`);
+        if (JSON.stringify(productionIDs) !== JSON.stringify(testCase.expectedReplay.productionIDs)) fail(`${testCase.id}: Workbench replay production sequence disagrees`);
+      }
       if ((result.status === 0) !== shouldSucceed) fail(`${testCase.id}: exit status disagrees with normalized status`);
     }
   } finally {
@@ -172,6 +214,11 @@ if (lrIndex >= 0) {
       const observed = byID.get(testCase.id);
       if (!observed) fail(`LR adapter omitted ${testCase.id}`);
       if ((observed.root ?? null) !== testCase.expectedRoot && observed.status === testCase.expectedStatus) fail(`${testCase.id}: LR-Parsing tree root disagrees`);
+      if (testCase.expectedReplay !== undefined) {
+        if (!observed.replay || observed.replay.terminal !== testCase.expectedReplay.terminal) fail(`${testCase.id}: LR-Parsing replay terminal disagrees`);
+        if (testCase.expectedReplay.requiredEvents.some(event => !observed.replay.events.includes(event))) fail(`${testCase.id}: LR-Parsing replay milestones disagree`);
+        if (JSON.stringify(observed.replay.productionIDs) !== JSON.stringify(testCase.expectedReplay.productionIDs)) fail(`${testCase.id}: LR-Parsing replay production sequence disagrees`);
+      }
       const difference = acceptedLRDifferences.get(testCase.id);
       if (observed.status === testCase.expectedStatus) {
         if (difference) fail(`accepted LR difference for ${testCase.id} is stale`);
@@ -253,6 +300,26 @@ if (grammarREPLIndex >= 0) {
       }
       if (observed.status === "acceptedWithRecovery" && (observed.diagnostics === 0 || observed.recoveryEdits === 0)) {
         fail(`${testCase.id}: Grammar-REPL recovery omitted diagnostics or edits`);
+      }
+      if (testCase.expectedForest !== undefined) {
+        if (!Array.isArray(observed.engines) || observed.engines.length !== corpus.engines.length) fail(`${testCase.id}: Grammar-REPL engine comparison is incomplete`);
+        const engines = new Map(observed.engines.map(engine => [engine.parser, engine]));
+        if (engines.size !== corpus.engines.length) fail(`${testCase.id}: Grammar-REPL engine comparison contains duplicates`);
+        for (const descriptor of corpus.engines) {
+          const engine = engines.get(descriptor.id);
+          const difference = testCase.expectedForest.acceptedDifferences.find(item => item.engine === descriptor.id);
+          const expectedStatus = difference?.status ?? testCase.expectedStatus;
+          if (!engine || engine.status !== expectedStatus) fail(`${testCase.id}: ${descriptor.id} acceptance disagrees`);
+          const requiredEvents = difference ? ["start", expectedStatus === "rejected" ? "reject" : "accept"] : testCase.expectedReplay.requiredEvents;
+          if (requiredEvents.some(event => !engine.replayEvents.includes(event))) fail(`${testCase.id}: ${descriptor.id} replay milestones disagree`);
+          if (descriptor.family === "generalized" && expectedStatus === "accepted") {
+            if (engine.derivations !== testCase.expectedForest.generalizedDerivations || engine.ambiguous !== testCase.expectedForest.ambiguous || !Number.isInteger(engine.forestNodes) || engine.forestNodes < 1 || engine.productionIdentified !== true) fail(`${testCase.id}: ${descriptor.id} forest evidence disagrees`);
+          } else if (descriptor.family === "generalized") {
+            if (engine.derivations !== 0 || (engine.forestNodes ?? null) !== null || (engine.ambiguous ?? null) !== null) fail(`${testCase.id}: ${descriptor.id} rejected evidence disagrees`);
+          } else if (engine.derivations !== 1 || (engine.forestNodes ?? null) !== null || (engine.ambiguous ?? null) !== null) {
+            fail(`${testCase.id}: ${descriptor.id} deterministic evidence disagrees`);
+          }
+        }
       }
     }
   } finally {

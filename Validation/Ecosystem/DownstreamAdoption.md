@@ -21,7 +21,8 @@ must land in the owning repository before its manifest entry advances.
 
 LR-Parsing pins Grammar, Parser, Lexer, and GrammarDiagram, and its
 `lr-conformance` executable consumes the complete normalized-token corpus with
-the same bounded recovery policy as Workbench and reports normalized tree roots.
+the same bounded recovery policy as Workbench and reports normalized tree roots
+plus production-aware semantic replay.
 It owns LR automaton generation, stable artifact identities, conflict decisions,
 tracing, recovery, checkpoints, and neutral persisted-table execution. Workbench
 retains adapters only.
@@ -43,7 +44,9 @@ corpus observation.
 Grammar-REPL exposes a non-terminal `grammar-repl-conformance` executable over
 `GrammarReplLib`. It constructs the shared normalized grammars and token streams,
 executes its existing LALR path with bounded recovery, and reports structured
-status, tree-root, diagnostic, and recovery-edit observations. Command rendering,
+status, tree-root, diagnostic, and recovery-edit observations. Version-three
+comparison cases additionally report all seven engines, concrete derivation
+counts, portable-forest ambiguity, production identity, and replay milestones. Command rendering,
 history, readline behavior, and session state remain outside the shared result.
 The pinned Swift 6.1 job requires exact agreement for every corpus case.
 

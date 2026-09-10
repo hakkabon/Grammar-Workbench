@@ -7,9 +7,10 @@ runtime output into Workbench artifacts. It no longer contains an independent
 LR constructor or shift/reduce runtime.
 
 The shared corpus supplies stable production IDs, engine-neutral productions,
-precedence levels, normalized token kinds, and expected tree roots. LR-Parsing's
+precedence levels, normalized token kinds, expected tree roots, and selected
+production-aware replay sequences. LR-Parsing's
 `lr-conformance` executable constructs a LALR parser from that model and emits
-one normalized status and tree root for every case. The
+one normalized status, tree root, and semantic replay for every case. The
 pinned integration workflow compares those observations with the Workbench
 expectations through `Validation/Ecosystem/LRConvergence.json`.
 

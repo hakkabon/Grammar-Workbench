@@ -170,10 +170,11 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.4.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.5.0")
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
-        "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
+        "Grammar", "Parser", "Lexer", "Earley-Parser", "CYK-Parser",
+        "RNGLR-Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
     ])
     #expect(repositories?.allSatisfy {
         (($0["revision"] as? String)?.count == 40)
@@ -186,8 +187,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)
     ) as? [String: Any]
-    #expect(corpus?["schemaVersion"] as? Int == 2)
-    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 25)
+    #expect(corpus?["schemaVersion"] as? Int == 3)
+    #expect(((corpus?["grammars"] as? [[String: Any]])?.count ?? 0) >= 3)
+    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 33)
+    #expect(((corpus?["engines"] as? [[String: Any]])?.count ?? 0) == 7)
     let boundariesURL = packageRoot().appendingPathComponent(policy.dependencyBoundaryPolicy)
     let boundaries = try JSONSerialization.jsonObject(
         with: Data(contentsOf: boundariesURL)
@@ -198,7 +201,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         guard package["audited"] as? Bool == true else { return nil }
         return package["name"] as? String
     } ?? []) == [
-        "Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
+        "Grammar", "Parser", "Lexer", "Earley-Parser", "CYK-Parser",
+        "RNGLR-Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"
     ])
     let corePlanURL = packageRoot().appendingPathComponent(policy.coreSeparationPlan)
     let corePlan = try JSONSerialization.jsonObject(

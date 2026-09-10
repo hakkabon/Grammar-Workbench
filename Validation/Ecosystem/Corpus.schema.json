@@ -4,9 +4,22 @@
   "title": "Grammar parser ecosystem conformance corpus",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "grammars", "cases"],
+  "required": ["schemaVersion", "engines", "grammars", "cases"],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 3 },
+    "engines": {
+      "type": "array", "minItems": 7, "uniqueItems": true,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["id", "family", "forest", "replay"],
+        "properties": {
+          "id": { "$ref": "#/$defs/identifier" },
+          "family": { "enum": ["generalized", "deterministic"] },
+          "forest": { "enum": ["portable", "none"] },
+          "replay": { "enum": ["forestTraversal", "runtimeTrace"] }
+        }
+      }
+    },
     "grammars": {
       "type": "array", "minItems": 1,
       "items": {
@@ -83,8 +96,45 @@
               }
             ]
           },
+          "expectedReplay": {
+            "type": "object", "additionalProperties": false,
+            "required": ["terminal", "requiredEvents", "productionIDs"],
+            "properties": {
+              "terminal": { "enum": ["accept", "reject"] },
+              "requiredEvents": {
+                "type": "array", "minItems": 2, "uniqueItems": true,
+                "items": { "enum": ["start", "inspect", "consume", "applyProduction", "discoverAmbiguity", "recover", "accept", "reject"] }
+              },
+              "productionIDs": { "type": "array", "items": { "$ref": "#/$defs/identifier" } }
+            }
+          },
+          "expectedForest": {
+            "type": "object", "additionalProperties": false,
+            "required": ["generalizedDerivations", "ambiguous", "productionIdentity", "acceptedDifferences"],
+            "properties": {
+              "generalizedDerivations": { "type": "integer", "minimum": 1 },
+              "ambiguous": { "type": "boolean" },
+              "productionIdentity": { "const": "required" },
+              "acceptedDifferences": {
+                "type": "array",
+                "items": {
+                  "type": "object", "additionalProperties": false,
+                  "required": ["engine", "status", "reason"],
+                  "properties": {
+                    "engine": { "$ref": "#/$defs/identifier" },
+                    "status": { "enum": ["accepted", "acceptedWithRecovery", "rejected", "lexicalError"] },
+                    "reason": { "type": "string", "minLength": 20 }
+                  }
+                }
+              }
+            }
+          },
           "tags": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } }
-        }
+        },
+        "allOf": [{
+          "if": { "properties": { "tags": { "contains": { "const": "engine-comparison" } } }, "required": ["tags"] },
+          "then": { "required": ["expectedReplay", "expectedForest"] }
+        }]
       }
     }
   },

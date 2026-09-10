@@ -4,7 +4,7 @@ import SwiftUI
 #endif
 
 public enum GrammarWorkbenchRelease {
-    public static let version = "1.0.9"
+    public static let version = "1.0.10"
     public static let bundleIdentifier = "com.grammar-workbench.app"
 
     public static var displayVersion: String {

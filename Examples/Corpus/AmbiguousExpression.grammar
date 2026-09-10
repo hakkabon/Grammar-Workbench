@@ -1,0 +1,7 @@
+%start Expression
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%token PLUS /\+/
+%skip /\s+/
+%left PLUS
+
+Expression : Expression PLUS Expression | ID ;

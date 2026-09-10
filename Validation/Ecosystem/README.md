@@ -1,11 +1,11 @@
 # Shared ecosystem conformance corpus
 
 `Corpus.json` is the engine-neutral behavioral contract shared by Grammar,
-Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. Version two
-contains 29 cases with normalized grammar models, stable production IDs,
-precedence declarations, token-kind sequences, parse statuses, tree roots,
-ambiguity declarations, first-diagnostic expectations, and successful recovery
-edits.
+Parser, Lexer, the four parser engines, Compiler, Grammar-REPL, and
+Grammar-Workbench. Version three contains 33 cases and adds a seven-engine
+capability catalog, production-aware replay expectations, and portable-forest
+comparison probes to the version-two token, status, tree-root, diagnostic, and
+recovery contract.
 Adapters therefore do not need to read another implementation's grammar syntax
 or use its lexer. The `source` path on each grammar points to a Workbench fixture
 and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
@@ -13,9 +13,10 @@ and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
 An empty production right-hand side represents epsilon. Every other symbol must
 be declared either as a terminal or as the left-hand side of a production.
 Production IDs are stable corpus identities rather than engine table indices.
-Version two intentionally stops at normalized tree roots: exact source spans,
-reduction sequences, and complete trees remain future fields until every shared
-parser tree retains production identity losslessly.
+Engine-comparison cases require stable reduction identities and semantic replay
+milestones. Their generalized expectations record concrete derivation counts,
+ambiguity, and production-identified forest nodes. Reviewed per-engine
+differences are explicit and become failures when stale.
 
 `LRConvergence.json` is the reviewed differential policy. Exact Workbench/LR
 status agreement is the default. Every mismatch must name a corpus case, both

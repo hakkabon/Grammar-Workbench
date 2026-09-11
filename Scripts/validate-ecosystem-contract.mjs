@@ -130,6 +130,7 @@ for (const testCase of corpus.cases) {
     if (!Number.isInteger(forest.generalizedDerivations) || forest.generalizedDerivations < 1 || forest.ambiguous !== testCase.expectedAmbiguous || forest.productionIdentity !== "required") fail(`invalid forest expectation for ${testCase.id}`);
     if ((forest.generalizedDerivations > 1) !== forest.ambiguous) fail(`derivation count and ambiguity disagree for ${testCase.id}`);
     if (!Array.isArray(forest.acceptedDifferences)) fail(`missing accepted engine differences for ${testCase.id}`);
+    if (forest.acceptedDifferences.length !== 0) fail(`${testCase.id}: engine-truthfulness baseline permits no accepted engine differences`);
     const differenceEngines = new Set();
     for (const difference of forest.acceptedDifferences) {
       if (!expectedEngines.has(difference.engine) || differenceEngines.has(difference.engine) || !statuses.has(difference.status) || difference.status === testCase.expectedStatus || typeof difference.reason !== "string" || difference.reason.length < 20) fail(`invalid accepted engine difference for ${testCase.id}`);

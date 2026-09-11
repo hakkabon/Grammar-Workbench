@@ -15,8 +15,12 @@ closed until the policy is reviewed.
 Shared corpus version 3 expands the executable baseline to 33 cases and the
 pinned ecosystem to ten repositories. It adds all seven parser engines,
 production-aware semantic replay, portable-forest evidence, exact generalized
-derivation counts, and ambiguity probes. Engine-specific differences are
-reviewed data and fail once stale.
+derivation counts, and ambiguity probes. The subsequent
+[engine-truthfulness](EngineTruthfulness.md) hardening removed the final RNGLR
+exceptions: the committed corpus now permits no engine-specific differences.
+Repeated Grammar-REPL properties validate complete Catalan forests and stable
+portable contracts, while LR-Parsing validates cached automaton structure and
+decision provenance.
 
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine

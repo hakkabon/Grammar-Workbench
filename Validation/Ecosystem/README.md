@@ -15,8 +15,10 @@ be declared either as a terminal or as the left-hand side of a production.
 Production IDs are stable corpus identities rather than engine table indices.
 Engine-comparison cases require stable reduction identities and semantic replay
 milestones. Their generalized expectations record concrete derivation counts,
-ambiguity, and production-identified forest nodes. Reviewed per-engine
-differences are explicit and become failures when stale.
+ambiguity, and production-identified forest nodes. Phase 8 removed the final
+RNGLR exceptions; all committed `acceptedDifferences` arrays are empty and the
+release policy rejects a reintroduced exception. See
+`Documentation/EngineTruthfulness.md` for the engine fixes and property suite.
 
 `LRConvergence.json` is the reviewed differential policy. Exact Workbench/LR
 status agreement is the default. Every mismatch must name a corpus case, both

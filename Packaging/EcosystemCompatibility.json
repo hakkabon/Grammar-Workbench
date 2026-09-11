@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.5.0",
+  "contractVersion": "0.6.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -57,32 +57,32 @@
     {
       "name": "RNGLR-Parser",
       "repository": "https://github.com/hakkabon/RNGLR-Parser.git",
-      "revision": "f3c6294bc50dd5b0d1f0371c1ad5f254e2f9efc1",
-      "version": "0.2.0",
+      "revision": "3b359153b244a7d273b351f5d1051b5d56430d82",
+      "version": "0.2.1",
       "role": "rnglr-engine",
       "adoption": "pinned"
     },
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "19b3ae37c3c9803f213292521e743d1148d65c4b",
-      "version": "0.2.1",
+      "revision": "0fe8885f8b3a56c24b272064b11d0a446df7d097",
+      "version": "0.2.2",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "8d2540837643df6eeeada84da0438a0e0fc8eca9",
-      "version": "0.1.5",
+      "revision": "121208789ea03ecbf45d36b807253a8a12c759fb",
+      "version": "0.1.6",
       "role": "downstream-consumer",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "0adf6ef38f02b7d3ce0a0323db8b59fbe84616c9",
-      "version": "0.3.1",
+      "revision": "4321ad7c99d506d78e44f2a8f74b1f8c9bc47519",
+      "version": "0.3.2",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -90,8 +90,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "551fbc44c50cb98cc6bf73d4b24572b169ca5d55",
-      "version": "1.0.10",
+      "revision": "a9d1c69ebf4ce2f9cb6139a9c70430e53739798b",
+      "version": "1.0.11",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

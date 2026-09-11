@@ -61,7 +61,7 @@ The release-candidate gate verifies the product from four perspectives:
     Grammar-REPL adapter must report every case exactly once and agree on status,
     tree root, and recovery behavior. Engine-comparison cases must also verify
     production-aware replay and generalized forest ambiguity/derivation counts,
-    with every temporary engine difference explicit and non-stale.
+    and the committed truthfulness baseline permits no engine differences.
 26. The dependency-boundary audit must evaluate the parsed SwiftPM manifest,
     classify every direct dependency, enforce the reviewed ownership layering,
     reject mutable or local requirements, and reject stale allowlists.
@@ -73,6 +73,10 @@ The release-candidate gate verifies the product from four perspectives:
     toolchain, architecture set, signing state, checksum file, and every archive
     digest in a verified schema-versioned provenance manifest. Tagged automation
     additionally requires a clean checkout whose tag and revision match source.
+29. Engine truthfulness must retain exact two- and five-derivation Catalan
+    forests across Earley, CYK, and RNGLR; deterministic LR modes must retain
+    their precedence-selected tree; portable forests and replay must satisfy
+    stable identity, ordering, extent, reference, and terminal-event invariants.
 
 Run the normal gate:
 

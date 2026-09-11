@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 
 /// The stable wire schema used by the language-tooling SDK and process adapters.
 public enum GrammarToolingSchema {

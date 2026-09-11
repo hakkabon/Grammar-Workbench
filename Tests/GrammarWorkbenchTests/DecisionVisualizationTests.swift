@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 private func decisionArtifact(_ source: String, algorithm: LRAlgorithm = .lalr) throws -> GrammarArtifact {

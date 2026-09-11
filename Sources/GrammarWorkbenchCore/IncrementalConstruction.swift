@@ -100,4 +100,3 @@ func elapsedMilliseconds(since start: ContinuousClock.Instant) -> Double {
     return Double(components.seconds) * 1_000
         + Double(components.attoseconds) / 1_000_000_000_000_000
 }
-

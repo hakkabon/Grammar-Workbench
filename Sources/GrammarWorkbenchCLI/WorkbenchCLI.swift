@@ -4,7 +4,7 @@ import Darwin
 import Glibc
 #endif
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import GrammarWorkbenchSDK
 
 @main

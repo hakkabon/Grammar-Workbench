@@ -546,7 +546,7 @@ public actor GrammarGraphLayoutService {
 // MARK: - Grammar-domain adapters
 
 public extension GrammarGraph {
-    internal static func automaton(
+    package static func automaton(
         _ artifact: GrammarArtifact, compact: Bool = false,
         visibleStates: Set<StateID>? = nil
     ) -> Self {

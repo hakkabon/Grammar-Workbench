@@ -2,7 +2,7 @@ import Foundation
 import GrammarWorkbenchCore
 import Testing
 
-@Test func coreFacadeCompilesAndReexportsPortableContracts() throws {
+@Test func coreModuleCompilesPortableContracts() throws {
     #expect(GrammarWorkbenchCoreModule.apiVersion == GrammarWorkbenchAPI.version)
     let compilation = GrammarWorkbenchAPI.compile(.init(source: "%start S\nS : 'ok' ;"))
     #expect(compilation.succeeded)

@@ -1,4 +1,5 @@
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 @Test func guidancePrioritizesErrorsInPlainLanguage() throws {

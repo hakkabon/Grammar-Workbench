@@ -90,8 +90,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "7188d198efafcaa370de25d34277f271217c37e6",
-      "version": "1.0.9",
+      "revision": "551fbc44c50cb98cc6bf73d4b24572b169ca5d55",
+      "version": "1.0.10",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

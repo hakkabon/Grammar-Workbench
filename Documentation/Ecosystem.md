@@ -59,8 +59,8 @@ Grammar Workbench exposes the same compilation and editor behavior through sever
 
 ## SwiftPM products
 
-- `GrammarWorkbenchCore` is the platform-neutral façade for parser, semantic, project, generator, and interchange services.
-- `GrammarWorkbench` is the stable parser, semantic, generator, and interchange library.
+- `GrammarWorkbenchCore` physically owns the platform-neutral parser, semantic, project, generator, and interchange implementations.
+- `GrammarWorkbench` is the native presentation module and compatibility façade; it re-exports `GrammarWorkbenchCore`.
 - `GrammarWorkbenchSDK` is the versioned, transport-neutral language-tooling client and service boundary.
 - `GrammarWorkbenchPlugin` generates standalone parsers during a SwiftPM build.
 - `GrammarWorkbenchLSP` embeds the language server in another Swift process or test harness.

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 private func releaseSource(_ path: String) throws -> String {
@@ -9,7 +10,7 @@ private func releaseSource(_ path: String) throws -> String {
 }
 
 @Test func stableReleaseVersionAdvancesWithTheHardenedArtifactContract() {
-    #expect(GrammarWorkbenchRelease.version == "1.0.10")
+    #expect(GrammarWorkbenchRelease.version == "1.0.11")
 }
 
 @Test func platformPackagersCreateAndVerifyProvenanceManifests() throws {

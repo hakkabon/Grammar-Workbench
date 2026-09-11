@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import LanguageServerProtocol
 
 /// Language services for grammar documents: completion of directives and

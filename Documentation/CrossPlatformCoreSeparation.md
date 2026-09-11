@@ -1,6 +1,6 @@
 # Cross-platform core separation
 
-`GrammarWorkbenchCore` is the portable SwiftPM entry point for grammar compilation, deterministic and generalized parsing, incremental analysis, semantic services, project infrastructure, generators, and interchange models. It re-exports the stable `GrammarWorkbench` API so adopting it does not introduce a second set of model types.
+`GrammarWorkbenchCore` is the portable SwiftPM implementation and entry point for grammar compilation, deterministic and generalized parsing, incremental analysis, semantic services, project infrastructure, generators, and interchange models. The native `GrammarWorkbench` target depends on and re-exports Core, preserving existing imports without creating a second set of model types.
 
 ```swift
 import GrammarWorkbenchCore
@@ -26,4 +26,4 @@ Attempting native layout in interchange-only mode returns `GrammarGraphLayoutErr
 
 `Scripts/validate-portable-core.sh` builds the dedicated target and exercises its public façade. `CoreConsumer` independently resolves the SwiftPM product, compiles a grammar, parses input, and round-trips portable graph data. The standard downstream validation includes this consumer.
 
-The first separation milestone deliberately preserves the existing `GrammarWorkbench` imports. The [pre-split measurement](WorkbenchCoreMeasurement.md) now records the façade relationship, complete source ownership, mixed-file extraction queue, portable share, and an optional controlled build observation. Future extraction can move implementation files into physically smaller engine modules behind this façade and compare the result with that reviewed baseline.
+The physical split preserves existing `GrammarWorkbench` imports while reversing the old façade dependency. The [separation measurement](WorkbenchCoreMeasurement.md) records complete source ownership, the empty extraction queue, package-scoped native integration hooks, resource ownership, and an optional controlled Core-only build observation.

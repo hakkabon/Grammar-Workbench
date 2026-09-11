@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import GrammarWorkbenchSDK
 import Testing
 

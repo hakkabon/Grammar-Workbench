@@ -1,18 +1,21 @@
 import Foundation
 
-enum HTMLExporter {
-    static func render(
+package enum HTMLExporter {
+    package static func render(
         _ artifact: GrammarArtifact,
         runtime: ParserRuntimeResult? = nil,
         lexer: LexerResult? = nil,
         testReport: WorkbenchTestReport? = nil,
         algorithmComparison: GrammarAlgorithmComparison? = nil
     ) -> String {
-#if os(macOS)
-        let automaton = AutomatonSVG.render(artifact, selected: nil)
-#else
-        let automaton = ""
-#endif
+        let automaton: String
+        if let layout = try? GrammarGraphLayoutEngine.layout(
+            .automaton(artifact, compact: false)
+        ) {
+            automaton = GrammarGraphSVGRenderer.render(layout)
+        } else {
+            automaton = ""
+        }
         let rows = artifact.states.map { state in
             let values = (artifact.terminals + artifact.nonterminals).map { symbol in
                 let id = CellID(state: state.id, symbol: symbol)

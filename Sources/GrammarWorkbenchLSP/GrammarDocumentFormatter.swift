@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import LanguageServerProtocol
 
 /// Canonical formatting for workbench-notation grammar documents.

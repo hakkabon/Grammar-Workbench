@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import LanguageServerProtocol
 
 /// How the server treats a document: grammar definitions are compiled with the

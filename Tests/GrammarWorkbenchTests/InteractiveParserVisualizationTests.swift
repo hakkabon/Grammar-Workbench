@@ -1,4 +1,5 @@
 import Foundation
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 import Testing
 

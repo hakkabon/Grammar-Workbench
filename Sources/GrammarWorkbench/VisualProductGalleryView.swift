@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import GrammarWorkbenchCore
 
 struct GrammarVisualProductGalleryView: View {
     let timeline: GrammarParserVisualizationTimeline?

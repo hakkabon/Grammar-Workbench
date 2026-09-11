@@ -1,9 +1,10 @@
 {
-  "schemaVersion": 1,
-  "planVersion": "1.0.0",
-  "sourceDirectory": "Sources/GrammarWorkbench",
-  "facadeTarget": "GrammarWorkbenchCore",
-  "implementationTarget": "GrammarWorkbench",
+  "schemaVersion": 2,
+  "planVersion": "2.0.0",
+  "coreSourceDirectory": "Sources/GrammarWorkbenchCore",
+  "nativeSourceDirectory": "Sources/GrammarWorkbench",
+  "coreTarget": "GrammarWorkbenchCore",
+  "facadeTarget": "GrammarWorkbench",
   "nativeFrameworks": [
     "AppKit",
     "SwiftUI",
@@ -12,7 +13,7 @@
     "WebKit"
   ],
   "classifications": {
-    "portable": [
+    "core": [
       "AdvancedGraphGeometry.swift",
       "AdvancedParsing.swift",
       "AdvancedParsingPlatform.swift",
@@ -31,9 +32,12 @@
       "GeneratorInfrastructure.swift",
       "GrammarAnalysisAndTransformation.swift",
       "GrammarBootstrapLaboratory.swift",
+      "GrammarEditorIntelligence.swift",
       "GrammarFrontEnd.swift",
       "GrammarRefactoring.swift",
       "GrammarSourceNotationDetection.swift",
+      "GrammarWorkbenchCore.swift",
+      "GrammarWorkbenchDocumentModel.swift",
       "GraphCorrectnessAndMeasurement.swift",
       "GraphVisualizationPlatform.swift",
       "GuidedGrammarEngineering.swift",
@@ -51,6 +55,7 @@
       "LexerRuntime.swift",
       "LinuxDelivery.swift",
       "ParserRuntime.swift",
+      "ProductionContracts.swift",
       "ProjectInfrastructure.swift",
       "PublicAPI.swift",
       "ResearchValidationProgramme.swift",
@@ -73,25 +78,16 @@
       "AutomatonView.swift",
       "DiagramREPLView.swift",
       "ExplorerStore.swift",
+      "GrammarEditor.swift",
+      "GrammarWorkbench.swift",
+      "GrammarWorkbenchDocument.swift",
       "GrammarWorkbenchTabletView.swift",
       "InteractiveGrammarExplorerView.swift",
       "ParserVisualizationView.swift",
+      "ProductionSupport.swift",
       "VisualProductGalleryView.swift",
       "WorkbenchVisualFoundation.swift"
     ],
-    "mixed": [
-      {
-        "path": "GrammarEditor.swift",
-        "reason": "Portable diagnostics, completion, and quick-fix logic shares a file with the AppKit editor."
-      },
-      {
-        "path": "GrammarWorkbenchDocument.swift",
-        "reason": "The Codable document model shares a file with UTType, FileDocument, and SwiftUI views."
-      },
-      {
-        "path": "ProductionSupport.swift",
-        "reason": "Portable release and capability declarations share a file with the SwiftUI settings view."
-      }
-    ]
+    "mixed": []
   }
 }

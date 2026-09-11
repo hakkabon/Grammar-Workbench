@@ -5,7 +5,7 @@ Grammar Workbench 1.x separates supported deterministic tooling from parsing res
 ## Stable
 
 - `GrammarWorkbenchAPI` compilation, lexing, deterministic parsing, recovery, replay, and batch tests.
-- `GrammarWorkbenchCore`, the portable façade and its re-exported model identities.
+- `GrammarWorkbenchCore`, the portable implementation and its stable model identities.
 - Immutable public snapshots and schema-versioned project, artifact, and semantic-model interchange.
 - Canonical portable-grammar and bootstrap-evidence envelopes, codecs, fingerprints, and deterministic renderers.
 - Bounded portable-grammar scale reports and the syntax-level Yacc/Bison import

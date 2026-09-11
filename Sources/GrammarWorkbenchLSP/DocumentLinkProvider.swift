@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 import LanguageServerProtocol
 
 /// Document links for source documents: every token links to its rule in the

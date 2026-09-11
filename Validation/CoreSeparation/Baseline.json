@@ -1,59 +1,43 @@
 {
-  "schemaVersion": 1,
-  "planVersion": "1.0.0",
-  "planSHA256": "54df0721d2bcdd1fd7e40474bc5599a90b4e828a2136cba167a8daf45559f2cd",
+  "schemaVersion": 2,
+  "planVersion": "2.0.0",
+  "planSHA256": "eda79d815ec496a91404381d0680e73dbf7dea352d7eabb960d5c997503c0e4e",
   "state": {
-    "facadeTarget": "GrammarWorkbenchCore",
-    "implementationTarget": "GrammarWorkbench",
-    "facadeReexportsImplementation": true,
-    "facadeDependsOnImplementation": true,
-    "physicallySeparated": false
+    "coreTarget": "GrammarWorkbenchCore",
+    "facadeTarget": "GrammarWorkbench",
+    "facadeReexportsCore": true,
+    "facadeDependsOnCore": true,
+    "coreDependsOnFacade": false,
+    "physicallySeparated": true
   },
   "totals": {
-    "files": 66,
-    "bytes": 1008154,
-    "lines": 21924,
-    "nonblankLines": 20274,
-    "publicDeclarations": 2383
+    "files": 71,
+    "bytes": 1011195,
+    "lines": 21967,
+    "nonblankLines": 20312,
+    "publicDeclarations": 2387,
+    "packageDeclarations": 185
   },
   "categories": {
-    "portable": {
-      "files": 54,
-      "bytes": 767174,
-      "lines": 16926,
-      "nonblankLines": 15601,
-      "publicDeclarations": 2286
+    "core": {
+      "files": 58,
+      "bytes": 782359,
+      "lines": 17202,
+      "nonblankLines": 15854,
+      "publicDeclarations": 2359,
+      "packageDeclarations": 185
     },
     "native": {
-      "files": 9,
-      "bytes": 208231,
-      "lines": 4289,
-      "nonblankLines": 4024,
-      "publicDeclarations": 15
-    },
-    "mixed": {
-      "files": 3,
-      "bytes": 32749,
-      "lines": 709,
-      "nonblankLines": 649,
-      "publicDeclarations": 82
+      "files": 13,
+      "bytes": 228836,
+      "lines": 4765,
+      "nonblankLines": 4458,
+      "publicDeclarations": 28,
+      "packageDeclarations": 0
     }
   },
-  "candidatePortablePercent": 77.2,
-  "extractionQueue": [
-    {
-      "path": "GrammarEditor.swift",
-      "reason": "Portable diagnostics, completion, and quick-fix logic shares a file with the AppKit editor."
-    },
-    {
-      "path": "GrammarWorkbenchDocument.swift",
-      "reason": "The Codable document model shares a file with UTType, FileDocument, and SwiftUI views."
-    },
-    {
-      "path": "ProductionSupport.swift",
-      "reason": "Portable release and capability declarations share a file with the SwiftUI settings view."
-    }
-  ],
+  "corePercent": 78.31,
+  "extractionQueue": [],
   "nativeFrameworkImports": [
     "AppKit",
     "SwiftUI",
@@ -61,8 +45,9 @@
     "WebKit"
   ],
   "resources": {
+    "owner": "GrammarWorkbenchCore",
     "files": 2,
     "bytes": 6708
   },
-  "sourceMetricsSHA256": "d4d1c66163d3e91a540251c8bb18d5251c06f1428b8c16d08c44315a2fa70cc1"
+  "sourceMetricsSHA256": "48e62b1e19c9c849ef906c12b59e93ad2df3e072550257e75bff62b52d6cb2b9"
 }

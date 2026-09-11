@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import GrammarWorkbenchCore
 import WebKit
 
 enum AutomatonDetail: String, CaseIterable, Identifiable {
@@ -17,7 +18,7 @@ struct AutomatonLayout {
     }
 
     struct Edge {
-        let transition: Transition
+        let transition: GrammarWorkbenchCore.Transition
         let path: String
         let labelPoint: CGPoint
     }
@@ -33,7 +34,7 @@ struct AutomatonLayout {
 enum AutomatonLayoutEngine {
     static func layout(
         states: [AutomatonState],
-        transitions: [Transition],
+        transitions: [GrammarWorkbenchCore.Transition],
         compact: Bool
     ) -> AutomatonLayout {
         do {
@@ -72,7 +73,7 @@ enum AutomatonLayoutEngine {
                     layer: orderedColumns.firstIndex(of: column) ?? 0
                 )
             }
-            let transitionByID = Dictionary(uniqueKeysWithValues: graph.edges.compactMap { edge -> (String, Transition)? in
+            let transitionByID = Dictionary(uniqueKeysWithValues: graph.edges.compactMap { edge -> (String, GrammarWorkbenchCore.Transition)? in
                 guard let components = edge.id.split(separator: ":").dropFirst().first.flatMap({ Int($0) }),
                       validTransitions.indices.contains(components) else { return nil }
                 return (edge.id, validTransitions[components])
@@ -108,7 +109,7 @@ enum AutomatonLayoutEngine {
 
     private static func legacyLayout(
         states: [AutomatonState],
-        transitions: [Transition],
+        transitions: [GrammarWorkbenchCore.Transition],
         compact: Bool
     ) -> AutomatonLayout {
         guard !states.isEmpty else {
@@ -209,14 +210,17 @@ enum AutomatonLayoutEngine {
 
     private static func barycenter(
         _ state: StateID,
-        incoming: [StateID: [Transition]],
+        incoming: [StateID: [GrammarWorkbenchCore.Transition]],
         positions: [StateID: Double]
     ) -> Double {
         let values = incoming[state, default: []].compactMap { positions[$0.from] }
         return values.isEmpty ? Double(state.rawValue) : values.reduce(0, +) / Double(values.count)
     }
 
-    private static func transitionOrder(_ lhs: Transition, _ rhs: Transition) -> Bool {
+    private static func transitionOrder(
+        _ lhs: GrammarWorkbenchCore.Transition,
+        _ rhs: GrammarWorkbenchCore.Transition
+    ) -> Bool {
         lhs.symbol == rhs.symbol ? lhs.to.rawValue < rhs.to.rawValue : lhs.symbol < rhs.symbol
     }
 

@@ -1,5 +1,6 @@
 import Testing
 import GrammarDiagramKit
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 @Suite("Diagram and parse-console product integration")

@@ -76,7 +76,7 @@ public enum GrammarTestRunner {
         return run(tests, grammar: grammar, artifact: artifact)
     }
 
-    static func run(
+    package static func run(
         _ tests: [WorkbenchTestCase],
         grammar: ParsedGrammar,
         artifact: GrammarArtifact

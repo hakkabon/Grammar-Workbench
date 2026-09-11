@@ -3,6 +3,7 @@ import Testing
 #if canImport(SwiftUI) && canImport(UniformTypeIdentifiers)
 import UniformTypeIdentifiers
 #endif
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 #if os(macOS)

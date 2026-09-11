@@ -72,8 +72,8 @@ public struct GrammarAlgorithmComparison: Hashable, Codable, Sendable {
     }
 }
 
-enum AlgorithmComparisonEngine {
-    static func compare(
+package enum AlgorithmComparisonEngine {
+    package static func compare(
         grammar: ParsedGrammar,
         analysis: GrammarAnalysis,
         source: String,

@@ -1,5 +1,6 @@
 #if os(macOS)
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 private func visualizationArtifact(stateCount: Int) -> GrammarArtifact {

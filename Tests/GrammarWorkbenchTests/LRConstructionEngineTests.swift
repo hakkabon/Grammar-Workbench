@@ -1,4 +1,5 @@
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 private func artifact(_ source: String, algorithm: LRAlgorithm) throws -> GrammarArtifact {

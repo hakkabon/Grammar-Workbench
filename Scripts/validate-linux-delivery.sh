@@ -11,7 +11,7 @@ cd "$ROOT_DIR"
 swift build --force-resolved-versions --product grammar-workbench
 swift build --force-resolved-versions --product grammar-workbench-lsp
 swift build --force-resolved-versions --product grammar-workbench-service
-swift test --force-resolved-versions --filter coreFacadeCompilesAndReexportsPortableContracts
+swift test --force-resolved-versions --jobs "${SWIFT_BUILD_JOBS:-2}" --filter coreModuleCompilesPortableContracts
 swift test --force-resolved-versions --filter runtimePlatformReportIsStablePortableAndComplete
 
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-linux-validation.XXXXXX")"

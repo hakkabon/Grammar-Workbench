@@ -1,12 +1,12 @@
 import Foundation
 
-struct ParseTreeNode: Hashable, Sendable {
-    let symbol: String
-    let children: [ParseTreeNode]
-    let production: ProductionID?
-    let isMissing: Bool
+package struct ParseTreeNode: Hashable, Sendable {
+    package let symbol: String
+    package let children: [ParseTreeNode]
+    package let production: ProductionID?
+    package let isMissing: Bool
 
-    init(
+    package init(
         symbol: String,
         children: [ParseTreeNode],
         production: ProductionID? = nil,
@@ -18,7 +18,7 @@ struct ParseTreeNode: Hashable, Sendable {
         self.isMissing = isMissing
     }
 
-    func rendered() -> String {
+    package func rendered() -> String {
         var lines = [symbol]
         appendChildren(to: &lines, prefix: "")
         return lines.joined(separator: "\n")
@@ -33,30 +33,30 @@ struct ParseTreeNode: Hashable, Sendable {
     }
 }
 
-enum ParserRecoveryKind: String, Hashable, Codable, Sendable {
+package enum ParserRecoveryKind: String, Hashable, Codable, Sendable {
     case deletedToken
     case insertedToken
     case synchronized
 }
 
-struct ParserDiagnostic: Hashable, Codable, Sendable {
-    let index: Int
-    let tokenIndex: Int
-    let state: StateID
-    let unexpected: String
-    let expected: [String]
-    let message: String
-    let recovery: ParserRecoveryKind?
-    let recoverySymbol: String?
-    let recoveryDetail: String?
+package struct ParserDiagnostic: Hashable, Codable, Sendable {
+    package let index: Int
+    package let tokenIndex: Int
+    package let state: StateID
+    package let unexpected: String
+    package let expected: [String]
+    package let message: String
+    package let recovery: ParserRecoveryKind?
+    package let recoverySymbol: String?
+    package let recoveryDetail: String?
 }
 
-struct ParserRecoveryConfiguration: Sendable {
-    let maximumDiagnostics: Int
-    let synchronizationTerminals: Set<String>
-    let preferredInsertions: [String]
+package struct ParserRecoveryConfiguration: Sendable {
+    package let maximumDiagnostics: Int
+    package let synchronizationTerminals: Set<String>
+    package let preferredInsertions: [String]
 
-    init(
+    package init(
         maximumDiagnostics: Int,
         synchronizationTerminals: Set<String> = [],
         preferredInsertions: [String] = []
@@ -65,21 +65,21 @@ struct ParserRecoveryConfiguration: Sendable {
         self.synchronizationTerminals = synchronizationTerminals
         self.preferredInsertions = preferredInsertions
     }
-    static let disabled = ParserRecoveryConfiguration(
+    package static let disabled = ParserRecoveryConfiguration(
         maximumDiagnostics: 0, synchronizationTerminals: [], preferredInsertions: []
     )
-    static let diagnostic = ParserRecoveryConfiguration(
+    package static let diagnostic = ParserRecoveryConfiguration(
         maximumDiagnostics: 8, synchronizationTerminals: [], preferredInsertions: []
     )
 }
 
-enum ParseOutcome: Hashable, Sendable {
+package enum ParseOutcome: Hashable, Sendable {
     case accepted
     case rejected(message: String, expected: [String])
     case conflict(CellID)
     case looping
 
-    var label: String {
+    package var label: String {
         switch self {
         case .accepted: "Accepted"
         case .rejected(let message, _): "Rejected: \(message)"
@@ -89,15 +89,15 @@ enum ParseOutcome: Hashable, Sendable {
     }
 }
 
-struct ParserRuntimeResult: Sendable {
-    let tokens: [String]
-    let tree: ParseTreeNode?
-    let frames: [ReplayFrame]
-    let outcome: ParseOutcome
-    let diagnostics: [ParserDiagnostic]
-    let checkpoints: [ParserCheckpoint]
+package struct ParserRuntimeResult: Sendable {
+    package let tokens: [String]
+    package let tree: ParseTreeNode?
+    package let frames: [ReplayFrame]
+    package let outcome: ParseOutcome
+    package let diagnostics: [ParserDiagnostic]
+    package let checkpoints: [ParserCheckpoint]
 
-    init(
+    package init(
         tokens: [String], tree: ParseTreeNode?, frames: [ReplayFrame], outcome: ParseOutcome,
         diagnostics: [ParserDiagnostic] = [], checkpoints: [ParserCheckpoint] = []
     ) {
@@ -110,21 +110,21 @@ struct ParserRuntimeResult: Sendable {
     }
 }
 
-struct ParserCheckpoint: Sendable {
-    let tokenIndex: Int
-    let steps: Int
-    let states: [StateID]
-    let symbols: [String]
-    let nodes: [ParseTreeNode]
-    let frameCount: Int
+package struct ParserCheckpoint: Sendable {
+    package let tokenIndex: Int
+    package let steps: Int
+    package let states: [StateID]
+    package let symbols: [String]
+    package let nodes: [ParseTreeNode]
+    package let frameCount: Int
 }
 
-enum SampleInputTokenizer {
-    struct TokenizationError: Error, Equatable {
-        let message: String
+package enum SampleInputTokenizer {
+    package struct TokenizationError: Error, Equatable {
+        package let message: String
     }
 
-    static func tokenize(_ source: String) -> Result<[String], TokenizationError> {
+    package static func tokenize(_ source: String) -> Result<[String], TokenizationError> {
         var tokens: [String] = []
         let characters = Array(source)
         var index = 0
@@ -163,8 +163,8 @@ enum SampleInputTokenizer {
     }
 }
 
-enum LRParserRuntime {
-    static func parse(
+package enum LRParserRuntime {
+    package static func parse(
         _ tokens: [String], artifact: GrammarArtifact,
         forcing forcedChoice: (cell: CellID, action: TableAction)? = nil,
         stepLimit: Int = 1_000,
@@ -179,7 +179,7 @@ enum LRParserRuntime {
     }
 }
 
-enum ConflictWitnessGenerator {
+package enum ConflictWitnessGenerator {
     private struct SearchConfiguration: Hashable {
         let stack: [StateID]
         let tokens: [String]
@@ -200,7 +200,7 @@ enum ConflictWitnessGenerator {
         case stopped
     }
 
-    static func enrich(_ artifact: GrammarArtifact, maxLength: Int = 12, candidateLimit: Int = 50_000) -> GrammarArtifact {
+    package static func enrich(_ artifact: GrammarArtifact, maxLength: Int = 12, candidateLimit: Int = 50_000) -> GrammarArtifact {
         let decisions = artifact.decisions.map { decision in
             guard artifact.cell(decision.cell)?.isConflict == true,
                   let witness = shortestWitness(

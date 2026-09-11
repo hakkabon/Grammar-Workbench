@@ -1,5 +1,5 @@
 import Foundation
-import GrammarWorkbench
+import GrammarWorkbenchCore
 
 public enum GrammarToolingEventKind: String, Hashable, Codable, Sendable {
     case sessionOpened

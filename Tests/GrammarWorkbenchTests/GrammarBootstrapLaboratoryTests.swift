@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 @Test func bootstrapLaboratoryReachesCanonicalFixedPoint() throws {

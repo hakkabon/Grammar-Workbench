@@ -42,72 +42,69 @@ for (let index = 2; index < process.argv.length; index += 1) {
 
 const planBytes = readFileSync(planPath);
 const plan = JSON.parse(planBytes);
-if (plan.schemaVersion !== 1 || typeof plan.planVersion !== "string"
-    || typeof plan.sourceDirectory !== "string" || !plan.classifications) {
-  fail("invalid plan envelope");
+if (plan.schemaVersion !== 2 || typeof plan.planVersion !== "string"
+    || typeof plan.coreSourceDirectory !== "string"
+    || typeof plan.nativeSourceDirectory !== "string"
+    || typeof plan.coreTarget !== "string" || typeof plan.facadeTarget !== "string"
+    || !plan.classifications) {
+  fail("invalid physical-separation plan envelope");
 }
 
-const portable = plan.classifications.portable;
+const core = plan.classifications.core;
 const native = plan.classifications.native;
 const mixed = plan.classifications.mixed;
-if (!Array.isArray(portable) || !Array.isArray(native) || !Array.isArray(mixed)
-    || !mixed.every(item => typeof item.path === "string" && typeof item.reason === "string")) {
-  fail("invalid source classifications");
+if (!Array.isArray(core) || !Array.isArray(native) || !Array.isArray(mixed) || mixed.length !== 0) {
+  fail("the physical separation plan requires complete core/native ownership and an empty mixed queue");
 }
 
-const sourceDirectory = resolve(root, plan.sourceDirectory);
-const actualPaths = readdirSync(sourceDirectory)
-  .filter(path => path.endsWith(".swift"))
-  .sort();
-const classifiedPaths = [
-  ...portable,
-  ...native,
-  ...mixed.map(item => item.path)
-];
-const uniquePaths = new Set(classifiedPaths);
-if (uniquePaths.size !== classifiedPaths.length) fail("a source is classified more than once");
-const unclassified = actualPaths.filter(path => !uniquePaths.has(path));
-const missing = classifiedPaths.filter(path => !actualPaths.includes(path));
-if (unclassified.length || missing.length) {
-  fail(`classification drift${unclassified.length ? `; unclassified ${unclassified.join(", ")}` : ""}${missing.length ? `; missing ${missing.join(", ")}` : ""}`);
+const coreDirectory = resolve(root, plan.coreSourceDirectory);
+const nativeDirectory = resolve(root, plan.nativeSourceDirectory);
+const swiftFiles = directory => readdirSync(directory).filter(path => path.endsWith(".swift")).sort();
+const actualCore = swiftFiles(coreDirectory);
+const actualNative = swiftFiles(nativeDirectory);
+const duplicates = core.filter(path => native.includes(path));
+const missingCore = core.filter(path => !actualCore.includes(path));
+const missingNative = native.filter(path => !actualNative.includes(path));
+const unexpectedCore = actualCore.filter(path => !core.includes(path));
+const unexpectedNative = actualNative.filter(path => !native.includes(path));
+if (duplicates.length || missingCore.length || missingNative.length || unexpectedCore.length || unexpectedNative.length) {
+  fail(`ownership drift${duplicates.length ? `; duplicate ${duplicates.join(", ")}` : ""}${missingCore.length ? `; missing core ${missingCore.join(", ")}` : ""}${missingNative.length ? `; missing native ${missingNative.join(", ")}` : ""}${unexpectedCore.length ? `; unexpected core ${unexpectedCore.join(", ")}` : ""}${unexpectedNative.length ? `; unexpected native ${unexpectedNative.join(", ")}` : ""}`);
 }
 
 const nativeFrameworks = new Set(plan.nativeFrameworks ?? []);
 const publicDeclarationPattern = /^\s*public\s+(?:(?:final|indirect|nonisolated|static|class)\s+)*(?:struct|class|enum|actor|protocol|typealias|func|var|let|subscript|init|extension)\b/gm;
-const importPattern = /^\s*(?:@_exported\s+)?import\s+([A-Za-z_][A-Za-z0-9_]*)/gm;
+const packageDeclarationPattern = /^\s*package\s+(?:(?:final|indirect|nonisolated|static|class)\s+)*(?:struct|class|enum|actor|protocol|typealias|func|var|let|subscript|init|extension)\b/gm;
+const importPattern = /^(?:@_exported\s+)?import\s+([A-Za-z_][A-Za-z0-9_]*)/gm;
 
-function measureSource(path, category, reason) {
-  const absolutePath = join(sourceDirectory, path);
+function measureSource(directory, directoryName, path, category) {
+  const absolutePath = join(directory, path);
   const source = readFileSync(absolutePath, "utf8");
   const imports = [...source.matchAll(importPattern)].map(match => match[1]);
   const nativeImports = imports.filter(module => nativeFrameworks.has(module));
-  if (category === "portable" && nativeImports.length) {
-    fail(`${path} is classified portable but imports ${nativeImports.join(", ")}`);
+  if (category === "core" && nativeImports.length) {
+    fail(`${path} is core-owned but imports ${nativeImports.join(", ")}`);
   }
-  if ((category === "native" || category === "mixed") && nativeImports.length === 0) {
-    fail(`${path} is classified ${category} but has no reviewed native-framework import`);
+  if (category === "native" && path !== "GrammarWorkbench.swift" && nativeImports.length === 0) {
+    fail(`${path} is native-owned but has no reviewed native-framework import`);
   }
   return {
-    path,
+    path: join(directoryName, path),
     category,
-    ...(reason ? { reason } : {}),
     bytes: statSync(absolutePath).size,
     lines: source.length === 0 ? 0 : source.split("\n").length - (source.endsWith("\n") ? 1 : 0),
     nonblankLines: source.split("\n").filter(line => line.trim().length > 0).length,
     publicDeclarations: [...source.matchAll(publicDeclarationPattern)].length,
+    packageDeclarations: [...source.matchAll(packageDeclarationPattern)].length,
     imports: [...new Set(imports)].sort(),
     nativeImports: [...new Set(nativeImports)].sort(),
     conditionalCompilationDirectives: (source.match(/^\s*#(?:if|elseif|else|endif)\b/gm) ?? []).length
   };
 }
 
-const mixedReasons = new Map(mixed.map(item => [item.path, item.reason]));
-const categoryByPath = new Map([
-  ...portable.map(path => [path, "portable"]),
-  ...native.map(path => [path, "native"]),
-  ...mixed.map(item => [item.path, "mixed"])
-]);
-const sources = actualPaths.map(path => measureSource(path, categoryByPath.get(path), mixedReasons.get(path)));
+const sources = [
+  ...actualCore.map(path => measureSource(coreDirectory, plan.coreSourceDirectory, path, "core")),
+  ...actualNative.map(path => measureSource(nativeDirectory, plan.nativeSourceDirectory, path, "native"))
+];
 
 function totals(items) {
   return {
@@ -115,51 +112,57 @@ function totals(items) {
     bytes: items.reduce((sum, item) => sum + item.bytes, 0),
     lines: items.reduce((sum, item) => sum + item.lines, 0),
     nonblankLines: items.reduce((sum, item) => sum + item.nonblankLines, 0),
-    publicDeclarations: items.reduce((sum, item) => sum + item.publicDeclarations, 0)
+    publicDeclarations: items.reduce((sum, item) => sum + item.publicDeclarations, 0),
+    packageDeclarations: items.reduce((sum, item) => sum + item.packageDeclarations, 0)
   };
 }
 
 const packageManifest = readFileSync(join(root, "Package.swift"), "utf8");
-const coreFacade = readFileSync(join(root, "Sources/GrammarWorkbenchCore/GrammarWorkbenchCore.swift"), "utf8");
-const resourcesDirectory = join(sourceDirectory, "Resources");
+const facadeSource = readFileSync(join(nativeDirectory, "GrammarWorkbench.swift"), "utf8");
+const coreSources = sources.filter(item => item.category === "core");
+const nativeSources = sources.filter(item => item.category === "native");
+const coreImportsFacade = coreSources.some(item => item.imports.includes(plan.facadeTarget));
+const facadeReexportsCore = facadeSource.includes(`@_exported import ${plan.coreTarget}`);
+const facadeDependsOnCore = new RegExp(
+  `name:\\s*"${plan.facadeTarget}"[\\s\\S]{0,500}?dependencies:\\s*\\[[\\s\\S]{0,300}?"${plan.coreTarget}"`
+).test(packageManifest);
+const resourcesDirectory = join(coreDirectory, "Resources");
 const resourcePaths = readdirSync(resourcesDirectory).sort();
 const resourceBytes = resourcePaths.reduce((sum, path) => sum + statSync(join(resourcesDirectory, path)).size, 0);
-const categories = Object.fromEntries(["portable", "native", "mixed"].map(category => [
-  category,
-  totals(sources.filter(item => item.category === category))
-]));
 const allTotals = totals(sources);
+const categories = { core: totals(coreSources), native: totals(nativeSources) };
 
 const report = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   planVersion: plan.planVersion,
   planSHA256: createHash("sha256").update(planBytes).digest("hex"),
   state: {
+    coreTarget: plan.coreTarget,
     facadeTarget: plan.facadeTarget,
-    implementationTarget: plan.implementationTarget,
-    facadeReexportsImplementation: coreFacade.includes(`@_exported import ${plan.implementationTarget}`),
-    facadeDependsOnImplementation: new RegExp(`name:\\s*"${plan.facadeTarget}"[^\\n]*dependencies:\\s*\\["${plan.implementationTarget}"\\]`).test(packageManifest),
-    physicallySeparated: false
+    facadeReexportsCore,
+    facadeDependsOnCore,
+    coreDependsOnFacade: coreImportsFacade,
+    physicallySeparated: facadeReexportsCore && facadeDependsOnCore && !coreImportsFacade
   },
   totals: allTotals,
   categories,
-  candidatePortablePercent: Number((categories.portable.lines * 100 / allTotals.lines).toFixed(2)),
-  extractionQueue: mixed.map(item => ({ path: item.path, reason: item.reason })),
-  nativeFrameworkImports: [...new Set(sources.flatMap(item => item.nativeImports))].sort(),
-  resources: { files: resourcePaths.length, bytes: resourceBytes },
+  corePercent: Number((categories.core.lines * 100 / allTotals.lines).toFixed(2)),
+  extractionQueue: [],
+  nativeFrameworkImports: [...new Set(nativeSources.flatMap(item => item.nativeImports))].sort(),
+  resources: { owner: plan.coreTarget, files: resourcePaths.length, bytes: resourceBytes },
   sourceMetricsSHA256: createHash("sha256").update(JSON.stringify(sources)).digest("hex"),
   sources
 };
 
-if (!report.state.facadeReexportsImplementation || !report.state.facadeDependsOnImplementation) {
-  fail("the pre-split façade relationship no longer matches the measurement plan");
+if (!report.state.physicallySeparated) {
+  fail("the Core/facade dependency direction does not match the physical separation plan");
 }
 
 if (shouldBuild) {
   const started = process.hrtime.bigint();
   const build = spawnSync("swift", [
     "build", "--package-path", root, "--scratch-path", scratchPath,
-    "--target", plan.facadeTarget, "--jobs", buildJobs
+    "--target", plan.coreTarget, "--jobs", buildJobs
   ], { encoding: "utf8" });
   const durationMilliseconds = Number(process.hrtime.bigint() - started) / 1_000_000;
   if (build.status !== 0) {
@@ -169,7 +172,7 @@ if (shouldBuild) {
   }
   const swiftVersion = spawnSync("swift", ["--version"], { encoding: "utf8" });
   report.buildObservation = {
-    target: plan.facadeTarget,
+    target: plan.coreTarget,
     configuration: "debug",
     jobs: Number(buildJobs),
     scratchPath,
@@ -193,7 +196,7 @@ if (shouldCheck) {
   if (JSON.stringify(baseline) !== JSON.stringify(baselineMeasurement)) {
     fail(`baseline differs; inspect with --report and review the separation plan before updating ${baselinePath}`);
   }
-  console.log(`WorkbenchCore pre-split baseline valid: ${allTotals.files} sources, ${allTotals.lines} lines, ${categories.mixed.files} mixed files.`);
+  console.log(`WorkbenchCore physical separation valid: ${categories.core.files} core sources, ${categories.native.files} native sources, ${categories.core.lines} core lines.`);
 } else if (!reportPath) {
   process.stdout.write(serialized);
 }

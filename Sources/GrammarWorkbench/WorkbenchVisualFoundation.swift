@@ -1,5 +1,6 @@
 #if canImport(SwiftUI)
 import SwiftUI
+import GrammarWorkbenchCore
 
 /// Shared dimensions for the native application's primary workspace and its
 /// contextual artifact-detail popover.

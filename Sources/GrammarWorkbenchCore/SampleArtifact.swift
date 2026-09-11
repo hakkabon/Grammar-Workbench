@@ -1,9 +1,9 @@
 import Foundation
 
-enum SampleArtifact {
-    static let grammarSource = "%start E\n%left '+'\n%left '*'\n\nE : E '+' E\n  | E '*' E\n  | 'id'\n  ;"
+package enum SampleArtifact {
+    package static let grammarSource = "%start E\n%left '+'\n%left '*'\n\nE : E '+' E\n  | E '*' E\n  | 'id'\n  ;"
 
-    static func make(algorithm: LRAlgorithm) -> GrammarArtifact {
+    package static func make(algorithm: LRAlgorithm) -> GrammarArtifact {
         let productions = [
             Production(id: .init(rawValue: 0), lhs: "S′", rhs: ["E"]),
             Production(id: .init(rawValue: 1), lhs: "E", rhs: ["E", "+", "E"]),
@@ -85,8 +85,8 @@ enum SampleArtifact {
     }
 }
 
-enum FrontEndArtifact {
-    static func make(result: GrammarFrontEndResult, algorithm: LRAlgorithm) -> GrammarArtifact {
+package enum FrontEndArtifact {
+    package static func make(result: GrammarFrontEndResult, algorithm: LRAlgorithm) -> GrammarArtifact {
         guard let grammar = result.grammar else {
             let fallback = SampleArtifact.make(algorithm: algorithm)
             return GrammarArtifact(

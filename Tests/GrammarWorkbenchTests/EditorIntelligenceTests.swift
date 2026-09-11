@@ -3,6 +3,7 @@ import AppKit
 import SwiftUI
 #endif
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 @Test func semanticValidationFindsStructuralGrammarProblems() {

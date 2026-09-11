@@ -49,7 +49,7 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "GrammarWorkbench",
+            name: "GrammarWorkbenchCore",
             dependencies: [
                 .product(name: "Grammar", package: "Grammar"),
                 .product(name: "LR-Parsing", package: "LR-Parsing"),
@@ -61,15 +61,21 @@ let package = Package(
             ],
             resources: [.process("Resources")]
         ),
-        .target(name: "GrammarWorkbenchCore", dependencies: ["GrammarWorkbench"]),
-        .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbench"]),
+        .target(
+            name: "GrammarWorkbench",
+            dependencies: [
+                "GrammarWorkbenchCore",
+                .product(name: "GrammarDiagramKit", package: "Grammar-DiagramKit")
+            ]
+        ),
+        .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbenchCore"]),
         .executableTarget(
             name: "GrammarWorkbenchCLI",
-            dependencies: ["GrammarWorkbench", "GrammarWorkbenchSDK"]
+            dependencies: ["GrammarWorkbenchCore", "GrammarWorkbenchSDK"]
         ),
         .executableTarget(
             name: "GrammarWorkbenchServiceHost",
-            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbench"]
+            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbenchCore"]
         ),
         .executableTarget(
             name: "GrammarWorkbenchWASIDemo",
@@ -80,10 +86,13 @@ let package = Package(
             capability: .buildTool(),
             dependencies: [.target(name: "GrammarWorkbenchCLI")]
         ),
-        .testTarget(name: "GrammarWorkbenchTests", dependencies: ["GrammarWorkbench"]),
+        .testTarget(
+            name: "GrammarWorkbenchTests",
+            dependencies: ["GrammarWorkbench", "GrammarWorkbenchCore"]
+        ),
         .testTarget(
             name: "GrammarWorkbenchSDKTests",
-            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbench"]
+            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbenchCore"]
         ),
         .testTarget(name: "GrammarWorkbenchCoreTests", dependencies: ["GrammarWorkbenchCore"]),
         .target(
@@ -99,14 +108,15 @@ let package = Package(
         .target(
             name: "GrammarWorkbenchLSP",
             dependencies: [
-                "GrammarWorkbench", "LanguageServerProtocol", "LanguageServerProtocolTransport"
+                "GrammarWorkbenchCore", "LanguageServerProtocol", "LanguageServerProtocolTransport"
             ]
         ),
         .executableTarget(name: "GrammarWorkbenchLSPApp", dependencies: ["GrammarWorkbenchLSP"]),
         .testTarget(
             name: "GrammarWorkbenchLSPTests",
             dependencies: [
-                "GrammarWorkbenchLSP", "LanguageServerProtocol", "LanguageServerProtocolTransport"
+                "GrammarWorkbenchLSP", "GrammarWorkbenchCore",
+                "LanguageServerProtocol", "LanguageServerProtocolTransport"
             ]
         )
     ] + nativeAppTargets

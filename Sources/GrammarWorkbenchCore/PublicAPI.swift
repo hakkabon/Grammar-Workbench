@@ -288,10 +288,10 @@ public struct GrammarCompilation: Sendable {
     public let artifact: GrammarArtifactSnapshot?
     public let performance: GrammarConstructionPerformance
 
-    let frontEndResult: GrammarFrontEndResult
-    let compiledGrammar: ParsedGrammar?
-    let compiledAnalysis: GrammarAnalysis?
-    let compiledArtifact: GrammarArtifact?
+    package let frontEndResult: GrammarFrontEndResult
+    package let compiledGrammar: ParsedGrammar?
+    package let compiledAnalysis: GrammarAnalysis?
+    package let compiledArtifact: GrammarArtifact?
 
     public var succeeded: Bool { compiledArtifact != nil }
 
@@ -551,7 +551,7 @@ private extension GrammarTraceFrameSnapshot {
 }
 
 extension GrammarArtifactSnapshot {
-    init(_ artifact: GrammarArtifact) {
+    package init(_ artifact: GrammarArtifact) {
         self.init(
             apiVersion: GrammarWorkbenchAPIVersion.current,
             algorithm: GrammarAlgorithm(rawValue: artifact.algorithm.rawValue)!,

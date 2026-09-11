@@ -65,10 +65,10 @@ The release-candidate gate verifies the product from four perspectives:
 26. The dependency-boundary audit must evaluate the parsed SwiftPM manifest,
     classify every direct dependency, enforce the reviewed ownership layering,
     reject mutable or local requirements, and reject stale allowlists.
-27. The WorkbenchCore pre-split measurement must classify every implementation
-    source exactly once, reject native-framework imports from portable
-    candidates, preserve the reviewed mixed-file extraction queue, and match
-    the checked structural baseline.
+27. The WorkbenchCore physical-separation measurement must classify every
+    implementation source exactly once, reject native-framework imports from
+    Core, require an empty mixed-file queue, enforce Core-to-native dependency
+    direction, and match the checked structural baseline.
 28. Release packaging must bind a stable semantic version, full source revision,
     toolchain, architecture set, signing state, checksum file, and every archive
     digest in a verified schema-versioned provenance manifest. Tagged automation

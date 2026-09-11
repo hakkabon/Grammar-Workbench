@@ -6,6 +6,7 @@ import Foundation
 import SwiftUI
 #endif
 import Testing
+@testable import GrammarWorkbenchCore
 @testable import GrammarWorkbench
 
 private struct ReleaseCandidatePolicy: Decodable {
@@ -208,18 +209,19 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let corePlan = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corePlanURL)
     ) as? [String: Any]
-    #expect(corePlan?["schemaVersion"] as? Int == 1)
+    #expect(corePlan?["schemaVersion"] as? Int == 2)
     let classifications = corePlan?["classifications"] as? [String: Any]
-    #expect((classifications?["portable"] as? [String])?.count == 54)
-    #expect((classifications?["native"] as? [String])?.count == 9)
-    #expect((classifications?["mixed"] as? [[String: Any]])?.count == 3)
+    #expect((classifications?["core"] as? [String])?.count == 58)
+    #expect((classifications?["native"] as? [String])?.count == 13)
+    #expect((classifications?["mixed"] as? [String])?.isEmpty == true)
     let coreBaselineURL = packageRoot().appendingPathComponent(policy.coreSeparationBaseline)
     let coreBaseline = try JSONSerialization.jsonObject(
         with: Data(contentsOf: coreBaselineURL)
     ) as? [String: Any]
-    #expect(coreBaseline?["schemaVersion"] as? Int == 1)
-    #expect((coreBaseline?["state"] as? [String: Any])?["physicallySeparated"] as? Bool == false)
-    #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 66)
+    #expect(coreBaseline?["schemaVersion"] as? Int == 2)
+    #expect((coreBaseline?["state"] as? [String: Any])?["physicallySeparated"] as? Bool == true)
+    #expect((coreBaseline?["state"] as? [String: Any])?["coreDependsOnFacade"] as? Bool == false)
+    #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 71)
     #expect(policy.releaseArtifactManifestVersion == 1)
     let releaseManifestSchema = try JSONSerialization.jsonObject(
         with: Data(contentsOf: packageRoot().appendingPathComponent(policy.releaseArtifactManifestSchema))

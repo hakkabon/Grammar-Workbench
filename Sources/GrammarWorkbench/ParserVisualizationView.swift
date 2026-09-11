@@ -1,5 +1,6 @@
 #if os(macOS)
 import SwiftUI
+import GrammarWorkbenchCore
 import WebKit
 
 public struct GrammarParserVisualizationView: NSViewRepresentable {

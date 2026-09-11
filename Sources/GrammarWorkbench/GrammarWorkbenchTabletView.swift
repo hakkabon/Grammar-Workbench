@@ -1,6 +1,7 @@
 #if os(iOS)
 import GrammarDiagramKit
 import SwiftUI
+import GrammarWorkbenchCore
 
 private enum TabletDestination: String, CaseIterable, Identifiable {
     case guide = "Guide"

@@ -1,26 +1,36 @@
-# WorkbenchCore pre-split measurement
+# WorkbenchCore physical separation
 
-`GrammarWorkbenchCore` currently re-exports and depends on the complete
-`GrammarWorkbench` target. Before changing that physical ownership, the
-repository records a reproducible structural baseline in
+`GrammarWorkbenchCore` now physically owns the portable implementation.
+`GrammarWorkbench` contains the native SwiftUI, AppKit, WebKit, and document
+integration and re-exports Core as a compatibility façade. Core has no dependency
+on that façade.
+
+The reviewed ownership plan and checked post-split baseline live in
+`Validation/CoreSeparation/Plan.json` and
 `Validation/CoreSeparation/Baseline.json`.
 
-The reviewed plan classifies every implementation source as:
+## Ownership result
 
-- **portable** — a direct candidate for physical Core ownership and free of
-  imports from the reviewed native-framework set;
-- **native** — an application or presentation source that remains outside the
-  physical Core target; or
-- **mixed** — a file that must first separate portable declarations from native
-  presentation declarations.
+The implementation contains 71 Swift sources:
 
-The baseline measures files, bytes, physical and nonblank lines, public
-declaration occurrences, conditional-compilation directives, imports, resource
-size, and the current façade relationship. A digest covers the detailed
-per-source observations. These structural values are deterministic and form the
-before/after comparison for a future split.
+- 58 Core-owned sources and 17,202 lines;
+- 13 native/façade sources and 4,765 lines;
+- no mixed or unassigned sources; and
+- two resources owned by `GrammarWorkbenchCore`.
 
-Run the gate locally:
+Core accounts for 78.31% of implementation lines. Package-scoped declarations
+are used for implementation models and hooks shared with the native target;
+they do not enlarge the public product API.
+
+The split extracted portable editor intelligence, the Codable workbench document
+model, release/capability declarations, and resource loading from the three
+originally mixed files. CLI, SDK, LSP, and service targets now depend directly on
+Core. Only the native app and compatibility consumers require
+`GrammarWorkbench`.
+
+## Structural gate
+
+Run the checked ownership and dependency-direction gate:
 
 ```sh
 node Scripts/measure-workbench-core.mjs --check
@@ -33,8 +43,14 @@ node Scripts/measure-workbench-core.mjs \
   --report .build/core-separation-report.json
 ```
 
-To add a machine-specific build observation, use the same scratch directory,
-job count, Swift toolchain, and hardware before and after the split:
+The report rejects ownership drift, native-framework imports in Core, native
+files without a reviewed native framework, a non-empty mixed queue, loss of the
+compatibility re-export, or any dependency from Core back to the native façade.
+
+## Controlled Core build
+
+To add a machine-specific Core-only build observation, use the same scratch
+directory, job count, Swift toolchain, and hardware for comparisons:
 
 ```sh
 node Scripts/measure-workbench-core.mjs --build --jobs 2 \
@@ -42,21 +58,6 @@ node Scripts/measure-workbench-core.mjs --build --jobs 2 \
   --report .build/core-separation-build.json
 ```
 
-Build duration is intentionally excluded from the checked baseline because it
-is hardware-, cache-, and toolchain-sensitive. The generated report records
-those comparison inputs alongside the duration.
-
-## Current result
-
-The pre-split implementation contains 66 files and 21,924 lines. Fifty-four
-files, representing 77.2% of the lines, are already portable candidates. Nine
-files are native-only. Three files form the extraction queue:
-
-1. `GrammarEditor.swift`
-2. `GrammarWorkbenchDocument.swift`
-3. `ProductionSupport.swift`
-
-A future split should first empty that mixed queue, then move the reviewed
-portable set behind `GrammarWorkbenchCore`, and finally repeat the structural
-and controlled build measurements. A baseline update is a reviewed architecture
-change: inspect the detailed report and update the plan and baseline together.
+Build duration remains outside the checked baseline because it is hardware-,
+cache-, and toolchain-sensitive. The generated report records those inputs with
+the duration.

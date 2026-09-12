@@ -1,5 +1,5 @@
 {
-  "originHash" : "76297e93acb1b4df5e8b54411014a9d51109bb0b8f79cfd8dbe313a2a86e47cc",
+  "originHash" : "4cbd2e1dd00b91d90f84dc84e9852508f55c9ebc249750b727d6c67fd6732d08",
   "pins" : [
     {
       "identity" : "grammar",
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/LR-Parsing.git",
       "state" : {
-        "revision" : "0fe8885f8b3a56c24b272064b11d0a446df7d097",
-        "version" : "0.2.2"
+        "revision" : "1d2616ccc07268cbc54541b2b92d2a2d05e22bce",
+        "version" : "0.2.3"
       }
     },
     {

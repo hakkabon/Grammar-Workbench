@@ -1,11 +1,11 @@
 # Shared ecosystem conformance corpus
 
 `Corpus.json` is the engine-neutral behavioral contract shared by Grammar,
-Parser, Lexer, the four parser engines, Compiler, Grammar-REPL, and
-Grammar-Workbench. Version three contains 33 cases and adds a seven-engine
-capability catalog, production-aware replay expectations, and portable-forest
-comparison probes to the version-two token, status, tree-root, diagnostic, and
-recovery contract.
+Parser, Lexer, the parser engines, Compiler, Grammar-REPL, and
+Grammar-Workbench. Version four contains 37 cases, four grammars, and ten
+engine choices. It adds LL(1), Earley Table SL, Earley Table EL, and explicit
+grammar-capability requirements to the version-three replay and portable-forest
+contract.
 Adapters therefore do not need to read another implementation's grammar syntax
 or use its lexer. The `source` path on each grammar points to a Workbench fixture
 and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
@@ -13,6 +13,9 @@ and is adapter metadata; `start`, `terminals`, and `productions` are canonical.
 An empty production right-hand side represents epsilon. Every other symbol must
 be declared either as a terminal or as the left-hand side of a production.
 Production IDs are stable corpus identities rather than engine table indices.
+The `requires`/`capabilities` relation distinguishes an engine that cannot
+parse a grammar class from an engine that rejects a sentence in a supported
+grammar. Unsupported LL(1) observations require an explanatory reason.
 Engine-comparison cases require stable reduction identities and semantic replay
 milestones. Their generalized expectations record concrete derivation counts,
 ambiguity, and production-identified forest nodes. Phase 8 removed the final

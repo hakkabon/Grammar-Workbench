@@ -40,7 +40,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/hakkabon/LR-Parsing.git",
-            .upToNextMinor(from: "0.2.2")
+            .upToNextMinor(from: "0.2.3")
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",

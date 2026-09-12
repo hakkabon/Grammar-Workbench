@@ -12,8 +12,8 @@ those manifests against reviewed owners, architectural layers, direct dependency
 allowlists, and release-based or exact SwiftPM requirements. New edges fail
 closed until the policy is reviewed.
 
-Shared corpus version 3 expands the executable baseline to 33 cases and the
-pinned ecosystem to ten repositories. It adds all seven parser engines,
+Shared corpus version 3 expanded the executable baseline to 33 cases and the
+pinned ecosystem to ten repositories. It added seven parser engines,
 production-aware semantic replay, portable-forest evidence, exact generalized
 derivation counts, and ambiguity probes. The subsequent
 [engine-truthfulness](EngineTruthfulness.md) hardening removed the final RNGLR
@@ -21,6 +21,12 @@ exceptions: the committed corpus now permits no engine-specific differences.
 Repeated Grammar-REPL properties validate complete Catalan forests and stable
 portable contracts, while LR-Parsing validates cached automaton structure and
 decision provenance.
+
+[Engine-family completion](EngineFamilyCompletion.md) advances the corpus to
+version 4: four grammars, 37 cases, ten engine choices, and twelve pinned
+repositories. LL(1), Earley Table SL, and Earley Table EL now participate in
+the same comparison surface. Capability requirements are explicit, so an LL(1)
+engine reports an unsupported grammar class separately from rejecting input.
 
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine

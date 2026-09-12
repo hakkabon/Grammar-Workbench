@@ -1,7 +1,7 @@
 import Foundation
 
 public enum GrammarWorkbenchRelease {
-    public static let version = "1.0.12"
+    public static let version = "1.0.13"
     public static let bundleIdentifier = "com.grammar-workbench.app"
 
     public static var displayVersion: String {

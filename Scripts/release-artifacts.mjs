@@ -61,7 +61,7 @@ function git(...arguments_) {
 }
 
 function sourceVersion() {
-  const source = readFileSync(join(root, "Sources/GrammarWorkbench/ProductionSupport.swift"), "utf8");
+  const source = readFileSync(join(root, "Sources/GrammarWorkbenchCore/ProductionContracts.swift"), "utf8");
   const matches = [...source.matchAll(/public static let version = "([^"]+)"/g)];
   if (matches.length !== 1) fail("GrammarWorkbenchRelease.version must be declared exactly once");
   return matches[0][1];

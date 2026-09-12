@@ -1,13 +1,16 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "engines": [
-    { "id": "earley", "family": "generalized", "forest": "portable", "replay": "forestTraversal" },
-    { "id": "cyk", "family": "generalized", "forest": "portable", "replay": "forestTraversal" },
-    { "id": "rnglr", "family": "generalized", "forest": "portable", "replay": "forestTraversal" },
-    { "id": "lr0", "family": "deterministic", "forest": "none", "replay": "runtimeTrace" },
-    { "id": "slr", "family": "deterministic", "forest": "none", "replay": "runtimeTrace" },
-    { "id": "lalr", "family": "deterministic", "forest": "none", "replay": "runtimeTrace" },
-    { "id": "lr1", "family": "deterministic", "forest": "none", "replay": "runtimeTrace" }
+    { "id": "earley", "family": "generalized", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "earley-sl", "family": "generalized", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "earley-el", "family": "generalized", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "cyk", "family": "generalized", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "rnglr", "family": "generalized", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "ll1", "family": "deterministic", "forest": "none", "replay": "tokenTrace", "requires": ["ll1"] },
+    { "id": "lr0", "family": "deterministic", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "slr", "family": "deterministic", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "lalr", "family": "deterministic", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "lr1", "family": "deterministic", "forest": "none", "replay": "runtimeTrace", "requires": [] }
   ],
   "grammars": [
     {
@@ -19,6 +22,7 @@
         { "associativity": "left", "terminals": ["PLUS"] },
         { "associativity": "left", "terminals": ["STAR"] }
       ],
+      "capabilities": [],
       "productions": [
         { "id": "program-statements", "lhs": "Program", "rhs": ["Statements"] },
         { "id": "statements-append", "lhs": "Statements", "rhs": ["Statements", "Statement"] },
@@ -38,6 +42,7 @@
       "start": "Value",
       "terminals": ["LBRACE", "RBRACE", "LBRACKET", "RBRACKET", "COLON", "COMMA", "TRUE", "FALSE", "NULL", "NUMBER", "STRING"],
       "precedence": [],
+      "capabilities": [],
       "productions": [
         { "id": "value-object", "lhs": "Value", "rhs": ["Object"] },
         { "id": "value-array", "lhs": "Value", "rhs": ["Array"] },
@@ -67,9 +72,24 @@
       "precedence": [
         { "associativity": "left", "terminals": ["PLUS"] }
       ],
+      "capabilities": [],
       "productions": [
         { "id": "expression-plus", "lhs": "Expression", "rhs": ["Expression", "PLUS", "Expression"] },
         { "id": "expression-id", "lhs": "Expression", "rhs": ["ID"] }
+      ]
+    },
+    {
+      "id": "predictive-expression",
+      "source": "Examples/Corpus/PredictiveExpression.grammar",
+      "start": "Expression",
+      "terminals": ["ID", "LET", "PRINT", "PLUS", "LPAREN", "RPAREN"],
+      "precedence": [],
+      "capabilities": ["ll1"],
+      "productions": [
+        { "id": "predictive-id", "lhs": "Expression", "rhs": ["ID"] },
+        { "id": "predictive-let", "lhs": "Expression", "rhs": ["LET", "ID"] },
+        { "id": "predictive-print", "lhs": "Expression", "rhs": ["PRINT", "ID", "PLUS", "ID"] },
+        { "id": "predictive-parenthesized", "lhs": "Expression", "rhs": ["LPAREN", "ID", "RPAREN"] }
       ]
     }
   ],
@@ -106,6 +126,10 @@
     { "id": "expression-atom", "grammar": "ambiguous-expression", "input": "a", "expectedTokenKinds": ["ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["expression-id"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "identifier"] },
     { "id": "expression-binary", "grammar": "ambiguous-expression", "input": "a+b", "expectedTokenKinds": ["ID", "PLUS", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["expression-id", "expression-id", "expression-plus"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "left-recursion"] },
     { "id": "expression-ambiguous-three", "grammar": "ambiguous-expression", "input": "a+b+c", "expectedTokenKinds": ["ID", "PLUS", "ID", "PLUS", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": true, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["expression-id", "expression-id", "expression-plus", "expression-id", "expression-plus"] }, "expectedForest": { "generalizedDerivations": 2, "ambiguous": true, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["ambiguity", "engine-comparison", "left-recursion"] },
-    { "id": "expression-ambiguous-four", "grammar": "ambiguous-expression", "input": "a+b+c+d", "expectedTokenKinds": ["ID", "PLUS", "ID", "PLUS", "ID", "PLUS", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": true, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["expression-id", "expression-id", "expression-plus", "expression-id", "expression-plus", "expression-id", "expression-plus"] }, "expectedForest": { "generalizedDerivations": 5, "ambiguous": true, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["ambiguity", "engine-comparison", "left-recursion"] }
+    { "id": "expression-ambiguous-four", "grammar": "ambiguous-expression", "input": "a+b+c+d", "expectedTokenKinds": ["ID", "PLUS", "ID", "PLUS", "ID", "PLUS", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": true, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["expression-id", "expression-id", "expression-plus", "expression-id", "expression-plus", "expression-id", "expression-plus"] }, "expectedForest": { "generalizedDerivations": 5, "ambiguous": true, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["ambiguity", "engine-comparison", "left-recursion"] },
+    { "id": "predictive-atom", "grammar": "predictive-expression", "input": "a", "expectedTokenKinds": ["ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["predictive-id"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "ll1"] },
+    { "id": "predictive-binary", "grammar": "predictive-expression", "input": "let a", "expectedTokenKinds": ["LET", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["predictive-let"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "ll1"] },
+    { "id": "predictive-chain", "grammar": "predictive-expression", "input": "print a+b", "expectedTokenKinds": ["PRINT", "ID", "PLUS", "ID"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["predictive-print"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "ll1"] },
+    { "id": "predictive-parenthesized", "grammar": "predictive-expression", "input": "(a)", "expectedTokenKinds": ["LPAREN", "ID", "RPAREN"], "expectedStatus": "accepted", "expectedRoot": "Expression", "expectedAmbiguous": false, "expectedDiagnostic": null, "expectedRecovery": null, "expectedReplay": { "terminal": "accept", "requiredEvents": ["start", "consume", "applyProduction", "accept"], "productionIDs": ["predictive-parenthesized"] }, "expectedForest": { "generalizedDerivations": 1, "ambiguous": false, "productionIdentity": "required", "acceptedDifferences": [] }, "tags": ["engine-comparison", "ll1", "parentheses"] }
   ]
 }

@@ -1,0 +1,14 @@
+%start Expression
+%token LET /let/
+%token PRINT /print/
+%token ID /[A-Za-z_][A-Za-z0-9_]*/
+%token PLUS /\+/
+%token LPAREN /\(/
+%token RPAREN /\)/
+%skip /\s+/
+
+Expression : ID
+           | LET ID
+           | PRINT ID PLUS ID
+           | LPAREN ID RPAREN
+           ;

@@ -50,8 +50,8 @@ The release-candidate gate verifies the product from four perspectives:
     and replay retained operation identifiers without duplicate mutation.
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
-    version-3 corpus must contain at least 33 cases and three grammars, declare
-    all seven parser engines, satisfy its schema, and the
+    version-4 corpus must contain at least 37 cases and four grammars, declare
+    all ten parser engines, satisfy its schema, and the
     packaged Workbench CLI must produce every normalized token sequence, status,
     tree root, first diagnostic, and recovery expectation. The pinned LR adapter
     must also cover every case and agree on status and tree root; only reviewed,
@@ -77,6 +77,10 @@ The release-candidate gate verifies the product from four perspectives:
     forests across Earley, CYK, and RNGLR; deterministic LR modes must retain
     their precedence-selected tree; portable forests and replay must satisfy
     stable identity, ordering, extent, reference, and terminal-event invariants.
+30. Engine-family completion must include LL(1), Earley Table SL, and Earley
+    Table EL in comparison output; require portable production-identified
+    forests from both table modes; and distinguish unsupported LL(1) grammars
+    from rejected sentences through an explicit capability decision.
 
 Run the normal gate:
 

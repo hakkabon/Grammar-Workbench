@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.6.0",
+  "contractVersion": "0.7.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
     "schemaPath": "Validation/Ecosystem/Corpus.schema.json",
     "lrConvergencePath": "Validation/Ecosystem/LRConvergence.json",
-    "version": 3
+    "version": 4
   },
   "dependencyBoundaries": {
     "path": "Validation/Ecosystem/DependencyBoundaries.json",
@@ -39,12 +39,28 @@
       "adoption": "pinned"
     },
     {
+      "name": "LL-Parsing",
+      "repository": "https://github.com/hakkabon/LL-Parsing.git",
+      "revision": "3f0d7b09491ceab560a2431be3e9ac5145a47243",
+      "version": "0.1.0",
+      "role": "ll-engine",
+      "adoption": "conformance"
+    },
+    {
       "name": "Earley-Parser",
       "repository": "https://github.com/hakkabon/Earley-Parser.git",
       "revision": "063ece84236bb2b735bf9647852da64f988ec2ef",
       "version": "0.2.0",
       "role": "earley-engine",
       "adoption": "pinned"
+    },
+    {
+      "name": "Earley-TableParser",
+      "repository": "https://github.com/hakkabon/Earley-TableParser.git",
+      "revision": "298bddae2891910f12f6a4c049241b6ddf65f9cd",
+      "version": "0.1.0",
+      "role": "earley-table-engine",
+      "adoption": "conformance"
     },
     {
       "name": "CYK-Parser",
@@ -65,24 +81,24 @@
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "0fe8885f8b3a56c24b272064b11d0a446df7d097",
-      "version": "0.2.2",
+      "revision": "1d2616ccc07268cbc54541b2b92d2a2d05e22bce",
+      "version": "0.2.3",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "121208789ea03ecbf45d36b807253a8a12c759fb",
-      "version": "0.1.6",
+      "revision": "24caef22fe9718842265af99facad36c447b77b0",
+      "version": "0.1.7",
       "role": "downstream-consumer",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "4321ad7c99d506d78e44f2a8f74b1f8c9bc47519",
-      "version": "0.3.2",
+      "revision": "96577015446a4304a462f2bf3dfad46756e8688a",
+      "version": "0.4.0",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -90,8 +106,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "a9d1c69ebf4ce2f9cb6139a9c70430e53739798b",
-      "version": "1.0.11",
+      "revision": "9fd47c5df2d90bd83e67e6ad24fc8c274bf2c10e",
+      "version": "1.0.12",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

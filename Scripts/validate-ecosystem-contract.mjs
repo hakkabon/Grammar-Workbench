@@ -48,15 +48,20 @@ const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
 if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length < 25) fail("invalid corpus envelope");
 
-const expectedEngines = new Set(["earley", "cyk", "rnglr", "lr0", "slr", "lalr", "lr1"]);
+const expectedEngines = new Set([
+  "earley", "earley-sl", "earley-el", "cyk", "rnglr", "ll1",
+  "lr0", "slr", "lalr", "lr1",
+]);
 if (!Array.isArray(corpus.engines) || corpus.engines.length !== expectedEngines.size) fail("invalid parser engine catalog");
 const engineIDs = new Set();
 for (const engine of corpus.engines) {
   if (!expectedEngines.has(engine.id) || engineIDs.has(engine.id)) fail(`invalid or duplicate parser engine ${engine.id}`);
   engineIDs.add(engine.id);
   if (!["generalized", "deterministic"].includes(engine.family)) fail(`invalid family for parser engine ${engine.id}`);
+  if (!Array.isArray(engine.requires) || new Set(engine.requires).size !== engine.requires.length || engine.requires.some(capability => capability !== "ll1")) fail(`invalid capability requirements for ${engine.id}`);
   if (engine.family === "generalized" && (engine.forest !== "portable" || engine.replay !== "forestTraversal")) fail(`invalid generalized capabilities for ${engine.id}`);
-  if (engine.family === "deterministic" && (engine.forest !== "none" || engine.replay !== "runtimeTrace")) fail(`invalid deterministic capabilities for ${engine.id}`);
+  if (engine.family === "deterministic" && (engine.forest !== "none" || !["runtimeTrace", "tokenTrace"].includes(engine.replay))) fail(`invalid deterministic capabilities for ${engine.id}`);
+  if ((engine.id === "ll1") !== (engine.requires.length === 1 && engine.requires[0] === "ll1")) fail(`invalid LL(1) capability declaration for ${engine.id}`);
 }
 
 const grammarIDs = new Set();
@@ -67,6 +72,7 @@ for (const grammar of corpus.grammars) {
   grammars.set(grammar.id, grammar);
   if (!grammar.source.startsWith("Examples/Corpus/") || !grammar.source.endsWith(".grammar") || !existsSync(join(root, grammar.source))) fail(`missing source fixture for grammar ${grammar.id}`);
   if (typeof grammar.start !== "string" || !Array.isArray(grammar.terminals) || grammar.terminals.length === 0 || new Set(grammar.terminals).size !== grammar.terminals.length) fail(`invalid terminals for grammar ${grammar.id}`);
+  if (!Array.isArray(grammar.capabilities) || new Set(grammar.capabilities).size !== grammar.capabilities.length || grammar.capabilities.some(capability => capability !== "ll1")) fail(`invalid capabilities for grammar ${grammar.id}`);
   if (!Array.isArray(grammar.precedence)) fail(`invalid precedence for grammar ${grammar.id}`);
   if (!Array.isArray(grammar.productions) || grammar.productions.length === 0) fail(`grammar ${grammar.id} has no productions`);
   const productionIDs = new Set();
@@ -288,6 +294,7 @@ if (grammarREPLIndex >= 0) {
     }
     for (const testCase of corpus.cases) {
       const observed = byID.get(testCase.id);
+      const grammar = grammars.get(testCase.grammar);
       if (!observed) fail(`Grammar-REPL adapter omitted ${testCase.id}`);
       if (!statuses.has(observed.status)) fail(`${testCase.id}: Grammar-REPL emitted invalid status ${observed.status}`);
       if (!Number.isInteger(observed.diagnostics) || observed.diagnostics < 0) fail(`${testCase.id}: Grammar-REPL emitted an invalid diagnostic count`);
@@ -308,10 +315,21 @@ if (grammarREPLIndex >= 0) {
         if (engines.size !== corpus.engines.length) fail(`${testCase.id}: Grammar-REPL engine comparison contains duplicates`);
         for (const descriptor of corpus.engines) {
           const engine = engines.get(descriptor.id);
+          if (!engine) fail(`${testCase.id}: ${descriptor.id} result is missing`);
+          const supported = descriptor.requires.every(capability => grammar.capabilities.includes(capability));
+          if (engine.supported !== supported) fail(`${testCase.id}: ${descriptor.id} capability decision disagrees`);
+          if (!supported) {
+            if (engine.status !== "rejected" || engine.derivations !== 0 || (engine.forestNodes ?? null) !== null || (engine.ambiguous ?? null) !== null || typeof engine.unsupportedReason !== "string" || engine.unsupportedReason.length < 20) fail(`${testCase.id}: ${descriptor.id} unsupported evidence disagrees`);
+            if (!engine.replayEvents.includes("start") || !engine.replayEvents.includes("reject")) fail(`${testCase.id}: ${descriptor.id} unsupported replay disagrees`);
+            continue;
+          }
+          if (engine.unsupportedReason != null) fail(`${testCase.id}: ${descriptor.id} supported result carries an unsupported reason`);
           const difference = testCase.expectedForest.acceptedDifferences.find(item => item.engine === descriptor.id);
           const expectedStatus = difference?.status ?? testCase.expectedStatus;
-          if (!engine || engine.status !== expectedStatus) fail(`${testCase.id}: ${descriptor.id} acceptance disagrees`);
-          const requiredEvents = difference ? ["start", expectedStatus === "rejected" ? "reject" : "accept"] : testCase.expectedReplay.requiredEvents;
+          if (engine.status !== expectedStatus) fail(`${testCase.id}: ${descriptor.id} acceptance disagrees`);
+          const requiredEvents = difference
+            ? ["start", expectedStatus === "rejected" ? "reject" : "accept"]
+            : testCase.expectedReplay.requiredEvents.filter(event => descriptor.replay !== "tokenTrace" || event !== "applyProduction");
           if (requiredEvents.some(event => !engine.replayEvents.includes(event))) fail(`${testCase.id}: ${descriptor.id} replay milestones disagree`);
           if (descriptor.family === "generalized" && expectedStatus === "accepted") {
             if (engine.derivations !== testCase.expectedForest.generalizedDerivations || engine.ambiguous !== testCase.expectedForest.ambiguous || !Number.isInteger(engine.forestNodes) || engine.forestNodes < 1 || engine.productionIdentified !== true) fail(`${testCase.id}: ${descriptor.id} forest evidence disagrees`);

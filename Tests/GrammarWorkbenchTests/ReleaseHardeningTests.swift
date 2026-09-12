@@ -10,7 +10,13 @@ private func releaseSource(_ path: String) throws -> String {
 }
 
 @Test func stableReleaseVersionAdvancesWithTheHardenedArtifactContract() {
-    #expect(GrammarWorkbenchRelease.version == "1.0.12")
+    #expect(GrammarWorkbenchRelease.version == "1.0.13")
+}
+
+@Test func releaseToolReadsTheCoreOwnedVersionDeclaration() throws {
+    let source = try releaseSource("Scripts/release-artifacts.mjs")
+    #expect(source.contains("Sources/GrammarWorkbenchCore/ProductionContracts.swift"))
+    #expect(!source.contains("Sources/GrammarWorkbench/ProductionSupport.swift"))
 }
 
 @Test func platformPackagersCreateAndVerifyProvenanceManifests() throws {

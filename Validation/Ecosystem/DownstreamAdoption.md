@@ -44,9 +44,10 @@ corpus observation.
 Grammar-REPL exposes a non-terminal `grammar-repl-conformance` executable over
 `GrammarReplLib`. It constructs the shared normalized grammars and token streams,
 executes its existing LALR path with bounded recovery, and reports structured
-status, tree-root, diagnostic, and recovery-edit observations. Version-three
-comparison cases additionally report all seven engines, concrete derivation
-counts, portable-forest ambiguity, production identity, and replay milestones. Command rendering,
+status, tree-root, diagnostic, and recovery-edit observations. Version-four
+comparison cases report all ten engines, concrete derivation counts,
+portable-forest ambiguity, production identity, replay milestones, and explicit
+LL(1) capability decisions. Command rendering,
 history, readline behavior, and session state remain outside the shared result.
 The pinned Swift 6.1 job requires exact agreement for every corpus case.
 

@@ -22,11 +22,14 @@ Repeated Grammar-REPL properties validate complete Catalan forests and stable
 portable contracts, while LR-Parsing validates cached automaton structure and
 decision provenance.
 
-[Engine-family completion](EngineFamilyCompletion.md) advances the corpus to
-version 4: four grammars, 37 cases, ten engine choices, and twelve pinned
+[Engine-family completion](EngineFamilyCompletion.md) established corpus
+version 4 with four grammars, 37 cases, ten engine choices, and twelve pinned
 repositories. LL(1), Earley Table SL, and Earley Table EL now participate in
 the same comparison surface. Capability requirements are explicit, so an LL(1)
 engine reports an unsupported grammar class separately from rejecting input.
+[Shared corpus v4 completion](SharedCorpusV4.md) expands that stable schema to
+45 cases, adding bounded nested-language stress and exact 14- and 42-derivation
+ambiguity probes with executable coverage requirements.
 
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine

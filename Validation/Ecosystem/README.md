@@ -2,7 +2,7 @@
 
 `Corpus.json` is the engine-neutral behavioral contract shared by Grammar,
 Parser, Lexer, the parser engines, Compiler, Grammar-REPL, and
-Grammar-Workbench. Version four contains 37 cases, four grammars, and ten
+Grammar-Workbench. Version four contains 45 cases, four grammars, and ten
 engine choices. It adds LL(1), Earley Table SL, Earley Table EL, and explicit
 grammar-capability requirements to the version-three replay and portable-forest
 contract.
@@ -16,6 +16,10 @@ Production IDs are stable corpus identities rather than engine table indices.
 The `requires`/`capabilities` relation distinguishes an engine that cannot
 parse a grammar class from an engine that rejects a sentence in a supported
 grammar. Unsupported LL(1) observations require an explanatory reason.
+The Phase 10 coverage gate requires at least ten engine-comparison cases, eight
+bounded stress cases, all three supported outcome classes, both sides of the
+LL(1) capability boundary, every grammar to be exercised, and generalized
+derivation probes at 1, 2, 5, 14, and 42.
 Engine-comparison cases require stable reduction identities and semantic replay
 milestones. Their generalized expectations record concrete derivation counts,
 ambiguity, and production-identified forest nodes. Phase 8 removed the final

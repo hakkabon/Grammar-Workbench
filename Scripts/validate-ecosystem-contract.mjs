@@ -46,7 +46,7 @@ const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const corpus = JSON.parse(readFileSync(corpusPath, "utf8"));
 const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
-if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length === 0 || !Array.isArray(corpus.cases) || corpus.cases.length < 25) fail("invalid corpus envelope");
+if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length < 4 || !Array.isArray(corpus.cases) || corpus.cases.length < 45) fail("invalid corpus envelope");
 
 const expectedEngines = new Set([
   "earley", "earley-sl", "earley-el", "cyk", "rnglr", "ll1",
@@ -144,6 +144,18 @@ for (const testCase of corpus.cases) {
     }
   }
 }
+
+const taggedCases = tag => corpus.cases.filter(testCase => testCase.tags.includes(tag));
+if (taggedCases("engine-comparison").length < 10) fail("corpus has insufficient engine-comparison coverage");
+if (taggedCases("stress").length < 8) fail("corpus has insufficient bounded stress coverage");
+if (!["accepted", "acceptedWithRecovery", "rejected"].every(status => corpus.cases.some(testCase => testCase.expectedStatus === status))) fail("corpus does not cover every supported outcome class");
+if ([...grammarIDs].some(id => !corpus.cases.some(testCase => testCase.grammar === id))) fail("corpus contains an unexercised grammar");
+const comparisonDerivations = new Set(taggedCases("engine-comparison").map(testCase => testCase.expectedForest.generalizedDerivations));
+for (const count of [1, 2, 5, 14, 42]) {
+  if (!comparisonDerivations.has(count)) fail(`corpus omits generalized derivation probe ${count}`);
+}
+const comparisonCapabilityClasses = new Set(taggedCases("engine-comparison").map(testCase => grammars.get(testCase.grammar).capabilities.includes("ll1")));
+if (!comparisonCapabilityClasses.has(true) || !comparisonCapabilityClasses.has(false)) fail("corpus does not exercise both supported and unsupported LL(1) grammar classes");
 
 if (convergence.schemaVersion !== corpus.schemaVersion || convergence.algorithm !== "lalr" || !Array.isArray(convergence.acceptedDifferences)) fail("invalid LR convergence policy");
 const acceptedLRDifferences = new Map();

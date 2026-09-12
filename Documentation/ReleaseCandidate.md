@@ -50,7 +50,7 @@ The release-candidate gate verifies the product from four perspectives:
     and replay retained operation identifiers without duplicate mutation.
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
-    version-4 corpus must contain at least 37 cases and four grammars, declare
+    version-4 corpus must contain at least 45 cases and four grammars, declare
     all ten parser engines, satisfy its schema, and the
     packaged Workbench CLI must produce every normalized token sequence, status,
     tree root, first diagnostic, and recovery expectation. The pinned LR adapter
@@ -81,6 +81,10 @@ The release-candidate gate verifies the product from four perspectives:
     Table EL in comparison output; require portable production-identified
     forests from both table modes; and distinguish unsupported LL(1) grammars
     from rejected sentences through an explicit capability decision.
+31. Shared corpus v4 must exercise all four grammars, all supported outcome
+    classes, both sides of the LL(1) capability boundary, at least ten
+    engine-comparison cases, and at least eight bounded stress cases. Exact
+    generalized derivation probes must include 1, 2, 5, 14, and 42.
 
 Run the normal gate:
 

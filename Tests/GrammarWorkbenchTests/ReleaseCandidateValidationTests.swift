@@ -171,7 +171,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.7.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.8.0")
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "Lexer", "LL-Parsing", "Earley-Parser", "Earley-TableParser", "CYK-Parser",
@@ -190,7 +190,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     ) as? [String: Any]
     #expect(corpus?["schemaVersion"] as? Int == 4)
     #expect(((corpus?["grammars"] as? [[String: Any]])?.count ?? 0) >= 4)
-    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 37)
+    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 45)
     #expect(((corpus?["engines"] as? [[String: Any]])?.count ?? 0) == 10)
     let corpusCases = corpus?["cases"] as? [[String: Any]] ?? []
     let acceptedDifferences = corpusCases.flatMap { testCase -> [[String: Any]] in
@@ -198,6 +198,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         return forest?["acceptedDifferences"] as? [[String: Any]] ?? []
     }
     #expect(acceptedDifferences.isEmpty)
+    #expect(corpusCases.filter { ($0["tags"] as? [String])?.contains("engine-comparison") == true }.count >= 10)
+    #expect(corpusCases.filter { ($0["tags"] as? [String])?.contains("stress") == true }.count >= 8)
     let boundariesURL = packageRoot().appendingPathComponent(policy.dependencyBoundaryPolicy)
     let boundaries = try JSONSerialization.jsonObject(
         with: Data(contentsOf: boundariesURL)

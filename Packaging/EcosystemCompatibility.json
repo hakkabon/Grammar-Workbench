@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.7.0",
+  "contractVersion": "0.8.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -106,8 +106,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "9fd47c5df2d90bd83e67e6ad24fc8c274bf2c10e",
-      "version": "1.0.12",
+      "revision": "2ebde9021fc584ffb1f0715aa96c52531cc4e13c",
+      "version": "1.0.13",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

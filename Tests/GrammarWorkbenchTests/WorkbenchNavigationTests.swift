@@ -17,7 +17,7 @@ struct WorkbenchNavigationTests {
             .sample, .tests, .generation
         ])
         #expect(GrammarWorkbenchDestination.destinations(in: .expert) == [
-            .automaton, .table, .bootstrap, .research, .visuals
+            .automaton, .table, .bootstrap, .experiments, .research, .visuals
         ])
     }
 

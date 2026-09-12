@@ -30,8 +30,14 @@ artifacts, then reconstructs the recorded settings, reruns each engine, and
 compares availability, unsupported rationale, normalized contract, derivation
 fingerprints, and overall agreement.
 
-Workbench does not decode or reinterpret this artifact. Its ecosystem manifest
-pins Grammar-REPL 0.5.0 and publishes the minimum schema-1, `fnv1a64`, and
-`grammar-repl-experiment` compatibility facts. Pinned integration builds both
-the conformance adapter and experiment verifier, ensuring the research surface
-remains independently consumable without reversing repository dependencies.
+Phase 12 adds a bounded, read-only Workbench projection for exploration. It
+decodes the engine evidence needed for comparison, forest visualization, and
+replay, but does not reconstruct the grammar, recompute the fingerprint, or run
+the engines. The UI therefore labels the fingerprint as recorded evidence and
+directs users to `grammar-repl-experiment verify` for semantic verification.
+
+The ecosystem manifest pins Grammar-REPL 0.5.0 and publishes the minimum
+schema-1, `fnv1a64`, verifier-product, and explorer-projection compatibility
+facts. Pinned integration builds both the conformance adapter and experiment
+verifier, ensuring the research surface remains independently consumable
+without reversing repository dependencies.

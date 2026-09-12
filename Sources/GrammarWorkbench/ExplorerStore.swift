@@ -31,6 +31,12 @@ final class ExplorerStore {
     private(set) var selectedResearchPreview: GrammarSelectedResearchPreview?
     private(set) var selectedResearchError: String?
     private(set) var isRunningSelectedResearch = false
+    private(set) var experimentArtifact: GrammarREPLExperimentArtifact?
+    private(set) var experimentName: String?
+    private(set) var experimentError: String?
+    private(set) var experimentSelectedEngine: String?
+    private(set) var experimentBaselineEngine: String?
+    private(set) var experimentPlayback = GrammarREPLExperimentPlaybackState()
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var currentCompilationSnapshot: GrammarCompilation { currentCompilation }
@@ -298,6 +304,56 @@ final class ExplorerStore {
         selectedResearchStudyID = id
         selectedResearchPreview = nil
         selectedResearchError = nil
+    }
+
+    func importExperiment(_ data: Data, name: String) throws {
+        do {
+            let artifact = try GrammarREPLExperimentArtifact.decode(data)
+            experimentArtifact = artifact
+            experimentName = name
+            experimentError = nil
+            experimentBaselineEngine = artifact.engines.first
+            experimentSelectedEngine = artifact.observations.first(where: {
+                $0.contract.forest != nil
+            })?.parser ?? artifact.engines.first
+            experimentPlayback = .init()
+        } catch {
+            experimentError = error.localizedDescription
+            throw error
+        }
+    }
+
+    func selectExperimentEngine(_ parser: String) {
+        guard experimentArtifact?.engines.contains(parser) == true else { return }
+        experimentSelectedEngine = parser
+        experimentPlayback = .init()
+    }
+
+    func selectExperimentBaseline(_ parser: String) {
+        guard experimentArtifact?.engines.contains(parser) == true else { return }
+        experimentBaselineEngine = parser
+    }
+
+    func seekExperimentReplay(to step: Int) {
+        let count = experimentArtifact?.observation(for: experimentSelectedEngine ?? "")?
+            .contract.replay.count ?? 0
+        experimentPlayback.seek(to: step, eventCount: count)
+    }
+
+    func stepExperimentReplayForward() {
+        let count = experimentArtifact?.observation(for: experimentSelectedEngine ?? "")?
+            .contract.replay.count ?? 0
+        experimentPlayback.stepForward(eventCount: count)
+    }
+
+    func stepExperimentReplayBackward() {
+        let count = experimentArtifact?.observation(for: experimentSelectedEngine ?? "")?
+            .contract.replay.count ?? 0
+        experimentPlayback.stepBackward(eventCount: count)
+    }
+
+    func toggleExperimentForestNode(_ id: String) {
+        experimentPlayback.toggleCollapsed(id)
     }
 
     func compareAlgorithms() {

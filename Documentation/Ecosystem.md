@@ -38,6 +38,12 @@ minimum compatible version, schema, fingerprint algorithm, and verifier-product
 contract. This preserves the existing dependency direction while allowing a
 saved experiment to become a repeatable local or CI regression test.
 
+[The Workbench experiment explorer](WorkbenchExperimentExplorer.md) consumes a
+bounded, read-only projection of that artifact. Its engine matrix, baseline
+comparison, collapsible packed-forest graph, and portable replay controls make
+recorded evidence inspectable without moving experiment execution or
+verification ownership out of Grammar-REPL.
+
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine
 dependency updates semantic and the cross-repository evidence reproducible.

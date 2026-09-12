@@ -115,6 +115,10 @@ public struct ArtifactExplorerView: View {
                 Button("Open Source Project", systemImage: "folder.badge.gearshape", action: openSourceProject)
                     .help("Open a .grammar-workbench-source.json project descriptor")
             }
+            ToolbarItem {
+                Button("Open Experiment", systemImage: "doc.text.magnifyingglass", action: openExperiment)
+                    .help("Open a reproducible Grammar-REPL experiment")
+            }
             if document == nil {
                 ToolbarItem {
                     Button("Open Grammar", systemImage: "folder", action: openGrammar)
@@ -308,6 +312,8 @@ public struct ArtifactExplorerView: View {
         case .decisions: decisionsView
         case .sample: sampleView
         case .bootstrap: bootstrapView
+        case .experiments:
+            GrammarREPLExperimentExplorerView(store: store, openExperiment: openExperiment)
         case .research: researchView
         case .visuals: GrammarVisualProductGalleryView(timeline: store.parserVisualizationTimeline)
         case .tests: testsView
@@ -2088,6 +2094,21 @@ public struct ArtifactExplorerView: View {
             tab = .analysis
         } catch {
             exportMessage = "Could not open \(url.lastPathComponent): \(error.localizedDescription)"
+        }
+    }
+
+    private func openExperiment() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a schema-1 Grammar-REPL experiment."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try store.importExperiment(Data(contentsOf: url), name: url.lastPathComponent)
+            tab = .experiments
+        } catch {
+            exportMessage = "Could not open experiment: \(error.localizedDescription)"
         }
     }
 

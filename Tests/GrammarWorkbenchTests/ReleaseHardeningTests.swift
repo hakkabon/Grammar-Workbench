@@ -10,7 +10,7 @@ private func releaseSource(_ path: String) throws -> String {
 }
 
 @Test func stableReleaseVersionAdvancesWithTheHardenedArtifactContract() {
-    #expect(GrammarWorkbenchRelease.version == "1.0.15")
+    #expect(GrammarWorkbenchRelease.version == "1.0.16")
 }
 
 @Test func releaseToolReadsTheCoreOwnedVersionDeclaration() throws {

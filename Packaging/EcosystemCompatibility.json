@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.9.0",
+  "contractVersion": "0.10.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -17,7 +17,8 @@
     "schemaVersion": 1,
     "minimumGrammarREPLVersion": "0.5.0",
     "fingerprintAlgorithm": "fnv1a64",
-    "verifierProduct": "grammar-repl-experiment"
+    "verifierProduct": "grammar-repl-experiment",
+    "explorerProjectionVersion": 1
   },
   "repositories": [
     {
@@ -112,8 +113,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "77a307d379e0100170ae95215fffb8793ccc097e",
-      "version": "1.0.14",
+      "revision": "9437cbf6a38a159be4238a3c1d4f543e8a6a372d",
+      "version": "1.0.15",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

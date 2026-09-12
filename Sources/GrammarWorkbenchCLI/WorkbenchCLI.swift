@@ -67,6 +67,22 @@ struct GrammarWorkbenchCLI {
             } else {
                 print(String(decoding: data, as: UTF8.self))
             }
+        case "experiment-inspect":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("experiment-inspect requires EXPERIMENT [OUTPUT]")
+            }
+            let artifact = try GrammarREPLExperimentArtifact.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(GrammarREPLExperimentExplorerReport(artifact))
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2])")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "tooling-request":
             guard arguments.count == 2 || arguments.count == 3 else {
                 throw CLIError.usage("tooling-request requires REQUEST_JSON [RESPONSE_JSON]")
@@ -950,6 +966,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench platform-info [OUTPUT]
       grammar-workbench wasm-feasibility [OUTPUT]
       grammar-workbench browser-runtime [OUTPUT]
+      grammar-workbench experiment-inspect EXPERIMENT [OUTPUT]
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR

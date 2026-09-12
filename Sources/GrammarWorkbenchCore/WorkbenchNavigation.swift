@@ -26,6 +26,7 @@ public enum GrammarWorkbenchDestination: String, CaseIterable, Identifiable, Cod
     case automaton
     case table
     case bootstrap
+    case experiments
     case research
     case visuals
 
@@ -47,6 +48,7 @@ public enum GrammarWorkbenchDestination: String, CaseIterable, Identifiable, Cod
         case .automaton: "Automaton"
         case .table: "Table"
         case .bootstrap: "Bootstrap"
+        case .experiments: "Experiments"
         case .research: "Research"
         case .visuals: "Visuals"
         }
@@ -68,6 +70,7 @@ public enum GrammarWorkbenchDestination: String, CaseIterable, Identifiable, Cod
         case .automaton: "circle.grid.cross"
         case .table: "tablecells"
         case .bootstrap: "arrow.triangle.2.circlepath"
+        case .experiments: "doc.text.magnifyingglass"
         case .research: "flask"
         case .visuals: "paintpalette"
         }
@@ -78,7 +81,7 @@ public enum GrammarWorkbenchDestination: String, CaseIterable, Identifiable, Cod
         case .guide, .project: .start
         case .analysis, .semantics, .comparison, .explore, .diagram, .decisions: .grammar
         case .sample, .tests, .generation: .runAndDeliver
-        case .automaton, .table, .bootstrap, .research, .visuals: .expert
+        case .automaton, .table, .bootstrap, .experiments, .research, .visuals: .expert
         }
     }
 

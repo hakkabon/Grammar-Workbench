@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.8.0",
+  "contractVersion": "0.9.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -12,6 +12,12 @@
     "path": "Validation/Ecosystem/DependencyBoundaries.json",
     "schemaPath": "Validation/Ecosystem/DependencyBoundaries.schema.json",
     "version": 1
+  },
+  "grammarREPLExperiments": {
+    "schemaVersion": 1,
+    "minimumGrammarREPLVersion": "0.5.0",
+    "fingerprintAlgorithm": "fnv1a64",
+    "verifierProduct": "grammar-repl-experiment"
   },
   "repositories": [
     {
@@ -97,8 +103,8 @@
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "96577015446a4304a462f2bf3dfad46756e8688a",
-      "version": "0.4.0",
+      "revision": "2365d7b0058e1be63598a1c4dbfd467029a94495",
+      "version": "0.5.0",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -106,8 +112,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "2ebde9021fc584ffb1f0715aa96c52531cc4e13c",
-      "version": "1.0.13",
+      "revision": "77a307d379e0100170ae95215fffb8793ccc097e",
+      "version": "1.0.14",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

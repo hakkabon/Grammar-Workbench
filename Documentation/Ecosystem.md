@@ -31,6 +31,13 @@ engine reports an unsupported grammar class separately from rejecting input.
 45 cases, adding bounded nested-language stress and exact 14- and 42-derivation
 ambiguity probes with executable coverage requirements.
 
+[Reproducible Grammar-REPL experiments](ReproducibleGrammarREPLExperiments.md)
+turn a ten-engine comparison into a portable, tamper-evident research record.
+Grammar-REPL owns experiment capture and replay; Workbench publishes only the
+minimum compatible version, schema, fingerprint algorithm, and verifier-product
+contract. This preserves the existing dependency direction while allowing a
+saved experiment to become a repeatable local or CI regression test.
+
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine
 dependency updates semantic and the cross-repository evidence reproducible.

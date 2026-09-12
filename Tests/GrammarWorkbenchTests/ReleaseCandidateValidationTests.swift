@@ -171,7 +171,12 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.8.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.9.0")
+    let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
+    #expect(experiments?["schemaVersion"] as? Int == 1)
+    #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.5.0")
+    #expect(experiments?["fingerprintAlgorithm"] as? String == "fnv1a64")
+    #expect(experiments?["verifierProduct"] as? String == "grammar-repl-experiment")
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "Lexer", "LL-Parsing", "Earley-Parser", "Earley-TableParser", "CYK-Parser",
@@ -184,6 +189,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(compilerRepository?["adoption"] as? String == "conformance")
     let grammarREPLRepository = repositories?.first { $0["name"] as? String == "Grammar-REPL" }
     #expect(grammarREPLRepository?["adoption"] as? String == "conformance")
+    #expect(grammarREPLRepository?["version"] as? String == "0.5.0")
     let corpusURL = packageRoot().appendingPathComponent(policy.ecosystemConformanceCorpus)
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)

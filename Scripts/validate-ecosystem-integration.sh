@@ -118,6 +118,8 @@ while IFS=$'\t' read -r name repository revision adoption swift_version; do
     if [ "$name" = "Grammar-REPL" ] && [ "$adoption" = "conformance" ]; then
         swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
             --jobs "$SWIFT_BUILD_JOBS" --product grammar-repl-conformance
+        swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" \
+            --jobs "$SWIFT_BUILD_JOBS" --product grammar-repl-experiment
         grammar_repl_bin_dir="$(swift build --package-path "$checkout" --scratch-path "$CHECKOUT_ROOT/build/$name" --show-bin-path)"
         GRAMMAR_REPL_ADAPTER="$grammar_repl_bin_dir/grammar-repl-conformance"
     fi

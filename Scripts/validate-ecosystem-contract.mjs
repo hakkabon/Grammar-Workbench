@@ -15,6 +15,14 @@ if (manifest.schemaVersion !== 1 || !/^0\.\d+\.\d+$/.test(manifest.contractVersi
 if (!/^\d+\.\d+$/.test(manifest.swiftIntegrationVersion)) fail("invalid Swift integration version");
 if (!Array.isArray(manifest.repositories) || manifest.repositories.length < 6) fail("ecosystem repositories are incomplete");
 
+const experiments = manifest.grammarREPLExperiments;
+if (experiments?.schemaVersion !== 1 ||
+    experiments.minimumGrammarREPLVersion !== "0.5.0" ||
+    experiments.fingerprintAlgorithm !== "fnv1a64" ||
+    experiments.verifierProduct !== "grammar-repl-experiment") {
+  fail("invalid Grammar-REPL experiment capability");
+}
+
 const names = new Set();
 for (const repository of manifest.repositories) {
   if (names.has(repository.name)) fail(`duplicate repository ${repository.name}`);
@@ -28,6 +36,8 @@ for (const repository of manifest.repositories) {
 for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"]) {
   if (!names.has(required)) fail(`missing repository ${required}`);
 }
+const grammarREPL = manifest.repositories.find(repository => repository.name === "Grammar-REPL");
+if (grammarREPL.version !== experiments.minimumGrammarREPLVersion) fail("Grammar-REPL experiment version differs from repository pin");
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
 const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");

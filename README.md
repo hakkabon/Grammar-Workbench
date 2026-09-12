@@ -50,10 +50,11 @@ before CLI application. See [Documentation/GrammarRefactoringAndAuthoringProduct
 
 The expert **Bootstrap** laboratory performs a bounded self-hosting experiment for a documented BNF profile. It regenerates and recompiles the meta-grammar until the canonical grammar, generated source, and parser artifact reach a fixed point, then differentially compares a corpus with the existing handwritten `Grammar` reader. The trusted reader is not replaced. Run the same release-gated experiment with `grammar-workbench bootstrap [report.json]`; see [Documentation/BootstrapLaboratory.md](Documentation/BootstrapLaboratory.md).
 
-The expert **Experiments** workspace opens reproducible Grammar-REPL 0.5.0
+The expert **Experiments** workspace opens reproducible Grammar-REPL 0.6.0
 artifacts as engine matrices, baseline comparisons, collapsible packed forests,
 and portable replay timelines. Workbench presents the recorded evidence without
-claiming semantic verification; use Grammar-REPL's verifier for that authority.
+claiming verification; schema-2 artifacts also show Compiler-owned values and
+semantic agreement. Use Grammar-REPL's verifier for replay authority.
 Headless consumers can run `grammar-workbench experiment-inspect EXPERIMENT
 [OUTPUT]`. See [Documentation/WorkbenchExperimentExplorer.md](Documentation/WorkbenchExperimentExplorer.md).
 

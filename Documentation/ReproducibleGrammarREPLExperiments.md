@@ -1,7 +1,7 @@
 # Reproducible Grammar-REPL experiments
 
 Phase 11 makes an interactive ten-engine comparison durable without moving
-REPL behavior into Grammar Workbench. Grammar-REPL 0.5.0 owns a versioned,
+REPL behavior into Grammar Workbench. Grammar-REPL 0.6.0 owns a versioned,
 self-contained experiment artifact and the code that captures and verifies it.
 
 ## Recorded contract
@@ -36,8 +36,13 @@ replay, but does not reconstruct the grammar, recompute the fingerprint, or run
 the engines. The UI therefore labels the fingerprint as recorded evidence and
 directs users to `grammar-repl-experiment verify` for semantic verification.
 
-The ecosystem manifest pins Grammar-REPL 0.5.0 and publishes the minimum
-schema-1, `fnv1a64`, verifier-product, and explorer-projection compatibility
+Schema 2 can also embed a versioned Compiler AST mapping and Compiler-owned
+per-engine values, failures, derivation counts, and semantic agreement. The
+Workbench presents that evidence without evaluating it; schema-1 syntax-only
+experiments remain readable.
+
+The ecosystem manifest pins Grammar-REPL 0.6.0 and Compiler 0.2.0 and publishes the minimum
+schema-2, `fnv1a64`, verifier-product, and explorer-projection compatibility
 facts. Pinned integration builds both the conformance adapter and experiment
 verifier, ensuring the research surface remains independently consumable
 without reversing repository dependencies.

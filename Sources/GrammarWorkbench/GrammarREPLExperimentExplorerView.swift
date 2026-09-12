@@ -14,7 +14,7 @@ struct GrammarREPLExperimentExplorerView: View {
             ContentUnavailableView {
                 Label("No experiment open", systemImage: "doc.text.magnifyingglass")
             } description: {
-                Text("Open a schema-1 Grammar-REPL experiment to compare engines, inspect packed forests, and replay portable parser events.")
+                Text("Open a Grammar-REPL experiment to compare engines, inspect semantic results and packed forests, and replay portable parser events.")
             } actions: {
                 Button("Open Experiment…") { openExperiment() }.buttonStyle(.borderedProminent)
             }
@@ -60,6 +60,15 @@ struct GrammarREPLExperimentExplorerView: View {
                 metric("Ambiguous", summary.ambiguousEngineCount)
                 metric("Max derivations", summary.maximumDerivationCount)
                 metric("Max forest nodes", summary.maximumForestNodeCount)
+                if let agreement = summary.semanticAgreement {
+                    metric("Semantic engines", summary.semanticEvaluatedEngineCount)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(agreement.rawValue).font(.title3.bold())
+                        Text("Semantic agreement").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(10).frame(minWidth: 130, alignment: .leading)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 9))
+                }
             }
             Label(
                 "Recorded fingerprint only. Run `grammar-repl-experiment verify` for semantic verification.",
@@ -86,9 +95,9 @@ struct GrammarREPLExperimentExplorerView: View {
                 Grid(alignment: .leading, horizontalSpacing: 22, verticalSpacing: 9) {
                     GridRow {
                         Text("Engine"); Text("Capability"); Text("Status")
-                        Text("Trees"); Text("Forest"); Text("Ambiguity"); Text("Replay")
+                        Text("Trees"); Text("Semantics"); Text("Forest"); Text("Ambiguity"); Text("Replay")
                     }.font(.caption.bold()).foregroundStyle(.secondary)
-                    Divider().gridCellColumns(7)
+                    Divider().gridCellColumns(8)
                     ForEach(artifact.observations) { observation in
                         GridRow {
                             Button(observation.parser) { store.selectExperimentEngine(observation.parser) }
@@ -96,6 +105,7 @@ struct GrammarREPLExperimentExplorerView: View {
                             Text(observation.availability.rawValue)
                             statusLabel(observation.contract.status)
                             Text("\(observation.treeFingerprints.count)").monospacedDigit()
+                            semanticLabel(artifact.semanticObservation(for: observation.parser))
                             Text(observation.contract.forest.map { "\($0.nodes.count) / \($0.edges.count)" } ?? "—")
                                 .monospacedDigit()
                             Text(observation.contract.forest?.isAmbiguous == true ? "yes" : "no")
@@ -130,6 +140,7 @@ struct GrammarREPLExperimentExplorerView: View {
                 Spacer()
             }
             comparison(artifact, selected: observation)
+            semanticInspector(artifact.semanticObservation(for: observation.parser))
             if let reason = observation.unsupportedReason {
                 Label(reason, systemImage: "nosign").foregroundStyle(.orange)
             }
@@ -141,6 +152,42 @@ struct GrammarREPLExperimentExplorerView: View {
                     description: Text("\(observation.parser) recorded a deterministic contract. Use portable replay below to inspect its behavior.")
                 ).frame(minHeight: 170)
                 replayControls(observation.contract.replay)
+            }
+        }
+    }
+
+    private func semanticLabel(
+        _ observation: GrammarREPLExperimentArtifact.SemanticObservation?
+    ) -> some View {
+        Text(observation.map {
+            $0.status == .evaluated
+                ? $0.values.map(\.displayValue).joined(separator: " | ")
+                : $0.status.rawValue
+        } ?? "—")
+        .font(.body.monospaced()).lineLimit(1)
+    }
+
+    @ViewBuilder private func semanticInspector(
+        _ observation: GrammarREPLExperimentArtifact.SemanticObservation?
+    ) -> some View {
+        if let observation {
+            GroupBox("Compiler semantics") {
+                VStack(alignment: .leading, spacing: 7) {
+                    Label(
+                        observation.status.rawValue,
+                        systemImage: observation.status == .evaluated ? "function" : "exclamationmark.triangle"
+                    )
+                    if !observation.values.isEmpty {
+                        Text(observation.values.map(\.displayValue).joined(separator: "\n"))
+                            .font(.body.monospaced()).textSelection(.enabled)
+                    }
+                    ForEach(Array(observation.diagnostics.enumerated()), id: \.offset) { _, diagnostic in
+                        Text("\(diagnostic.stage): \(diagnostic.message)")
+                            .font(.caption.monospaced()).foregroundStyle(.orange)
+                    }
+                    Text("Recorded Compiler result; Workbench does not re-evaluate semantics.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.padding(6).frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }

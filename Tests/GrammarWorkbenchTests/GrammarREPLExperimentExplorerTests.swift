@@ -120,8 +120,39 @@ struct GrammarREPLExperimentExplorerTests {
             try GrammarREPLExperimentArtifact.decode(experimentData(invalidEdge: true))
         }
         #expect(throws: GrammarREPLExperimentExplorerError.self) {
-            try GrammarREPLExperimentArtifact.decode(experimentData(schemaVersion: 2))
+            try GrammarREPLExperimentArtifact.decode(experimentData(schemaVersion: 3))
         }
+    }
+
+    @Test("Schema-two projects Compiler-owned semantic evidence")
+    func projectsSemanticConvergenceWithoutEvaluation() throws {
+        var root = try #require(
+            JSONSerialization.jsonObject(with: experimentData(schemaVersion: 2)) as? [String: Any]
+        )
+        root["producer"] = ["name": "Grammar-REPL", "version": "0.6.0"]
+        root["semanticMapping"] = ["version": 1, "actions": [:]]
+        root["semanticReport"] = [
+            "schemaVersion": 1,
+            "agreement": "complete",
+            "observations": ["earley", "cyk"].map { engine in
+                [
+                    "engine": engine,
+                    "status": "evaluated",
+                    "derivationCount": 1,
+                    "values": [["kind": "integer", "integer": 42]],
+                    "diagnostics": [],
+                ] as [String: Any]
+            },
+        ] as [String: Any]
+        let artifact = try GrammarREPLExperimentArtifact.decode(
+            JSONSerialization.data(withJSONObject: root)
+        )
+
+        #expect(artifact.semanticReport?.agreement == .complete)
+        #expect(artifact.summary.semanticEvaluatedEngineCount == 2)
+        #expect(artifact.semanticObservation(for: "earley")?.values.first?.displayValue == "42")
+        let report = GrammarREPLExperimentExplorerReport(artifact)
+        #expect(report.engines.first?.semanticValues == ["42"])
     }
 
     @Test("Explorer never presents a recorded fingerprint as verification")

@@ -16,11 +16,11 @@ if (!/^\d+\.\d+$/.test(manifest.swiftIntegrationVersion)) fail("invalid Swift in
 if (!Array.isArray(manifest.repositories) || manifest.repositories.length < 6) fail("ecosystem repositories are incomplete");
 
 const experiments = manifest.grammarREPLExperiments;
-if (experiments?.schemaVersion !== 1 ||
-    experiments.minimumGrammarREPLVersion !== "0.5.0" ||
+if (experiments?.schemaVersion !== 2 ||
+    experiments.minimumGrammarREPLVersion !== "0.6.0" ||
     experiments.fingerprintAlgorithm !== "fnv1a64" ||
     experiments.verifierProduct !== "grammar-repl-experiment" ||
-    experiments.explorerProjectionVersion !== 1) {
+    experiments.explorerProjectionVersion !== 2) {
   fail("invalid Grammar-REPL experiment capability");
 }
 

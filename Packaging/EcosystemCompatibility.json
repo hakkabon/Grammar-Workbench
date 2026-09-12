@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.10.0",
+  "contractVersion": "0.11.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -14,11 +14,11 @@
     "version": 1
   },
   "grammarREPLExperiments": {
-    "schemaVersion": 1,
-    "minimumGrammarREPLVersion": "0.5.0",
+    "schemaVersion": 2,
+    "minimumGrammarREPLVersion": "0.6.0",
     "fingerprintAlgorithm": "fnv1a64",
     "verifierProduct": "grammar-repl-experiment",
-    "explorerProjectionVersion": 1
+    "explorerProjectionVersion": 2
   },
   "repositories": [
     {
@@ -96,16 +96,16 @@
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "24caef22fe9718842265af99facad36c447b77b0",
-      "version": "0.1.7",
-      "role": "downstream-consumer",
+      "revision": "7ab1923ca1ea0ac1238be4732c8c3ddf91d0130f",
+      "version": "0.2.0",
+      "role": "semantic-owner",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "2365d7b0058e1be63598a1c4dbfd467029a94495",
-      "version": "0.5.0",
+      "revision": "e3aa9d5423739db2408189f72826d342ba98513d",
+      "version": "0.6.0",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -113,8 +113,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "9437cbf6a38a159be4238a3c1d4f543e8a6a372d",
-      "version": "1.0.15",
+      "revision": "4e83f4910edb0046540b26b6840cde703edbb5d8",
+      "version": "1.0.16",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

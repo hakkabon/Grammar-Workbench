@@ -1,9 +1,9 @@
 import Foundation
 
-/// Read-only Workbench projection of Grammar-REPL's schema-1 experiment.
+/// Read-only Workbench projection of Grammar-REPL's schema-1 and schema-2 experiments.
 /// Grammar-REPL remains the owner of capture, fingerprint validation, and replay verification.
 public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
-    public static let supportedSchemaVersion = 1
+    public static let supportedSchemaVersion = 2
     public static let supportedFingerprintAlgorithm = "fnv1a64"
     public static let canonicalEngines = [
         "earley", "earley-sl", "earley-el", "cyk", "rnglr",
@@ -18,6 +18,7 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
     public let resolutionPolicy: String?
     public let agreement: Agreement
     public let observations: [Observation]
+    public let semanticReport: SemanticReport?
     public let fingerprintAlgorithm: String
     public let fingerprint: String
 
@@ -150,12 +151,116 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
         case reject
     }
 
+    public struct SemanticReport: Hashable, Codable, Sendable {
+        public let schemaVersion: Int
+        public let agreement: SemanticAgreement
+        public let observations: [SemanticObservation]
+    }
+
+    public enum SemanticAgreement: String, Hashable, Codable, Sendable {
+        case complete
+        case divergent
+        case inconclusive
+    }
+
+    public struct SemanticObservation: Hashable, Codable, Sendable, Identifiable {
+        public let engine: String
+        public let status: SemanticStatus
+        public let derivationCount: Int
+        public let values: [SemanticValue]
+        public let diagnostics: [SemanticDiagnostic]
+        public var id: String { engine }
+    }
+
+    public enum SemanticStatus: String, Hashable, Codable, Sendable {
+        case evaluated
+        case parseRejected
+        case noSyntaxTree
+        case failed
+    }
+
+    public struct SemanticDiagnostic: Hashable, Codable, Sendable {
+        public let stage: String
+        public let message: String
+    }
+
+    public indirect enum SemanticValue: Hashable, Codable, Sendable {
+        case integer(Int64)
+        case floatingPoint(Double)
+        case string(String)
+        case boolean(Bool)
+        case null
+        case array([SemanticValue])
+        case record(name: String, fields: [String: SemanticValue])
+
+        public var displayValue: String {
+            switch self {
+            case .integer(let value): "\(value)"
+            case .floatingPoint(let value): "\(value)"
+            case .string(let value): value
+            case .boolean(let value): value ? "true" : "false"
+            case .null: "null"
+            case .array(let values): "[\(values.map(\.displayValue).joined(separator: ", "))]"
+            case .record(let name, let fields):
+                "\(name) { \(fields.keys.sorted().map { "\($0): \(fields[$0]!.displayValue)" }.joined(separator: ", ")) }"
+            }
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case kind, integer, floatingPoint, string, boolean, items, name, fields
+        }
+        private enum Kind: String, Codable {
+            case integer, floatingPoint, string, boolean, null, array, record
+        }
+
+        public init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            switch try values.decode(Kind.self, forKey: .kind) {
+            case .integer: self = .integer(try values.decode(Int64.self, forKey: .integer))
+            case .floatingPoint: self = .floatingPoint(try values.decode(Double.self, forKey: .floatingPoint))
+            case .string: self = .string(try values.decode(String.self, forKey: .string))
+            case .boolean: self = .boolean(try values.decode(Bool.self, forKey: .boolean))
+            case .null: self = .null
+            case .array: self = .array(try values.decode([Self].self, forKey: .items))
+            case .record:
+                self = .record(
+                    name: try values.decode(String.self, forKey: .name),
+                    fields: try values.decode([String: Self].self, forKey: .fields)
+                )
+            }
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .integer(let value):
+                try values.encode(Kind.integer, forKey: .kind); try values.encode(value, forKey: .integer)
+            case .floatingPoint(let value):
+                try values.encode(Kind.floatingPoint, forKey: .kind); try values.encode(value, forKey: .floatingPoint)
+            case .string(let value):
+                try values.encode(Kind.string, forKey: .kind); try values.encode(value, forKey: .string)
+            case .boolean(let value):
+                try values.encode(Kind.boolean, forKey: .kind); try values.encode(value, forKey: .boolean)
+            case .null: try values.encode(Kind.null, forKey: .kind)
+            case .array(let items):
+                try values.encode(Kind.array, forKey: .kind); try values.encode(items, forKey: .items)
+            case .record(let name, let fields):
+                try values.encode(Kind.record, forKey: .kind)
+                try values.encode(name, forKey: .name); try values.encode(fields, forKey: .fields)
+            }
+        }
+    }
+
     public var summary: GrammarREPLExperimentSummary {
         .init(artifact: self)
     }
 
     public func observation(for parser: String) -> Observation? {
         observations.first { $0.parser == parser }
+    }
+
+    public func semanticObservation(for parser: String) -> SemanticObservation? {
+        semanticReport?.observations.first { $0.engine == parser }
     }
 
     public static func decode(_ data: Data) throws -> Self {
@@ -169,6 +274,11 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
               !productions.isEmpty else {
             throw GrammarREPLExperimentExplorerError.missingGrammar
         }
+        let semanticMapping = root["semanticMapping"] as? [String: Any]
+        guard (root["semanticMapping"] != nil) == (root["semanticReport"] != nil),
+              semanticMapping == nil || semanticMapping?["version"] as? Int == 1 else {
+            throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+        }
         let value: Self
         do { value = try JSONDecoder().decode(Self.self, from: data) }
         catch { throw GrammarREPLExperimentExplorerError.malformed(String(describing: error)) }
@@ -177,7 +287,7 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
     }
 
     public func validate() throws {
-        guard schemaVersion == Self.supportedSchemaVersion else {
+        guard (1...Self.supportedSchemaVersion).contains(schemaVersion) else {
             throw GrammarREPLExperimentExplorerError.unsupportedSchema(schemaVersion)
         }
         guard producer.name == "Grammar-REPL", Self.isCompatibleProducerVersion(producer.version) else {
@@ -202,6 +312,40 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
             throw GrammarREPLExperimentExplorerError.invalidSettings
         }
         for observation in observations { try validate(observation) }
+        if let semantics = semanticReport {
+            guard schemaVersion >= 2, semantics.schemaVersion == 1,
+                  semantics.observations.map(\.engine) == engines else {
+                throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+            }
+            for observation in semantics.observations {
+                let valid: Bool
+                switch observation.status {
+                case .evaluated:
+                    valid = observation.derivationCount > 0
+                        && !observation.values.isEmpty && observation.diagnostics.isEmpty
+                case .parseRejected, .noSyntaxTree:
+                    valid = observation.derivationCount == 0
+                        && observation.values.isEmpty && observation.diagnostics.isEmpty
+                case .failed:
+                    valid = observation.derivationCount > 0
+                        && observation.values.isEmpty && !observation.diagnostics.isEmpty
+                }
+                guard valid else {
+                    throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+                }
+            }
+            let evaluated = semantics.observations.filter { $0.status == .evaluated }
+            let expectedAgreement: SemanticAgreement
+            if evaluated.count < 2 {
+                expectedAgreement = .inconclusive
+            } else {
+                expectedAgreement = Set(evaluated.map { Set($0.values) }).count == 1
+                    ? .complete : .divergent
+            }
+            guard semantics.agreement == expectedAgreement else {
+                throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+            }
+        }
     }
 
     private func validate(_ observation: Observation) throws {
@@ -260,6 +404,8 @@ public struct GrammarREPLExperimentSummary: Hashable, Codable, Sendable {
     public let maximumDerivationCount: Int
     public let maximumForestNodeCount: Int
     public let replayEventCount: Int
+    public let semanticEvaluatedEngineCount: Int
+    public let semanticAgreement: GrammarREPLExperimentArtifact.SemanticAgreement?
 
     init(artifact: GrammarREPLExperimentArtifact) {
         engineCount = artifact.observations.count
@@ -269,6 +415,10 @@ public struct GrammarREPLExperimentSummary: Hashable, Codable, Sendable {
         maximumDerivationCount = artifact.observations.map(\.treeFingerprints.count).max() ?? 0
         maximumForestNodeCount = artifact.observations.compactMap { $0.contract.forest?.nodes.count }.max() ?? 0
         replayEventCount = artifact.observations.reduce(0) { $0 + $1.contract.replay.count }
+        semanticEvaluatedEngineCount = artifact.semanticReport?.observations.count {
+            $0.status == .evaluated
+        } ?? 0
+        semanticAgreement = artifact.semanticReport?.agreement
     }
 }
 
@@ -294,6 +444,8 @@ public struct GrammarREPLExperimentExplorerReport: Hashable, Codable, Sendable {
         public let ambiguous: Bool
         public let replayEvents: Int
         public let diagnostics: Int
+        public let semanticStatus: GrammarREPLExperimentArtifact.SemanticStatus?
+        public let semanticValues: [String]
     }
 
     public init(_ artifact: GrammarREPLExperimentArtifact) {
@@ -314,7 +466,9 @@ public struct GrammarREPLExperimentExplorerReport: Hashable, Codable, Sendable {
                 forestEdges: $0.contract.forest?.edges.count ?? 0,
                 ambiguous: $0.contract.forest?.isAmbiguous ?? false,
                 replayEvents: $0.contract.replay.count,
-                diagnostics: $0.contract.diagnostics.count
+                diagnostics: $0.contract.diagnostics.count,
+                semanticStatus: artifact.semanticObservation(for: $0.parser)?.status,
+                semanticValues: artifact.semanticObservation(for: $0.parser)?.values.map(\.displayValue) ?? []
             )
         }
     }
@@ -452,6 +606,7 @@ public enum GrammarREPLExperimentExplorerError: Error, Equatable, LocalizedError
     case invalidObservation(String)
     case invalidReplay(String)
     case invalidForest(String)
+    case invalidSemanticEvidence
 
     public var errorDescription: String? {
         switch self {
@@ -466,6 +621,7 @@ public enum GrammarREPLExperimentExplorerError: Error, Equatable, LocalizedError
         case .invalidObservation(let parser): "The \(parser) observation is invalid."
         case .invalidReplay(let parser): "The \(parser) replay is incomplete or out of order."
         case .invalidForest(let parser): "The \(parser) forest contains invalid references or extents."
+        case .invalidSemanticEvidence: "The Compiler semantic evidence is inconsistent with the experiment."
         }
     }
 }

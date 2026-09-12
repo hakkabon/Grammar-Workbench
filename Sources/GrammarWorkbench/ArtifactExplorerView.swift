@@ -2102,7 +2102,7 @@ public struct ArtifactExplorerView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.json]
-        panel.message = "Choose a schema-1 Grammar-REPL experiment."
+        panel.message = "Choose a Grammar-REPL experiment (schema 1 or 2)."
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try store.importExperiment(Data(contentsOf: url), name: url.lastPathComponent)

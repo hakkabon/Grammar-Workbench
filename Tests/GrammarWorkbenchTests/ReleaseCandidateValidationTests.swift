@@ -10,6 +10,15 @@ import Testing
 @testable import GrammarWorkbench
 
 private struct ReleaseCandidatePolicy: Decodable {
+    struct ResearchDistribution: Decodable {
+        let manifestSchemaVersion: Int
+        let manifestSchema: String
+        let programme: String
+        let ecosystem: String
+        let citation: String
+        let license: String
+    }
+
     struct Budgets: Decodable {
         let canonicalConstructionMilliseconds: Double
         let canonicalStates: Int
@@ -108,6 +117,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let coreSeparationBaseline: String
     let releaseArtifactManifestVersion: Int
     let releaseArtifactManifestSchema: String
+    let researchDistribution: ResearchDistribution
     let budgets: Budgets
 }
 
@@ -165,6 +175,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarREPLExperimentExplorer == .stable)
     #expect(GrammarWorkbenchCapabilities.compilerSemanticConvergence == .stable)
+    #expect(GrammarWorkbenchCapabilities.researchQualityDistribution == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -173,7 +184,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.11.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.12.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
     #expect(experiments?["schemaVersion"] as? Int == 2)
     #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
@@ -547,6 +558,37 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     })
     #expect(try GrammarResearchProgrammeCodec.encode(report).count <=
             policy.budgets.researchReportMaximumBytes)
+}
+
+@Test func researchDistributionContractIsPublishedAndSelfConsistent() throws {
+    let policy = try releaseCandidatePolicy()
+    let distribution = policy.researchDistribution
+    let requiredProgramme = try #require(policy.requiredResearchProgrammes.first)
+    #expect(distribution.manifestSchemaVersion == GrammarResearchDistributionManifest.currentSchemaVersion)
+    #expect(distribution.programme == requiredProgramme)
+    #expect(distribution.ecosystem == policy.ecosystemCompatibilityManifest)
+
+    let schema = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: packageRoot().appendingPathComponent(distribution.manifestSchema))
+    ) as? [String: Any]
+    #expect(schema?["$id"] as? String == "https://grammar-workbench.dev/schemas/research-distribution-v1.json")
+
+    let citation = try String(
+        contentsOf: packageRoot().appendingPathComponent(distribution.citation), encoding: .utf8
+    )
+    #expect(citation.contains("cff-version: 1.2.0"))
+    #expect(citation.contains("version: \"\(GrammarWorkbenchRelease.version)\""))
+
+    let bundle = try GrammarResearchDistribution.create(
+        programmeData: Data(contentsOf: packageRoot().appendingPathComponent(distribution.programme)),
+        ecosystemData: Data(contentsOf: packageRoot().appendingPathComponent(distribution.ecosystem)),
+        licenseData: Data(contentsOf: packageRoot().appendingPathComponent(distribution.license))
+    )
+    #expect(bundle.manifest.schemaVersion == distribution.manifestSchemaVersion)
+    #expect(bundle.manifest.softwareVersion == GrammarWorkbenchRelease.version)
+    _ = try GrammarResearchDistribution.verify(
+        manifestData: bundle.manifestData(), files: bundle.files
+    )
 }
 
 @Test func selectedResearchPreviewsStayWithinReleaseBudgets() throws {

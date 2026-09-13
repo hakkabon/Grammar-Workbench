@@ -120,6 +120,12 @@ See [Documentation/ScaleAndInteroperability.md](Documentation/ScaleAndInteropera
 
 Parser research can be expressed as versioned, falsifiable validation programmes. `research-validate` records stable evidence separately from timing distributions, while `research-compare` detects incompatible baselines and pass-to-fail regressions. See [Documentation/ResearchValidationProgramme.md](Documentation/ResearchValidationProgramme.md).
 
+Research releases can package those programmes with their observed report,
+exact ecosystem pins, citation metadata, license, and a SHA-256 inventory.
+`research-package` creates the portable directory contract and
+`research-package-verify` rejects incomplete, modified, or undeclared content.
+See [Documentation/ResearchQualityDistribution.md](Documentation/ResearchQualityDistribution.md).
+
 The Research workspace also offers three selected previews for ambiguity growth, precedence-hidden alternatives, and search reproducibility. Each gives a plain-language conclusion while retaining its complete validation report. See [Documentation/SelectedResearchPreview.md](Documentation/SelectedResearchPreview.md).
 
 Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).

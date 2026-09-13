@@ -819,6 +819,23 @@ struct GrammarWorkbenchCLI {
                 print(String(decoding: data, as: UTF8.self))
             }
             guard report.passed else { throw CLIError.researchValidationFailed }
+        case "research-package":
+            guard arguments.count == 5 else {
+                throw CLIError.usage("research-package requires PROGRAMME ECOSYSTEM LICENSE OUTPUT_DIRECTORY")
+            }
+            let bundle = try GrammarResearchDistribution.create(
+                programmeData: Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+                ecosystemData: Data(contentsOf: URL(fileURLWithPath: arguments[2])),
+                licenseData: Data(contentsOf: URL(fileURLWithPath: arguments[3]))
+            )
+            try writeResearchDistribution(bundle, to: arguments[4])
+            print("Wrote \(arguments[4]): \(bundle.manifest.files.count) research files, evidence \(bundle.manifest.evidenceFingerprint)")
+        case "research-package-verify":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("research-package-verify requires DIRECTORY")
+            }
+            let manifest = try verifyResearchDistribution(at: arguments[1])
+            print("Verified \(arguments[1]): \(manifest.programmeID), evidence \(manifest.evidenceFingerprint)")
         case "research-compare":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("research-compare requires BASELINE CANDIDATE [OUTPUT]")
@@ -943,6 +960,60 @@ struct GrammarWorkbenchCLI {
         value > 0 ? "+\(value)" : "\(value)"
     }
 
+    private static func writeResearchDistribution(
+        _ bundle: GrammarResearchDistributionBundle,
+        to path: String
+    ) throws {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        if manager.fileExists(atPath: directory.path) {
+            let contents = try manager.contentsOfDirectory(atPath: directory.path)
+            guard contents.isEmpty else {
+                throw CLIError.usage("research distribution output directory must be empty")
+            }
+        } else {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        for name in bundle.files.keys.sorted() {
+            try bundle.files[name]!.write(
+                to: directory.appendingPathComponent(name), options: .atomic
+            )
+        }
+        try bundle.manifestData().write(
+            to: directory.appendingPathComponent(
+                GrammarResearchDistributionManifest.manifestFilename
+            ), options: .atomic
+        )
+    }
+
+    private static func verifyResearchDistribution(
+        at path: String
+    ) throws -> GrammarResearchDistributionManifest {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        let manifestURL = directory.appendingPathComponent(
+            GrammarResearchDistributionManifest.manifestFilename
+        )
+        let manifestData = try Data(contentsOf: manifestURL)
+        let names = try manager.contentsOfDirectory(atPath: directory.path)
+            .filter { $0 != GrammarResearchDistributionManifest.manifestFilename }
+        var files: [String: Data] = [:]
+        for name in names {
+            guard !name.contains("/"), !name.contains("..") else {
+                throw CLIError.usage("research distribution contains an unsafe path")
+            }
+            let fileURL = directory.appendingPathComponent(name)
+            let values = try fileURL.resourceValues(forKeys: [
+                .isRegularFileKey, .isSymbolicLinkKey,
+            ])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw CLIError.usage("research distribution entries must be regular files")
+            }
+            files[name] = try Data(contentsOf: fileURL)
+        }
+        return try GrammarResearchDistribution.verify(manifestData: manifestData, files: files)
+    }
+
     private static func write(_ files: [GrammarGeneratedFile], to path: String) throws {
         let destination = URL(fileURLWithPath: path)
         if files.count == 1 {
@@ -1004,6 +1075,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench bootstrap [OUTPUT] [--maximum-generations=N]
       grammar-workbench bootstrap-bundle OUTPUT [--maximum-generations=N]
       grammar-workbench research-validate PROGRAMME [OUTPUT]
+      grammar-workbench research-package PROGRAMME ECOSYSTEM LICENSE OUTPUT_DIRECTORY
+      grammar-workbench research-package-verify DIRECTORY
       grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench research-preview list|STUDY [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]

@@ -65,14 +65,25 @@ cp "$ROOT_DIR/Documentation/LinuxDelivery.md" "$PACKAGE_DIR/README.md"
 
 ARCHIVE="$OUTPUT_DIR/$PACKAGE_NAME.tar.gz"
 tar -C "$WORK_DIR" -czf "$ARCHIVE" "$PACKAGE_NAME"
-(cd "$OUTPUT_DIR" && sha256sum "$(basename "$ARCHIVE")" > "$(basename "$ARCHIVE").sha256")
 tar -tzf "$ARCHIVE" >/dev/null
+RESEARCH_NAME="Grammar-Workbench-Research-$VERSION"
+RESEARCH_DIR="$WORK_DIR/$RESEARCH_NAME"
+"$PACKAGE_DIR/bin/grammar-workbench" research-package \
+    "$ROOT_DIR/Examples/ResearchValidationProgramme.json" \
+    "$ROOT_DIR/Packaging/EcosystemCompatibility.json" \
+    "$ROOT_DIR/LICENSE" "$RESEARCH_DIR"
+"$PACKAGE_DIR/bin/grammar-workbench" research-package-verify "$RESEARCH_DIR"
+RESEARCH_ARCHIVE="$OUTPUT_DIR/$RESEARCH_NAME.tar.gz"
+tar -C "$WORK_DIR" -czf "$RESEARCH_ARCHIVE" "$RESEARCH_NAME"
+tar -tzf "$RESEARCH_ARCHIVE" >/dev/null
+CHECKSUMS="$(basename "$ARCHIVE").sha256"
+(cd "$OUTPUT_DIR" && sha256sum "$(basename "$ARCHIVE")" "$(basename "$RESEARCH_ARCHIVE")" > "$CHECKSUMS")
 MANIFEST_NAME="$PACKAGE_NAME-manifest.json"
 MANIFEST_ARGUMENTS=(
     create --directory "$OUTPUT_DIR" --output "$MANIFEST_NAME"
     --version "$VERSION" --build "$BUILD_NUMBER" --platform linux
-    --architectures "$ARCHIVE_ARCH" --checksums "$(basename "$ARCHIVE").sha256"
-    --artifact "$(basename "$ARCHIVE")"
+    --architectures "$ARCHIVE_ARCH" --checksums "$CHECKSUMS"
+    --artifact "$(basename "$ARCHIVE")" --artifact "$(basename "$RESEARCH_ARCHIVE")"
 )
 if [ -n "$RELEASE_TAG" ]; then MANIFEST_ARGUMENTS+=(--tag "$RELEASE_TAG"); fi
 if [ -n "$RELEASE_REVISION" ]; then MANIFEST_ARGUMENTS+=(--revision "$RELEASE_REVISION"); fi
@@ -82,6 +93,7 @@ node "$ROOT_DIR/Scripts/release-artifacts.mjs" verify \
     --manifest "$OUTPUT_DIR/$MANIFEST_NAME"
 
 echo "Created $ARCHIVE"
-echo "Created $ARCHIVE.sha256"
+echo "Created $RESEARCH_ARCHIVE"
+echo "Created $OUTPUT_DIR/$CHECKSUMS"
 echo "Created $OUTPUT_DIR/$MANIFEST_NAME"
 echo "Created $OUTPUT_DIR/$MANIFEST_NAME.sha256"

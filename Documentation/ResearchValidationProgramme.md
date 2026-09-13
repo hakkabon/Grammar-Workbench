@@ -28,6 +28,10 @@ grammar-workbench research-compare baseline.json report.json comparison.json
 
 The SDK exposes `researchValidate` with the same Codable programme and report types. Release validation bounds case count, repetitions, report size, and median runtime per case. These bounds are engineering safeguards, not claims of statistical significance.
 
+For archival release, `research-package` combines a passing report with exact
+ecosystem pins, a reproduction protocol, citation metadata, licensing, and a
+SHA-256 inventory. See [Research-quality distribution](ResearchQualityDistribution.md).
+
 ## Scope
 
 The programme provides repeatable regression evidence; it is not a formal proof of parser correctness. New research cases should cite their origin in `rationale` or `hypothesis`, use the smallest discriminating grammar, state expected limits explicitly, and preserve failing cases when they reveal a genuine defect.

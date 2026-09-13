@@ -37,6 +37,13 @@ swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_
 BIN_DIR="$(swift build --package-path "$ROOT_DIR" --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" -c release --show-bin-path)"
 node "$ROOT_DIR/Scripts/validate-ecosystem-contract.mjs" --cli "$BIN_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-release.sh" "$BIN_DIR/grammar-workbench"
+RESEARCH_OUTPUT="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-research.XXXXXX")"
+trap 'rm -rf "$RESEARCH_OUTPUT"' EXIT
+"$BIN_DIR/grammar-workbench" research-package \
+    "$ROOT_DIR/Examples/ResearchValidationProgramme.json" \
+    "$ROOT_DIR/Packaging/EcosystemCompatibility.json" \
+    "$ROOT_DIR/LICENSE" "$RESEARCH_OUTPUT"
+"$BIN_DIR/grammar-workbench" research-package-verify "$RESEARCH_OUTPUT"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$BIN_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$BIN_DIR/grammar-workbench-service"
 if command -v node >/dev/null 2>&1; then

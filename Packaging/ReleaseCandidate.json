@@ -46,6 +46,14 @@
   "coreSeparationBaseline": "Validation/CoreSeparation/Baseline.json",
   "releaseArtifactManifestVersion": 1,
   "releaseArtifactManifestSchema": "Validation/Release/ReleaseManifest.schema.json",
+  "researchDistribution": {
+    "manifestSchemaVersion": 1,
+    "manifestSchema": "Validation/Research/DistributionManifest.schema.json",
+    "programme": "Examples/ResearchValidationProgramme.json",
+    "ecosystem": "Packaging/EcosystemCompatibility.json",
+    "citation": "CITATION.cff",
+    "license": "LICENSE"
+  },
   "budgets": {
     "canonicalConstructionMilliseconds": 10000,
     "canonicalStates": 500,

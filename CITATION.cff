@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use Grammar Workbench or its research evidence, please cite this software."
+title: "Grammar Workbench"
+type: software
+authors:
+  - family-names: "Akerstedt-Inoue"
+    given-names: "Ulf"
+version: "1.0.18"
+date-released: "2026-09-13"
+repository-code: "https://github.com/hakkabon/Grammar-Workbench"
+license: MIT

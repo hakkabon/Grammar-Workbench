@@ -85,6 +85,20 @@ The release-candidate gate verifies the product from four perspectives:
     classes, both sides of the LL(1) capability boundary, at least ten
     engine-comparison cases, and at least eight bounded stress cases. Exact
     generalized derivation probes must include 1, 2, 5, 14, and 42.
+32. Reproducible Grammar-REPL experiments must preserve their schema, producer,
+    ecosystem, engine decisions, forests, replay, Compiler-owned semantic
+    evidence, and fingerprints through the authoritative verifier.
+33. The Workbench experiment explorer must remain a presentation of recorded
+    evidence, retain unsupported and rejected outcomes, and never label a
+    loaded fingerprint as locally verified.
+34. Compiler semantic convergence must keep semantic ownership in Compiler and
+    preserve the recorded cross-engine value and diagnostic agreement exposed
+    by Grammar-REPL and Workbench.
+35. Research distributions must contain a passing declared programme, report,
+    exact ecosystem pins, protocol, citation, and license. Their schema-1
+    manifest must link programme and evidence identities, inventory the exact
+    payload with SHA-256, reject corruption and undeclared content, and ship as
+    a checksummed artifact in macOS and Linux release provenance.
 
 Run the normal gate:
 

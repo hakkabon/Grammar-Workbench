@@ -137,6 +137,15 @@ CLIENTS_PACKAGE="$WORK_DIR/Grammar-Workbench-Editor-Clients-$VERSION"
 cp -R "$ROOT_DIR/Clients" "$CLIENTS_PACKAGE"
 cp "$ROOT_DIR/LICENSE" "$CLIENTS_PACKAGE/GRAMMAR-WORKBENCH-LICENSE.txt"
 ditto -c -k --keepParent "$CLIENTS_PACKAGE" "$CLIENTS_ZIP"
+RESEARCH_ZIP="$OUTPUT_DIR/Grammar-Workbench-Research-$VERSION.zip"
+rm -f "$RESEARCH_ZIP"
+RESEARCH_PACKAGE="$WORK_DIR/Grammar-Workbench-Research-$VERSION"
+"$OUTPUT_DIR/grammar-workbench" research-package \
+    "$ROOT_DIR/Examples/ResearchValidationProgramme.json" \
+    "$ROOT_DIR/Packaging/EcosystemCompatibility.json" \
+    "$ROOT_DIR/LICENSE" "$RESEARCH_PACKAGE"
+"$OUTPUT_DIR/grammar-workbench" research-package-verify "$RESEARCH_PACKAGE"
+ditto -c -k --keepParent "$RESEARCH_PACKAGE" "$RESEARCH_ZIP"
 
 if [ -n "$NOTARY_PROFILE" ]; then
     if [ -z "$SIGNING_IDENTITY" ]; then echo "NOTARY_PROFILE requires SIGNING_IDENTITY." >&2; exit 2; fi
@@ -158,8 +167,8 @@ EXPECTED_VERSION="$VERSION" EXPECTED_BUILD_NUMBER="$BUILD_NUMBER" EXPECTED_ARCHS
 "$ROOT_DIR/Scripts/smoke-release.sh" "$OUTPUT_DIR/grammar-workbench"
 "$ROOT_DIR/Scripts/smoke-lsp.sh" "$OUTPUT_DIR/grammar-workbench-lsp"
 "$ROOT_DIR/Scripts/smoke-tooling-service.sh" "$OUTPUT_DIR/grammar-workbench-service"
-(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$SERVICE_ZIP")" "$(basename "$CLIENTS_ZIP")" > SHA256SUMS)
-for ARCHIVE in "$ZIP_PATH" "$CLI_ZIP" "$LSP_ZIP" "$SERVICE_ZIP" "$CLIENTS_ZIP"; do
+(cd "$OUTPUT_DIR" && shasum -a 256 "$(basename "$ZIP_PATH")" "$(basename "$CLI_ZIP")" "$(basename "$LSP_ZIP")" "$(basename "$SERVICE_ZIP")" "$(basename "$CLIENTS_ZIP")" "$(basename "$RESEARCH_ZIP")" > SHA256SUMS)
+for ARCHIVE in "$ZIP_PATH" "$CLI_ZIP" "$LSP_ZIP" "$SERVICE_ZIP" "$CLIENTS_ZIP" "$RESEARCH_ZIP"; do
     unzip -t "$ARCHIVE" >/dev/null
 done
 MANIFEST_ARGUMENTS=(
@@ -167,7 +176,7 @@ MANIFEST_ARGUMENTS=(
     --platform macos --architectures "$ARCHS" --checksums SHA256SUMS
     --artifact "$(basename "$ZIP_PATH")" --artifact "$(basename "$CLI_ZIP")"
     --artifact "$(basename "$LSP_ZIP")" --artifact "$(basename "$SERVICE_ZIP")"
-    --artifact "$(basename "$CLIENTS_ZIP")"
+    --artifact "$(basename "$CLIENTS_ZIP")" --artifact "$(basename "$RESEARCH_ZIP")"
 )
 if [ -n "$RELEASE_TAG" ]; then MANIFEST_ARGUMENTS+=(--tag "$RELEASE_TAG"); fi
 if [ -n "$RELEASE_REVISION" ]; then MANIFEST_ARGUMENTS+=(--revision "$RELEASE_REVISION"); fi
@@ -182,6 +191,7 @@ echo "Created $CLI_ZIP"
 echo "Created $LSP_ZIP"
 echo "Created $SERVICE_ZIP"
 echo "Created $CLIENTS_ZIP"
+echo "Created $RESEARCH_ZIP"
 echo "Created $OUTPUT_DIR/SHA256SUMS"
 echo "Created $OUTPUT_DIR/ReleaseManifest.json"
 echo "Created $OUTPUT_DIR/ReleaseManifest.json.sha256"

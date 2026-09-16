@@ -1,7 +1,7 @@
 import Foundation
 
 public enum GrammarWorkbenchRelease {
-    public static let version = "1.0.18"
+    public static let version = "1.0.19"
     public static let bundleIdentifier = "com.grammar-workbench.app"
 
     public static var displayVersion: String {
@@ -68,5 +68,6 @@ public enum GrammarWorkbenchCapabilities {
     public static let grammarREPLExperimentExplorer: GrammarWorkbenchFeatureMaturity = .stable
     public static let compilerSemanticConvergence: GrammarWorkbenchFeatureMaturity = .stable
     public static let researchQualityDistribution: GrammarWorkbenchFeatureMaturity = .stable
+    public static let executableGrammarAndParserLaws: GrammarWorkbenchFeatureMaturity = .stable
     public static let largeIPadAdaptiveWorkbench: GrammarWorkbenchFeatureMaturity = .experimental
 }

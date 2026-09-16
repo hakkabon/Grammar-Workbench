@@ -36,7 +36,11 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/hakkabon/Grammar.git",
-            .upToNextMinor(from: "0.3.0")
+            .upToNextMinor(from: "0.3.1")
+        ),
+        .package(
+            url: "https://github.com/hakkabon/Parser.git",
+            .upToNextMinor(from: "0.3.1")
         ),
         .package(
             url: "https://github.com/hakkabon/LR-Parsing.git",
@@ -52,6 +56,7 @@ let package = Package(
             name: "GrammarWorkbenchCore",
             dependencies: [
                 .product(name: "Grammar", package: "Grammar"),
+                .product(name: "Parser", package: "Parser"),
                 .product(name: "LR-Parsing", package: "LR-Parsing"),
                 .product(name: "GrammarDiagramKit", package: "Grammar-DiagramKit"),
                 .product(

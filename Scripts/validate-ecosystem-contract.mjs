@@ -39,6 +39,21 @@ for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-
 }
 const grammarREPL = manifest.repositories.find(repository => repository.name === "Grammar-REPL");
 if (grammarREPL.version !== experiments.minimumGrammarREPLVersion) fail("Grammar-REPL experiment version differs from repository pin");
+const executableLaws = manifest.executableLaws;
+if (executableLaws?.schemaVersion !== 1 ||
+    executableLaws.minimumGrammarVersion !== "0.3.1" ||
+    executableLaws.minimumParserVersion !== "0.3.1" ||
+    executableLaws.grammarWitnessSchemaVersion !== 1 ||
+    executableLaws.parserDiscrepancySchemaVersion !== 1 ||
+    JSON.stringify(executableLaws.laws) !== JSON.stringify(["productionPermutation", "nonterminalAlphaRenaming"])) {
+  fail("invalid executable Grammar/Parser law capability");
+}
+const grammarRepository = manifest.repositories.find(repository => repository.name === "Grammar");
+const parserRepository = manifest.repositories.find(repository => repository.name === "Parser");
+if (grammarRepository.version !== executableLaws.minimumGrammarVersion ||
+    parserRepository.version !== executableLaws.minimumParserVersion) {
+  fail("executable law versions differ from repository pins");
+}
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
 const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");

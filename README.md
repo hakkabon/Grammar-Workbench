@@ -58,6 +58,13 @@ semantic agreement. Use Grammar-REPL's verifier for replay authority.
 Headless consumers can run `grammar-workbench experiment-inspect EXPERIMENT
 [OUTPUT]`. See [Documentation/WorkbenchExperimentExplorer.md](Documentation/WorkbenchExperimentExplorer.md).
 
+Executable Grammar and Parser laws now carry exact grammar transformations
+through Workbench's real LALR runtime and compare the resulting portable parser
+observations. Grammar owns transformation witnesses, Parser owns validation and
+metamorphic comparison, and Workbench coordinates the release-gated programme.
+Run it with `grammar-workbench laws-validate [OUTPUT]`; see
+[Documentation/ExecutableGrammarParserLaws.md](Documentation/ExecutableGrammarParserLaws.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

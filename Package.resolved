@@ -6,8 +6,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/Grammar.git",
       "state" : {
-        "revision" : "d34a8da931f1f9e5ee56bee005388efc88125695",
-        "version" : "0.3.0"
+        "revision" : "07fe749d6d5d85c0d11648634d3ad458d4d0abe4",
+        "version" : "0.3.1"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/Parser.git",
       "state" : {
-        "revision" : "6f7a5891d71764b5e963eccdab78e121f4c5c435",
-        "version" : "0.3.0"
+        "revision" : "38667267dc0b3c5f3313739217d7cedfb054ad69",
+        "version" : "0.3.1"
       }
     },
     {

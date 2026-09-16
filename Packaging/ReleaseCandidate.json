@@ -86,6 +86,8 @@
     "researchMaximumRepetitions": 10,
     "researchReportMaximumBytes": 250000,
     "researchMedianMaximumNanoseconds": 1000000000,
+    "executableLawMaximumCases": 4,
+    "executableLawReportMaximumBytes": 100000,
     "selectedResearchMaximumStudies": 3,
     "selectedResearchPreviewMaximumBytes": 100000,
     "editorMinimumViewportWidth": 300,

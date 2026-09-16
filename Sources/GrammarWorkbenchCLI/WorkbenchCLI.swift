@@ -836,6 +836,21 @@ struct GrammarWorkbenchCLI {
             }
             let manifest = try verifyResearchDistribution(at: arguments[1])
             print("Verified \(arguments[1]): \(manifest.programmeID), evidence \(manifest.evidenceFingerprint)")
+        case "laws-validate":
+            guard arguments.count == 1 || arguments.count == 2 else {
+                throw CLIError.usage("laws-validate accepts at most one OUTPUT path")
+            }
+            let report = try GrammarParserLawProgramme.run()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            if arguments.count == 2 {
+                try data.write(to: URL(fileURLWithPath: arguments[1]), options: .atomic)
+                print("Wrote \(arguments[1]): \(report.cases.count) executable laws passed")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.passed else { throw CLIError.researchValidationFailed }
         case "research-compare":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("research-compare requires BASELINE CANDIDATE [OUTPUT]")
@@ -1077,6 +1092,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench research-validate PROGRAMME [OUTPUT]
       grammar-workbench research-package PROGRAMME ECOSYSTEM LICENSE OUTPUT_DIRECTORY
       grammar-workbench research-package-verify DIRECTORY
+      grammar-workbench laws-validate [OUTPUT]
       grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench research-preview list|STUDY [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]

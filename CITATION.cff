@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: "Akerstedt-Inoue"
     given-names: "Ulf"
-version: "1.0.18"
-date-released: "2026-09-13"
+version: "1.0.19"
+date-released: "2026-09-17"
 repository-code: "https://github.com/hakkabon/Grammar-Workbench"
 license: MIT

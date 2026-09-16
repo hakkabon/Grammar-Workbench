@@ -99,6 +99,12 @@ The release-candidate gate verifies the product from four perspectives:
     manifest must link programme and evidence identities, inventory the exact
     payload with SHA-256, reject corruption and undeclared content, and ship as
     a checksummed artifact in macOS and Linux release provenance.
+36. Executable Grammar and Parser laws must retain Grammar-owned, exactly
+    reproducible transformation witnesses and Parser-owned portable observation
+    checks. The packaged Workbench must run production permutation and
+    nonterminal alpha-renaming through its real LALR runtime, preserve stable
+    production identity, produce a passing schema-versioned report, and stay
+    within the declared case-count and encoded-size budgets.
 
 Run the normal gate:
 

@@ -175,6 +175,58 @@ public enum GrammarRecoveryKind: String, Codable, Sendable {
     case deletedToken, insertedToken, synchronized
 }
 
+/// A portable, replayable description of a concrete parser repair. Positions
+/// are expressed in the original token stream, before any repair is applied.
+public enum GrammarRecoveryEdit: Hashable, Codable, Sendable {
+    case insert(terminal: String, atToken: Int)
+    case delete(terminal: String, atToken: Int)
+    case skip(terminals: [String], fromToken: Int)
+
+    private enum CodingKeys: String, CodingKey {
+        case kind, terminal, terminals, atToken, fromToken
+    }
+    private enum Kind: String, Codable { case insert, delete, skip }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        switch try values.decode(Kind.self, forKey: .kind) {
+        case .insert:
+            self = .insert(
+                terminal: try values.decode(String.self, forKey: .terminal),
+                atToken: try values.decode(Int.self, forKey: .atToken)
+            )
+        case .delete:
+            self = .delete(
+                terminal: try values.decode(String.self, forKey: .terminal),
+                atToken: try values.decode(Int.self, forKey: .atToken)
+            )
+        case .skip:
+            self = .skip(
+                terminals: try values.decode([String].self, forKey: .terminals),
+                fromToken: try values.decode(Int.self, forKey: .fromToken)
+            )
+        }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .insert(let terminal, let index):
+            try values.encode(Kind.insert, forKey: .kind)
+            try values.encode(terminal, forKey: .terminal)
+            try values.encode(index, forKey: .atToken)
+        case .delete(let terminal, let index):
+            try values.encode(Kind.delete, forKey: .kind)
+            try values.encode(terminal, forKey: .terminal)
+            try values.encode(index, forKey: .atToken)
+        case .skip(let terminals, let index):
+            try values.encode(Kind.skip, forKey: .kind)
+            try values.encode(terminals, forKey: .terminals)
+            try values.encode(index, forKey: .fromToken)
+        }
+    }
+}
+
 public struct GrammarParseOptions: Hashable, Codable, Sendable {
     public var enablesRecovery: Bool
     public var maximumDiagnostics: Int
@@ -241,22 +293,24 @@ public struct GrammarParseResult: Hashable, Codable, Sendable {
     public let conflictState: Int?
     public let conflictSymbol: String?
     public let diagnostics: [GrammarSyntaxDiagnostic]
+    public let recoveryEdits: [GrammarRecoveryEdit]
 
     init(
         status: GrammarParseStatus, message: String, tokens: [GrammarInputTokenSnapshot],
         expectedTerminals: [String], tree: String?, syntaxTree: GrammarSyntaxNode?,
         trace: [GrammarTraceFrameSnapshot], conflictState: Int?, conflictSymbol: String?,
-        diagnostics: [GrammarSyntaxDiagnostic]
+        diagnostics: [GrammarSyntaxDiagnostic], recoveryEdits: [GrammarRecoveryEdit] = []
     ) {
         self.status = status; self.message = message; self.tokens = tokens
         self.expectedTerminals = expectedTerminals; self.tree = tree; self.syntaxTree = syntaxTree
         self.trace = trace; self.conflictState = conflictState; self.conflictSymbol = conflictSymbol
         self.diagnostics = diagnostics
+        self.recoveryEdits = recoveryEdits
     }
 
     private enum CodingKeys: String, CodingKey {
         case status, message, tokens, expectedTerminals, tree, syntaxTree, trace
-        case conflictState, conflictSymbol, diagnostics
+        case conflictState, conflictSymbol, diagnostics, recoveryEdits
     }
 
     public init(from decoder: Decoder) throws {
@@ -271,7 +325,10 @@ public struct GrammarParseResult: Hashable, Codable, Sendable {
             trace: try values.decode([GrammarTraceFrameSnapshot].self, forKey: .trace),
             conflictState: try values.decodeIfPresent(Int.self, forKey: .conflictState),
             conflictSymbol: try values.decodeIfPresent(String.self, forKey: .conflictSymbol),
-            diagnostics: try values.decode([GrammarSyntaxDiagnostic].self, forKey: .diagnostics)
+            diagnostics: try values.decode([GrammarSyntaxDiagnostic].self, forKey: .diagnostics),
+            recoveryEdits: try values.decodeIfPresent(
+                [GrammarRecoveryEdit].self, forKey: .recoveryEdits
+            ) ?? []
         )
     }
 }
@@ -339,6 +396,10 @@ public struct GrammarCompilation: Sendable {
         let runtime = LRParserRuntime.parse(
             lexed.tokens.map(\.kind), artifact: compiledArtifact, recovery: recovery
         )
+        let recoveryEdits = GrammarRecoveryEvidence.edits(
+            diagnostics: runtime.diagnostics, frames: runtime.frames,
+            originalTokens: lexed.tokens.map(\.kind)
+        )
         let syntaxDiagnostics = runtime.diagnostics.map { diagnostic in
             GrammarSyntaxDiagnostic(
                 id: diagnostic.index, message: diagnostic.message,
@@ -358,7 +419,7 @@ public struct GrammarCompilation: Sendable {
         let conflictSymbol: String?
         switch runtime.outcome {
         case .accepted:
-            status = syntaxDiagnostics.isEmpty ? .accepted : .acceptedWithRecovery
+            status = recoveryEdits.isEmpty ? .accepted : .acceptedWithRecovery
             expected = syntaxDiagnostics.last?.expected ?? []
             conflictState = nil; conflictSymbol = nil
         case .rejected(_, let values):
@@ -374,7 +435,7 @@ public struct GrammarCompilation: Sendable {
             syntaxTree: runtime.tree.map { GrammarSyntaxNode.make(from: $0, tokens: lexed.tokens) },
             trace: runtime.frames.map(GrammarTraceFrameSnapshot.init),
             conflictState: conflictState, conflictSymbol: conflictSymbol,
-            diagnostics: syntaxDiagnostics
+            diagnostics: syntaxDiagnostics, recoveryEdits: recoveryEdits
         )
     }
 

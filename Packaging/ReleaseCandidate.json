@@ -91,6 +91,8 @@
     "counterexampleMaximumCandidates": 16,
     "counterexampleMaximumEvaluations": 192,
     "counterexampleReportMaximumBytes": 250000,
+    "recoveryTruthMaximumCases": 4,
+    "recoveryTruthReportMaximumBytes": 150000,
     "selectedResearchMaximumStudies": 3,
     "selectedResearchPreviewMaximumBytes": 100000,
     "editorMinimumViewportWidth": 300,

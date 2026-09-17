@@ -72,6 +72,13 @@ one-minimal fingerprinted discrepancies and make exhausted bounds explicit.
 Run `grammar-workbench laws-discover [OUTPUT]`; see
 [Documentation/CounterexampleDiscoveryAndMinimization.md](Documentation/CounterexampleDiscoveryAndMinimization.md).
 
+Recovery results now carry a structured insert/delete/skip edit script in
+original-token coordinates. The release programme cross-checks those edits
+against diagnostics, trace events, missing syntax nodes, Parser's portable
+contract, and a recovery-disabled reparse of the repaired stream. Run
+`grammar-workbench recovery-validate [OUTPUT]`; see
+[Documentation/RecoveryTruthfulness.md](Documentation/RecoveryTruthfulness.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

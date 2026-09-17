@@ -62,6 +62,15 @@ if (counterexamples?.schemaVersion !== 1 ||
     counterexamples.minimization !== "deterministic-deletion-one-minimal") {
   fail("invalid counterexample discovery capability");
 }
+const recoveryTruth = manifest.recoveryTruthfulness;
+if (recoveryTruth?.schemaVersion !== 1 ||
+    recoveryTruth.reportSchemaVersion !== 1 ||
+    recoveryTruth.parserContractSchemaVersion !== 1 ||
+    recoveryTruth.coordinateSystem !== "original-token-stream" ||
+    JSON.stringify(recoveryTruth.repairs) !== JSON.stringify(["insert", "delete", "skip"]) ||
+    recoveryTruth.strictReparse !== true) {
+  fail("invalid recovery truthfulness capability");
+}
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
 const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");

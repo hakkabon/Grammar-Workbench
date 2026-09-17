@@ -53,6 +53,7 @@ fi
 "$CLI_PATH" research-preview precedence-hidden-ambiguity "$WORK_DIR/research-preview.json"
 "$CLI_PATH" laws-validate "$WORK_DIR/executable-laws.json"
 "$CLI_PATH" laws-discover "$WORK_DIR/counterexample-discovery.json"
+"$CLI_PATH" recovery-validate "$WORK_DIR/recovery-truth.json"
 
 test -s "$WORK_DIR/comparison.json"
 test -s "$WORK_DIR/artifact.json"
@@ -86,6 +87,7 @@ test -s "$WORK_DIR/research-preview-list.txt"
 test -s "$WORK_DIR/research-preview.json"
 test -s "$WORK_DIR/executable-laws.json"
 test -s "$WORK_DIR/counterexample-discovery.json"
+test -s "$WORK_DIR/recovery-truth.json"
 swiftc -parse "$WORK_DIR/GeneratedParser.swift"
 swiftc -parse "$WORK_DIR/ExpressionSemantics.swift"
 

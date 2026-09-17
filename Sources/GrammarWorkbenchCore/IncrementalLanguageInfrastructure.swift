@@ -694,6 +694,10 @@ public actor GrammarIncrementalLanguageSession {
         _ runtime: ParserRuntimeResult,
         lexing: GrammarLexingResult
     ) -> GrammarParseResult {
+        let recoveryEdits = GrammarRecoveryEvidence.edits(
+            diagnostics: runtime.diagnostics, frames: runtime.frames,
+            originalTokens: lexing.tokens.map(\.kind)
+        )
         let syntaxDiagnostics = runtime.diagnostics.map { diagnostic in
             GrammarSyntaxDiagnostic(
                 id: diagnostic.index,
@@ -715,7 +719,7 @@ public actor GrammarIncrementalLanguageSession {
         let conflictSymbol: String?
         switch runtime.outcome {
         case .accepted:
-            status = syntaxDiagnostics.isEmpty ? .accepted : .acceptedWithRecovery
+            status = recoveryEdits.isEmpty ? .accepted : .acceptedWithRecovery
             expected = syntaxDiagnostics.last?.expected ?? []
             conflictState = nil; conflictSymbol = nil
         case .rejected(_, let values):
@@ -748,7 +752,8 @@ public actor GrammarIncrementalLanguageSession {
             },
             conflictState: conflictState,
             conflictSymbol: conflictSymbol,
-            diagnostics: syntaxDiagnostics
+            diagnostics: syntaxDiagnostics,
+            recoveryEdits: recoveryEdits
         )
     }
 

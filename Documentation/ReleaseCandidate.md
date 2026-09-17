@@ -111,6 +111,12 @@ The release-candidate gate verifies the product from four perspectives:
     retain both initial and minimized fingerprinted evidence. The calibration
     fixture must reduce to a deletion-one-minimal trigger, and the complete
     report must remain within candidate, evaluation, and encoded-size budgets.
+38. Recovery truthfulness must expose every deterministic insert, delete, and
+    skip as a structured edit in original-token coordinates; match edits with
+    diagnostics and recovery trace events; retain inserted terminals as missing
+    syntax nodes; and require every successfully repaired stream to reparse
+    cleanly with recovery disabled. Diagnostic-limit failures must remain
+    rejected rather than being promoted to recovered results.
 
 Run the normal gate:
 

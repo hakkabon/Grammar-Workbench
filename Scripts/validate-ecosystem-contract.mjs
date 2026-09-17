@@ -54,6 +54,14 @@ if (grammarRepository.version !== executableLaws.minimumGrammarVersion ||
     parserRepository.version !== executableLaws.minimumParserVersion) {
   fail("executable law versions differ from repository pins");
 }
+const counterexamples = manifest.counterexampleDiscovery;
+if (counterexamples?.schemaVersion !== 1 ||
+    counterexamples.reportSchemaVersion !== 1 ||
+    counterexamples.parserDiscrepancySchemaVersion !== executableLaws.parserDiscrepancySchemaVersion ||
+    counterexamples.enumeration !== "bounded-breadth-first" ||
+    counterexamples.minimization !== "deterministic-deletion-one-minimal") {
+  fail("invalid counterexample discovery capability");
+}
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
 const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");

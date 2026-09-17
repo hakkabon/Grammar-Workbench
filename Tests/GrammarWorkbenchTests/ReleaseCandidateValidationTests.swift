@@ -53,6 +53,9 @@ private struct ReleaseCandidatePolicy: Decodable {
         let researchMedianMaximumNanoseconds: UInt64
         let executableLawMaximumCases: Int
         let executableLawReportMaximumBytes: Int
+        let counterexampleMaximumCandidates: Int
+        let counterexampleMaximumEvaluations: Int
+        let counterexampleReportMaximumBytes: Int
         let selectedResearchMaximumStudies: Int
         let selectedResearchPreviewMaximumBytes: Int
         let editorMinimumViewportWidth: Double
@@ -179,6 +182,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.compilerSemanticConvergence == .stable)
     #expect(GrammarWorkbenchCapabilities.researchQualityDistribution == .stable)
     #expect(GrammarWorkbenchCapabilities.executableGrammarAndParserLaws == .stable)
+    #expect(GrammarWorkbenchCapabilities.counterexampleDiscoveryAndMinimization == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -187,7 +191,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.13.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.14.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
     #expect(experiments?["schemaVersion"] as? Int == 2)
     #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
@@ -201,6 +205,15 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(executableLaws?["laws"] as? [String] == [
         "productionPermutation", "nonterminalAlphaRenaming"
     ])
+    let counterexamples = ecosystem?["counterexampleDiscovery"] as? [String: Any]
+    #expect(counterexamples?["schemaVersion"] as? Int == 1)
+    #expect(counterexamples?["reportSchemaVersion"] as? Int == 1)
+    #expect(counterexamples?["parserDiscrepancySchemaVersion"] as? Int == 1)
+    #expect(counterexamples?["enumeration"] as? String == "bounded-breadth-first")
+    #expect(
+        counterexamples?["minimization"] as? String
+            == "deterministic-deletion-one-minimal"
+    )
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "Lexer", "LL-Parsing", "Earley-Parser", "Earley-TableParser", "CYK-Parser",
@@ -578,6 +591,20 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(report.passed)
     #expect(report.cases.count <= budget.executableLawMaximumCases)
     #expect(try encoder.encode(report).count <= budget.executableLawReportMaximumBytes)
+}
+
+@Test func counterexampleDiscoveryStaysWithinReleaseBudgets() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let report = try GrammarParserCounterexampleProgramme.run()
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    #expect(report.passed)
+    #expect(report.searches.allSatisfy {
+        $0.result.candidatesConsidered <= budget.counterexampleMaximumCandidates
+            && $0.result.evaluations <= budget.counterexampleMaximumEvaluations
+    })
+    #expect(report.calibration.evaluations <= budget.counterexampleMaximumEvaluations)
+    #expect(try encoder.encode(report).count <= budget.counterexampleReportMaximumBytes)
 }
 
 @Test func researchDistributionContractIsPublishedAndSelfConsistent() throws {

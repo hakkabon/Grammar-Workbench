@@ -25,14 +25,11 @@ public struct GrammarParserLawProgrammeReport: Hashable, Codable, Sendable {
 
 public enum GrammarParserLawProgrammeError: Error, LocalizedError, Sendable {
     case compilationFailed(String)
-    case parseFailed(String, GrammarParseStatus)
     case missingProduction(String)
 
     public var errorDescription: String? {
         switch self {
         case .compilationFailed(let detail): "Executable-law fixture did not compile: \(detail)"
-        case .parseFailed(let fixture, let status):
-            "Executable-law fixture ‘\(fixture)’ produced \(status.rawValue)."
         case .missingProduction(let detail):
             "Executable-law fixture could not map production identity: \(detail)"
         }
@@ -43,32 +40,23 @@ public enum GrammarParserLawProgrammeError: Error, LocalizedError, Sendable {
 /// Grammar owns transformations, Parser owns evaluation, and Workbench only coordinates.
 public enum GrammarParserLawProgramme {
     public static func run() throws -> GrammarParserLawProgrammeReport {
-        let model = try normalizedFixture()
-        let permutation = try GrammarLawTransformer.permuteProductions(
-            model, order: model.productions.map(\.id).reversed(), id: "production-order"
-        )
-        let renaming = try GrammarLawTransformer.alphaRenameNonterminals(
-            model, renames: [.init(from: "S", to: "Root")], id: "alpha-renaming"
-        )
-        let fixtures = [
-            (permutation, baselineSource, permutedSource),
-            (renaming, baselineSource, renamedSource),
-        ]
-        let cases = try fixtures.map { witness, baselineSource, candidateSource in
+        let fixtures = try fixtures()
+        let cases = try fixtures.map { fixture in
             let baseline = try observe(
-                source: baselineSource, model: witness.baseline, input: "a",
+                source: fixture.baselineSource, model: fixture.witness.baseline, input: "a",
                 identity: "workbench-lalr-baseline"
             )
             let candidate = try observe(
-                source: candidateSource, model: witness.candidate, input: "a",
+                source: fixture.candidateSource, model: fixture.witness.candidate, input: "a",
                 identity: "workbench-lalr-candidate"
             )
             let evaluation = try ParseLawVerifier.evaluate(
-                witness: witness, input: "a", tokenCount: 1,
-                baseline: baseline, candidate: candidate
+                witness: fixture.witness, input: "a", tokenCount: baseline.tokenCount,
+                baseline: baseline.contract, candidate: candidate.contract
             )
             return GrammarParserLawCaseResult(
-                id: witness.id, law: witness.law, input: "a", evaluation: evaluation
+                id: fixture.witness.id, law: fixture.witness.law,
+                input: "a", evaluation: evaluation
             )
         }
         return .init(
@@ -81,12 +69,43 @@ public enum GrammarParserLawProgramme {
         )
     }
 
-    private static func observe(
+    struct Fixture {
+        let witness: GrammarLawWitness
+        let baselineSource: String
+        let candidateSource: String
+    }
+
+    struct RuntimeObservation {
+        let contract: ParseContractSnapshot
+        let tokenCount: Int
+    }
+
+    static func fixtures() throws -> [Fixture] {
+        let model = try normalizedFixture()
+        let permutation = try GrammarLawTransformer.permuteProductions(
+            model, order: model.productions.map(\.id).reversed(), id: "production-order"
+        )
+        let renaming = try GrammarLawTransformer.alphaRenameNonterminals(
+            model, renames: [.init(from: "S", to: "Root")], id: "alpha-renaming"
+        )
+        return [
+            .init(
+                witness: permutation, baselineSource: baselineSource,
+                candidateSource: permutedSource
+            ),
+            .init(
+                witness: renaming, baselineSource: baselineSource,
+                candidateSource: renamedSource
+            ),
+        ]
+    }
+
+    static func observe(
         source: String,
         model: GrammarNormalizedModel,
         input: String,
         identity: String
-    ) throws -> ParseContractSnapshot {
+    ) throws -> RuntimeObservation {
         let compilation = GrammarWorkbenchAPI.compile(.init(source: source))
         guard compilation.succeeded, let summary = compilation.grammar else {
             throw GrammarParserLawProgrammeError.compilationFailed(
@@ -94,9 +113,6 @@ public enum GrammarParserLawProgramme {
             )
         }
         let result = compilation.parse(input, options: .init(enablesRecovery: false))
-        guard result.status == .accepted, let tree = result.syntaxTree else {
-            throw GrammarParserLawProgrammeError.parseFailed(identity, result.status)
-        }
         let identities = try Dictionary(uniqueKeysWithValues: summary.productions.map { production in
             let match = model.productions.first {
                 $0.lhs == production.lhs && $0.rhs.map(symbolName) == production.rhs
@@ -113,17 +129,29 @@ public enum GrammarParserLawProgramme {
                 "compiled fixture does not exactly cover its normalized witness"
             )
         }
-        let portableTree = try makeTree(tree, model: model, productionIDs: identities)
+        let portableTree = try result.syntaxTree.map {
+            try makeTree($0, model: model, productionIDs: identities)
+        }
+        let status: Parser.ParseStatus
+        switch result.status {
+        case .accepted: status = .accepted
+        case .acceptedWithRecovery: status = .recovered
+        case .rejected, .conflict, .looping, .invalidGrammar: status = .rejected
+        }
+        let terminal: ParseReplayEventKind = status == .rejected ? .reject : .accept
         return .init(
-            engine: .init(
-                identity: identity, displayName: "Grammar Workbench LALR(1)", algorithm: "lalr"
+            contract: .init(
+                engine: .init(
+                    identity: identity, displayName: "Grammar Workbench LALR(1)", algorithm: "lalr"
+                ),
+                status: status,
+                tree: portableTree,
+                replay: [
+                    .init(step: 0, kind: .start, tokenIndex: 0),
+                    .init(step: 1, kind: terminal, tokenIndex: result.tokens.count),
+                ]
             ),
-            status: .accepted,
-            tree: portableTree,
-            replay: [
-                .init(step: 0, kind: .start, tokenIndex: 0),
-                .init(step: 1, kind: .accept, tokenIndex: result.tokens.count),
-            ]
+            tokenCount: result.tokens.count
         )
     }
 

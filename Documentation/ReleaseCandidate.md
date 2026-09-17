@@ -105,6 +105,12 @@ The release-candidate gate verifies the product from four perspectives:
     nonterminal alpha-renaming through its real LALR runtime, preserve stable
     production identity, produce a passing schema-versioned report, and stay
     within the declared case-count and encoded-size budgets.
+37. Counterexample discovery must enumerate candidates deterministically within
+    explicit bounds, preserve Parser-owned discrepancy signatures during every
+    reduction, distinguish exhausted searches from incomplete searches, and
+    retain both initial and minimized fingerprinted evidence. The calibration
+    fixture must reduce to a deletion-one-minimal trigger, and the complete
+    report must remain within candidate, evaluation, and encoded-size budgets.
 
 Run the normal gate:
 

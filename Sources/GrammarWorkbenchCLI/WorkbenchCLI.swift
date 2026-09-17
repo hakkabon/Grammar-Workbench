@@ -851,6 +851,23 @@ struct GrammarWorkbenchCLI {
                 print(String(decoding: data, as: UTF8.self))
             }
             guard report.passed else { throw CLIError.researchValidationFailed }
+        case "laws-discover":
+            guard arguments.count == 1 || arguments.count == 2 else {
+                throw CLIError.usage("laws-discover accepts at most one OUTPUT path")
+            }
+            let report = try GrammarParserCounterexampleProgramme.run()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            if arguments.count == 2 {
+                try data.write(to: URL(fileURLWithPath: arguments[1]), options: .atomic)
+                let evaluations = report.searches.reduce(0) { $0 + $1.result.evaluations }
+                    + report.calibration.evaluations
+                print("Wrote \(arguments[1]): \(evaluations) bounded evaluations, calibration minimized")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.passed else { throw CLIError.researchValidationFailed }
         case "research-compare":
             guard arguments.count == 3 || arguments.count == 4 else {
                 throw CLIError.usage("research-compare requires BASELINE CANDIDATE [OUTPUT]")
@@ -1093,6 +1110,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench research-package PROGRAMME ECOSYSTEM LICENSE OUTPUT_DIRECTORY
       grammar-workbench research-package-verify DIRECTORY
       grammar-workbench laws-validate [OUTPUT]
+      grammar-workbench laws-discover [OUTPUT]
       grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench research-preview list|STUDY [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]

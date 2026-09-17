@@ -65,6 +65,13 @@ metamorphic comparison, and Workbench coordinates the release-gated programme.
 Run it with `grammar-workbench laws-validate [OUTPUT]`; see
 [Documentation/ExecutableGrammarParserLaws.md](Documentation/ExecutableGrammarParserLaws.md).
 
+Bounded counterexample discovery now searches ordered token candidates for law
+failures and deterministically removes input chunks while Parser revalidates
+the failure signature after every reduction. Reports retain the initial and
+one-minimal fingerprinted discrepancies and make exhausted bounds explicit.
+Run `grammar-workbench laws-discover [OUTPUT]`; see
+[Documentation/CounterexampleDiscoveryAndMinimization.md](Documentation/CounterexampleDiscoveryAndMinimization.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

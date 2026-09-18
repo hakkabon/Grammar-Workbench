@@ -71,6 +71,16 @@ if (recoveryTruth?.schemaVersion !== 1 ||
     recoveryTruth.strictReparse !== true) {
   fail("invalid recovery truthfulness capability");
 }
+const sharedCorpusV5 = manifest.sharedCorpusV5;
+if (sharedCorpusV5?.schemaVersion !== 5 ||
+    sharedCorpusV5.coordinateSystem !== recoveryTruth.coordinateSystem ||
+    JSON.stringify(sharedCorpusV5.repairs) !== JSON.stringify(recoveryTruth.repairs) ||
+    sharedCorpusV5.strictReparse !== true ||
+    sharedCorpusV5.minimumGrammars !== 5 ||
+    sharedCorpusV5.minimumCases !== 49 ||
+    sharedCorpusV5.minimumRecoveryCases !== 5) {
+  fail("invalid shared corpus v5 capability");
+}
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");
 const boundarySchemaPath = join(root, manifest.dependencyBoundaries?.schemaPath ?? "");
@@ -89,7 +99,9 @@ const schema = JSON.parse(readFileSync(schemaPath, "utf8"));
 const corpus = JSON.parse(readFileSync(corpusPath, "utf8"));
 const convergence = JSON.parse(readFileSync(convergencePath, "utf8"));
 if (schema.properties?.schemaVersion?.const !== manifest.corpus.version) fail("corpus schema version differs from manifest");
-if (corpus.schemaVersion !== manifest.corpus.version || !Array.isArray(corpus.grammars) || corpus.grammars.length < 4 || !Array.isArray(corpus.cases) || corpus.cases.length < 45) fail("invalid corpus envelope");
+if (corpus.schemaVersion !== manifest.corpus.version ||
+    !Array.isArray(corpus.grammars) || corpus.grammars.length < sharedCorpusV5.minimumGrammars ||
+    !Array.isArray(corpus.cases) || corpus.cases.length < sharedCorpusV5.minimumCases) fail("invalid corpus envelope");
 
 const expectedEngines = new Set([
   "earley", "earley-sl", "earley-el", "cyk", "rnglr", "ll1",
@@ -143,6 +155,9 @@ for (const grammar of corpus.grammars) {
 
 const caseIDs = new Set();
 const statuses = new Set(["accepted", "acceptedWithRecovery", "rejected", "lexicalError"]);
+const normalizedRecoveryEdits = edits => (edits ?? []).map(edit => edit.kind === "skip"
+  ? {kind: edit.kind, terminals: edit.terminals, fromToken: edit.fromToken}
+  : {kind: edit.kind, terminal: edit.terminal, atToken: edit.atToken});
 for (const testCase of corpus.cases) {
   if (!/^[a-z0-9][a-z0-9-]*$/.test(testCase.id) || caseIDs.has(testCase.id)) fail(`invalid or duplicate case id ${testCase.id}`);
   caseIDs.add(testCase.id);
@@ -157,17 +172,50 @@ for (const testCase of corpus.cases) {
   if (testCase.expectedDiagnostic !== null) {
     const diagnostic = testCase.expectedDiagnostic;
     if (!Number.isInteger(diagnostic.tokenIndex) || diagnostic.tokenIndex < 0 || typeof diagnostic.unexpected !== "string") fail(`invalid diagnostic position for ${testCase.id}`);
-    if (!Array.isArray(diagnostic.expectedTerminals) || diagnostic.expectedTerminals.length === 0 || new Set(diagnostic.expectedTerminals).size !== diagnostic.expectedTerminals.length || diagnostic.expectedTerminals.some(symbol => !grammar.terminals.includes(symbol))) fail(`invalid diagnostic expectation for ${testCase.id}`);
+    if (!Array.isArray(diagnostic.expectedTerminals) || diagnostic.expectedTerminals.length === 0 || new Set(diagnostic.expectedTerminals).size !== diagnostic.expectedTerminals.length || diagnostic.expectedTerminals.some(symbol => symbol !== "$" && !grammar.terminals.includes(symbol))) fail(`invalid diagnostic expectation for ${testCase.id}`);
   } else if (testCase.expectedStatus === "rejected" || testCase.expectedStatus === "acceptedWithRecovery") {
     fail(`missing diagnostic expectation for ${testCase.id}`);
   }
   if (testCase.expectedRecovery !== null) {
     const recovery = testCase.expectedRecovery;
     if (testCase.expectedStatus !== "acceptedWithRecovery" || !["insert", "delete"].includes(recovery.kind) || !grammar.terminals.includes(recovery.terminal) || !Number.isInteger(recovery.tokenIndex) || recovery.tokenIndex < 0) fail(`invalid recovery expectation for ${testCase.id}`);
-  } else if (testCase.expectedStatus === "acceptedWithRecovery") {
-    fail(`missing recovery expectation for ${testCase.id}`);
   }
   if (!Array.isArray(testCase.tags) || testCase.tags.length === 0 || new Set(testCase.tags).size !== testCase.tags.length) fail(`invalid tags for ${testCase.id}`);
+  const isRecovery = testCase.tags.includes("recovery");
+  if (isRecovery !== (testCase.expectedStatus === "acceptedWithRecovery")) fail(`recovery tag and status disagree for ${testCase.id}`);
+  if (isRecovery) {
+    if (!Array.isArray(testCase.expectedRecoveryEdits) || testCase.expectedRecoveryEdits.length === 0) fail(`missing exact recovery edits for ${testCase.id}`);
+    if (typeof testCase.repairedInput !== "string" || !Array.isArray(testCase.repairedTokenKinds)) fail(`missing repaired stream for ${testCase.id}`);
+    let repaired = [...testCase.expectedTokenKinds];
+    let offset = 0;
+    for (const edit of testCase.expectedRecoveryEdits) {
+      if (edit.kind === "insert") {
+        if (!grammar.terminals.includes(edit.terminal) || !Number.isInteger(edit.atToken) || edit.atToken < 0 || edit.atToken > testCase.expectedTokenKinds.length) fail(`invalid insertion for ${testCase.id}`);
+        repaired.splice(edit.atToken + offset, 0, edit.terminal);
+        offset += 1;
+      } else if (edit.kind === "delete") {
+        if (!grammar.terminals.includes(edit.terminal) || !Number.isInteger(edit.atToken) || testCase.expectedTokenKinds[edit.atToken] !== edit.terminal || repaired[edit.atToken + offset] !== edit.terminal) fail(`invalid deletion for ${testCase.id}`);
+        repaired.splice(edit.atToken + offset, 1);
+        offset -= 1;
+      } else if (edit.kind === "skip") {
+        if (!Array.isArray(edit.terminals) || edit.terminals.length === 0 || edit.terminals.some(terminal => !grammar.terminals.includes(terminal)) || !Number.isInteger(edit.fromToken) || edit.fromToken < 0) fail(`invalid skip for ${testCase.id}`);
+        const original = testCase.expectedTokenKinds.slice(edit.fromToken, edit.fromToken + edit.terminals.length);
+        const current = repaired.slice(edit.fromToken + offset, edit.fromToken + offset + edit.terminals.length);
+        if (JSON.stringify(original) !== JSON.stringify(edit.terminals) || JSON.stringify(current) !== JSON.stringify(edit.terminals)) fail(`skip does not name the original stream for ${testCase.id}`);
+        repaired.splice(edit.fromToken + offset, edit.terminals.length);
+        offset -= edit.terminals.length;
+      } else {
+        fail(`unknown recovery edit for ${testCase.id}`);
+      }
+    }
+    if (JSON.stringify(repaired) !== JSON.stringify(testCase.repairedTokenKinds)) fail(`repaired token stream disagrees for ${testCase.id}`);
+    if (testCase.expectedRecovery !== null) {
+      const first = testCase.expectedRecoveryEdits[0];
+      if (first.kind !== testCase.expectedRecovery.kind || first.terminal !== testCase.expectedRecovery.terminal || first.atToken !== testCase.expectedRecovery.tokenIndex) fail(`legacy recovery projection disagrees for ${testCase.id}`);
+    }
+  } else if (testCase.expectedRecoveryEdits !== undefined || testCase.repairedInput !== undefined || testCase.repairedTokenKinds !== undefined) {
+    fail(`non-recovery case carries recovery evidence for ${testCase.id}`);
+  }
   const isComparison = testCase.tags.includes("engine-comparison");
   if (isComparison !== (testCase.expectedReplay !== undefined && testCase.expectedForest !== undefined)) fail(`engine comparison expectations are incomplete for ${testCase.id}`);
   if (isComparison) {
@@ -191,6 +239,10 @@ for (const testCase of corpus.cases) {
 const taggedCases = tag => corpus.cases.filter(testCase => testCase.tags.includes(tag));
 if (taggedCases("engine-comparison").length < 10) fail("corpus has insufficient engine-comparison coverage");
 if (taggedCases("stress").length < 8) fail("corpus has insufficient bounded stress coverage");
+if (taggedCases("recovery").length < 5) fail("corpus has insufficient recovery coverage");
+for (const tag of ["recovery-insert", "recovery-delete", "recovery-skip", "recovery-multiple"]) {
+  if (taggedCases(tag).length === 0) fail(`corpus omits ${tag} coverage`);
+}
 if (!["accepted", "acceptedWithRecovery", "rejected"].every(status => corpus.cases.some(testCase => testCase.expectedStatus === status))) fail("corpus does not cover every supported outcome class");
 if ([...grammarIDs].some(id => !corpus.cases.some(testCase => testCase.grammar === id))) fail("corpus contains an unexercised grammar");
 const comparisonDerivations = new Set(taggedCases("engine-comparison").map(testCase => testCase.expectedForest.generalizedDerivations));
@@ -237,6 +289,20 @@ if (cliIndex >= 0) {
         const expectedKind = testCase.expectedRecovery.kind === "insert" ? "insertedToken" : "deletedToken";
         if (firstDiagnostic?.recovery !== expectedKind || firstDiagnostic?.recoverySymbol !== testCase.expectedRecovery.terminal || firstDiagnostic?.tokenIndex !== testCase.expectedRecovery.tokenIndex) fail(`${testCase.id}: normalized recovery disagrees`);
       }
+      if (testCase.expectedRecoveryEdits !== undefined) {
+        const actualEdits = normalizedRecoveryEdits(parsed.recoveryEdits);
+        const expectedEdits = normalizedRecoveryEdits(testCase.expectedRecoveryEdits);
+        if (JSON.stringify(actualEdits) !== JSON.stringify(expectedEdits)) fail(`${testCase.id}: exact recovery edit script disagrees`);
+        if ((parsed.trace ?? []).filter(frame => frame.action.startsWith("recover:")).length !== expectedEdits.length) fail(`${testCase.id}: recovery trace cardinality disagrees`);
+        const repairedOutput = join(work, `${testCase.id}-repaired.json`);
+        const repairedResult = spawnSync(resolve(cli), ["parse", join(root, grammar.source), testCase.repairedInput, repairedOutput], { encoding: "utf8" });
+        if (repairedResult.status !== 0 || !existsSync(repairedOutput)) fail(`${testCase.id}: repaired stream did not parse`);
+        const repaired = JSON.parse(readFileSync(repairedOutput, "utf8"));
+        if (repaired.status !== "accepted" || (repaired.recoveryEdits?.length ?? 0) !== 0 || (repaired.diagnostics?.length ?? 0) !== 0) fail(`${testCase.id}: repaired stream did not parse strictly`);
+        if (JSON.stringify(repaired.tokens?.map(token => token.kind)) !== JSON.stringify(testCase.repairedTokenKinds)) fail(`${testCase.id}: repaired lexical stream disagrees`);
+      } else if (testCase.expectedStatus === "accepted" && (parsed.recoveryEdits?.length ?? 0) !== 0) {
+        fail(`${testCase.id}: unexpected structured recovery edits`);
+      }
       const shouldSucceed = testCase.expectedStatus === "accepted" || testCase.expectedStatus === "acceptedWithRecovery";
       if (testCase.expectedReplay !== undefined) {
         const events = new Set(["start"]);
@@ -276,6 +342,12 @@ if (lrIndex >= 0) {
       const observed = byID.get(testCase.id);
       if (!observed) fail(`LR adapter omitted ${testCase.id}`);
       if ((observed.root ?? null) !== testCase.expectedRoot && observed.status === testCase.expectedStatus) fail(`${testCase.id}: LR-Parsing tree root disagrees`);
+      if (testCase.expectedRecoveryEdits !== undefined) {
+        if (JSON.stringify(normalizedRecoveryEdits(observed.recoveryEdits)) !== JSON.stringify(normalizedRecoveryEdits(testCase.expectedRecoveryEdits))) fail(`${testCase.id}: LR-Parsing recovery edits disagree`);
+        if (!observed.replay?.events.includes("recover")) fail(`${testCase.id}: LR-Parsing recovery replay omitted recovery`);
+      } else if (!Array.isArray(observed.recoveryEdits) || (testCase.expectedStatus === "accepted" && observed.recoveryEdits.length !== 0)) {
+        fail(`${testCase.id}: LR-Parsing reported unexpected recovery edits`);
+      }
       if (testCase.expectedReplay !== undefined) {
         if (!observed.replay || observed.replay.terminal !== testCase.expectedReplay.terminal) fail(`${testCase.id}: LR-Parsing replay terminal disagrees`);
         if (testCase.expectedReplay.requiredEvents.some(event => !observed.replay.events.includes(event))) fail(`${testCase.id}: LR-Parsing replay milestones disagree`);
@@ -353,17 +425,18 @@ if (grammarREPLIndex >= 0) {
       if (!observed) fail(`Grammar-REPL adapter omitted ${testCase.id}`);
       if (!statuses.has(observed.status)) fail(`${testCase.id}: Grammar-REPL emitted invalid status ${observed.status}`);
       if (!Number.isInteger(observed.diagnostics) || observed.diagnostics < 0) fail(`${testCase.id}: Grammar-REPL emitted an invalid diagnostic count`);
-      if (!Number.isInteger(observed.recoveryEdits) || observed.recoveryEdits < 0) fail(`${testCase.id}: Grammar-REPL emitted an invalid recovery edit count`);
+      if (!Array.isArray(observed.recoveryEdits)) fail(`${testCase.id}: Grammar-REPL omitted structured recovery edits`);
       if (observed.status !== testCase.expectedStatus) {
         fail(`${testCase.id}: expected ${testCase.expectedStatus}, Grammar-REPL reported ${observed.status}`);
       }
       if ((observed.root ?? null) !== testCase.expectedRoot) fail(`${testCase.id}: Grammar-REPL tree root disagrees`);
-      if (observed.status === "accepted" && (observed.diagnostics !== 0 || observed.recoveryEdits !== 0)) {
+      if (observed.status === "accepted" && (observed.diagnostics !== 0 || observed.recoveryEdits.length !== 0)) {
         fail(`${testCase.id}: clean Grammar-REPL acceptance reported diagnostics or recovery edits`);
       }
-      if (observed.status === "acceptedWithRecovery" && (observed.diagnostics === 0 || observed.recoveryEdits === 0)) {
+      if (observed.status === "acceptedWithRecovery" && (observed.diagnostics === 0 || observed.recoveryEdits.length === 0)) {
         fail(`${testCase.id}: Grammar-REPL recovery omitted diagnostics or edits`);
       }
+      if (testCase.expectedRecoveryEdits !== undefined && JSON.stringify(normalizedRecoveryEdits(observed.recoveryEdits)) !== JSON.stringify(normalizedRecoveryEdits(testCase.expectedRecoveryEdits))) fail(`${testCase.id}: Grammar-REPL recovery edit script disagrees`);
       if (testCase.expectedForest !== undefined) {
         if (!Array.isArray(observed.engines) || observed.engines.length !== corpus.engines.length) fail(`${testCase.id}: Grammar-REPL engine comparison is incomplete`);
         const engines = new Map(observed.engines.map(engine => [engine.parser, engine]));

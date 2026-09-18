@@ -50,7 +50,7 @@ The release-candidate gate verifies the product from four perspectives:
     and replay retained operation identifiers without duplicate mutation.
 25. The ecosystem compatibility manifest must pin full revisions for Grammar,
     Parser, LR-Parsing, Compiler, Grammar-REPL, and Grammar-Workbench. The shared
-    version-4 corpus must contain at least 45 cases and four grammars, declare
+    version-5 corpus must contain at least 49 cases and five grammars, declare
     all ten parser engines, satisfy its schema, and the
     packaged Workbench CLI must produce every normalized token sequence, status,
     tree root, first diagnostic, and recovery expectation. The pinned LR adapter
@@ -117,6 +117,11 @@ The release-candidate gate verifies the product from four perspectives:
     syntax nodes; and require every successfully repaired stream to reparse
     cleanly with recovery disabled. Diagnostic-limit failures must remain
     rejected rather than being promoted to recovered results.
+39. Shared corpus v5 must publish an ordered exact repair script for every
+    recovered case in original-token coordinates, cover insert, delete, skip,
+    and multiple-edit behavior, and include both the repaired source and token
+    kinds. Workbench, LR-Parsing, and Grammar-REPL must agree on each edit and
+    clean reparse; Compiler must keep recovery explicitly unsupported.
 
 Run the normal gate:
 

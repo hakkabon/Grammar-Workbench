@@ -1,0 +1,9 @@
+%start Start
+%token BEGIN /begin\b/
+%token OPEN /open\b/
+%token CLOSE /close\b/
+%token JUNK /junk\b/
+%token MORE /more\b/
+%skip /\s+/
+
+Start : BEGIN | OPEN CLOSE ;

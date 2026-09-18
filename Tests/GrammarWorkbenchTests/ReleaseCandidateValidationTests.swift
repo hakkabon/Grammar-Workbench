@@ -186,6 +186,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.executableGrammarAndParserLaws == .stable)
     #expect(GrammarWorkbenchCapabilities.counterexampleDiscoveryAndMinimization == .stable)
     #expect(GrammarWorkbenchCapabilities.recoveryTruthfulness == .stable)
+    #expect(GrammarWorkbenchCapabilities.sharedCorpusV5 == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -194,7 +195,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.15.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.16.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
     #expect(experiments?["schemaVersion"] as? Int == 2)
     #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
@@ -223,6 +224,14 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(recoveryTruth?["parserContractSchemaVersion"] as? Int == 1)
     #expect(recoveryTruth?["coordinateSystem"] as? String == "original-token-stream")
     #expect(recoveryTruth?["repairs"] as? [String] == ["insert", "delete", "skip"])
+    let sharedCorpusV5 = ecosystem?["sharedCorpusV5"] as? [String: Any]
+    #expect(sharedCorpusV5?["schemaVersion"] as? Int == 5)
+    #expect(sharedCorpusV5?["coordinateSystem"] as? String == "original-token-stream")
+    #expect(sharedCorpusV5?["repairs"] as? [String] == ["insert", "delete", "skip"])
+    #expect(sharedCorpusV5?["strictReparse"] as? Bool == true)
+    #expect(sharedCorpusV5?["minimumGrammars"] as? Int == 5)
+    #expect(sharedCorpusV5?["minimumCases"] as? Int == 49)
+    #expect(sharedCorpusV5?["minimumRecoveryCases"] as? Int == 5)
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "Lexer", "LL-Parsing", "Earley-Parser", "Earley-TableParser", "CYK-Parser",
@@ -241,9 +250,9 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)
     ) as? [String: Any]
-    #expect(corpus?["schemaVersion"] as? Int == 4)
-    #expect(((corpus?["grammars"] as? [[String: Any]])?.count ?? 0) >= 4)
-    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 45)
+    #expect(corpus?["schemaVersion"] as? Int == 5)
+    #expect(((corpus?["grammars"] as? [[String: Any]])?.count ?? 0) >= 5)
+    #expect(((corpus?["cases"] as? [[String: Any]])?.count ?? 0) >= 49)
     #expect(((corpus?["engines"] as? [[String: Any]])?.count ?? 0) == 10)
     let corpusCases = corpus?["cases"] as? [[String: Any]] ?? []
     let acceptedDifferences = corpusCases.flatMap { testCase -> [[String: Any]] in
@@ -253,6 +262,17 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(acceptedDifferences.isEmpty)
     #expect(corpusCases.filter { ($0["tags"] as? [String])?.contains("engine-comparison") == true }.count >= 10)
     #expect(corpusCases.filter { ($0["tags"] as? [String])?.contains("stress") == true }.count >= 8)
+    let recoveryCases = corpusCases.filter {
+        ($0["expectedStatus"] as? String) == "acceptedWithRecovery"
+    }
+    #expect(recoveryCases.count >= 5)
+    #expect(recoveryCases.allSatisfy { testCase in
+        guard let edits = testCase["expectedRecoveryEdits"] as? [[String: Any]], !edits.isEmpty,
+              testCase["repairedInput"] is String,
+              testCase["repairedTokenKinds"] is [String]
+        else { return false }
+        return edits.allSatisfy { ["insert", "delete", "skip"].contains($0["kind"] as? String ?? "") }
+    })
     let boundariesURL = packageRoot().appendingPathComponent(policy.dependencyBoundaryPolicy)
     let boundaries = try JSONSerialization.jsonObject(
         with: Data(contentsOf: boundariesURL)

@@ -79,6 +79,14 @@ contract, and a recovery-disabled reparse of the repaired stream. Run
 `grammar-workbench recovery-validate [OUTPUT]`; see
 [Documentation/RecoveryTruthfulness.md](Documentation/RecoveryTruthfulness.md).
 
+Shared corpus v5 makes that recovery evidence portable across the ecosystem.
+Five recovered fixtures publish ordered exact edits, repaired source, and
+repaired token kinds; Workbench, LR-Parsing, and Grammar-REPL must agree while
+Compiler remains explicitly unsupported. The corpus now contains five grammars
+and 49 cases without weakening the version-4 engine, forest, replay, stress, or
+semantic expectations. See
+[Documentation/SharedCorpusV5.md](Documentation/SharedCorpusV5.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

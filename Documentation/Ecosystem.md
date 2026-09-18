@@ -44,6 +44,11 @@ comparison, collapsible packed-forest graph, and portable replay controls make
 recorded evidence inspectable without moving experiment execution or
 verification ownership out of Grammar-REPL.
 
+[Ambiguity-aware semantic convergence](AmbiguityAwareSemanticConvergence.md)
+extends that record with Compiler-owned per-derivation values and diagnostics.
+Grammar-REPL binds the schema-2 report into schema-3 experiment fingerprints,
+while Workbench validates and presents the evidence without evaluating it.
+
 SwiftPM manifests follow compatible release tags, while the compatibility
 manifest pins the exact commit behind each tested release. This keeps routine
 dependency updates semantic and the cross-repository evidence reproducible.

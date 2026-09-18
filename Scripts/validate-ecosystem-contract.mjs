@@ -10,6 +10,13 @@ const root = resolve(fileURLToPath(new URL("..", import.meta.url)));
 const manifestPath = join(root, "Packaging/EcosystemCompatibility.json");
 const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 const fail = message => { throw new Error(message); };
+const versionAtLeast = (actual, minimum) => {
+  const left = actual.split(".").map(Number);
+  const right = minimum.split(".").map(Number);
+  return left.some((value, index) => value > right[index]
+    && left.slice(0, index).every((earlier, earlierIndex) => earlier === right[earlierIndex]))
+    || left.every((value, index) => value === right[index]);
+};
 
 if (manifest.schemaVersion !== 1 || !/^0\.\d+\.\d+$/.test(manifest.contractVersion)) fail("unsupported ecosystem manifest");
 if (!/^\d+\.\d+$/.test(manifest.swiftIntegrationVersion)) fail("invalid Swift integration version");
@@ -38,7 +45,7 @@ for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-
   if (!names.has(required)) fail(`missing repository ${required}`);
 }
 const grammarREPL = manifest.repositories.find(repository => repository.name === "Grammar-REPL");
-if (grammarREPL.version !== experiments.minimumGrammarREPLVersion) fail("Grammar-REPL experiment version differs from repository pin");
+if (!versionAtLeast(grammarREPL.version, experiments.minimumGrammarREPLVersion)) fail("Grammar-REPL repository predates the experiment capability");
 const executableLaws = manifest.executableLaws;
 if (executableLaws?.schemaVersion !== 1 ||
     executableLaws.minimumGrammarVersion !== "0.3.1" ||
@@ -80,6 +87,20 @@ if (sharedCorpusV5?.schemaVersion !== 5 ||
     sharedCorpusV5.minimumCases !== 49 ||
     sharedCorpusV5.minimumRecoveryCases !== 5) {
   fail("invalid shared corpus v5 capability");
+}
+const semanticConvergence = manifest.ambiguityAwareSemanticConvergence;
+if (semanticConvergence?.schemaVersion !== 1 ||
+    semanticConvergence.compilerReportSchemaVersion !== 2 ||
+    semanticConvergence.grammarREPLExperimentSchemaVersion !== 3 ||
+    semanticConvergence.workbenchExplorerSchemaVersion !== 3 ||
+    semanticConvergence.minimumCompilerVersion !== "0.3.0" ||
+    semanticConvergence.minimumGrammarREPLVersion !== "0.8.0" ||
+    semanticConvergence.derivationIdentity !== "syntax-fnv1a64" ||
+    JSON.stringify(semanticConvergence.classifications) !== JSON.stringify([
+      "syntacticallyUnambiguous", "semanticallyEquivalent",
+      "semanticallyDivergent", "unresolved",
+    ]) || semanticConvergence.partialFailuresPreserved !== true) {
+  fail("invalid ambiguity-aware semantic convergence capability");
 }
 
 const boundaryPath = join(root, manifest.dependencyBoundaries?.path ?? "");

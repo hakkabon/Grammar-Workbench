@@ -38,6 +38,6 @@ before the bound was reached. Case count and encoded report size are bounded by
 `Packaging/ReleaseCandidate.json`, and the packaged CLI smoke test runs the same
 programme.
 
-The ecosystem compatibility contract is `0.16.0`. It fixes the report schema,
+The ecosystem compatibility contract is `0.17.0`. It fixes the report schema,
 Parser contract schema, original-stream coordinate convention, supported repair
 kinds, and strict-reparse requirement.

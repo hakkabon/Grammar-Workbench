@@ -2,8 +2,8 @@
 
 Phase 12 turns the durable output of a Grammar-REPL comparison into an
 interactive research surface. The macOS Workbench has a new **Experiments**
-workspace and **Open Experiment** command for schema-1 and schema-2 artifacts
-produced by Grammar-REPL 0.6.0.
+workspace and **Open Experiment** command for schema-1 through schema-3
+artifacts produced by Grammar-REPL.
 
 ## Exploration surfaces
 
@@ -18,7 +18,9 @@ The explorer provides:
 - diagnostic, unsupported-capability, producer, agreement, and fingerprint
   context; and
 - Compiler-owned values, failures, derivation counts, and cross-engine
-  semantic agreement when schema-2 evidence is present.
+  semantic agreement when schema-2 evidence is present; and
+- per-derivation syntax fingerprints, values or diagnostics, and semantic
+  ambiguity classification when schema-3 evidence is present.
 
 `grammar-workbench experiment-inspect EXPERIMENT [OUTPUT]` exposes the same
 validated summary as stable JSON for headless use.
@@ -41,8 +43,9 @@ engines to Workbench's dependency graph.
 ## Real-artifact compatibility
 
 The implementation was exercised against artifacts emitted by Grammar-REPL
-0.5.0 schema-1 and 0.6.0 schema-2 contracts, including accepted generalized
+0.5.0 schema-1, 0.6.0 schema-2, and 0.8.0 schema-3 contracts, including accepted generalized
 forests, Compiler semantic observations, explicit LL(1) unsupported
 capabilities, terminal-only generalized rejection replay, and a rejected LR(0)
-contract with no portable replay. These differences remain visible evidence;
+contract with no portable replay, as well as equivalent, divergent, and
+partially evaluated semantic derivations. These differences remain visible evidence;
 the explorer does not normalize them away.

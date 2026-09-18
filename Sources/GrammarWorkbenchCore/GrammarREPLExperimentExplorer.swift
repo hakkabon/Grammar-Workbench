@@ -1,9 +1,9 @@
 import Foundation
 
-/// Read-only Workbench projection of Grammar-REPL's schema-1 and schema-2 experiments.
+/// Read-only Workbench projection of Grammar-REPL's schema-1 through schema-3 experiments.
 /// Grammar-REPL remains the owner of capture, fingerprint validation, and replay verification.
 public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
-    public static let supportedSchemaVersion = 2
+    public static let supportedSchemaVersion = 3
     public static let supportedFingerprintAlgorithm = "fnv1a64"
     public static let canonicalEngines = [
         "earley", "earley-sl", "earley-el", "cyk", "rnglr",
@@ -154,6 +154,7 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
     public struct SemanticReport: Hashable, Codable, Sendable {
         public let schemaVersion: Int
         public let agreement: SemanticAgreement
+        public let ambiguity: SemanticAmbiguity?
         public let observations: [SemanticObservation]
     }
 
@@ -163,17 +164,27 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
         case inconclusive
     }
 
+    public enum SemanticAmbiguity: String, Hashable, Codable, Sendable {
+        case syntacticallyUnambiguous
+        case semanticallyEquivalent
+        case semanticallyDivergent
+        case unresolved
+    }
+
     public struct SemanticObservation: Hashable, Codable, Sendable, Identifiable {
         public let engine: String
         public let status: SemanticStatus
         public let derivationCount: Int
         public let values: [SemanticValue]
         public let diagnostics: [SemanticDiagnostic]
+        public let ambiguity: SemanticAmbiguity?
+        public let derivations: [SemanticDerivation]?
         public var id: String { engine }
     }
 
     public enum SemanticStatus: String, Hashable, Codable, Sendable {
         case evaluated
+        case partiallyEvaluated
         case parseRejected
         case noSyntaxTree
         case failed
@@ -182,6 +193,14 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
     public struct SemanticDiagnostic: Hashable, Codable, Sendable {
         public let stage: String
         public let message: String
+    }
+
+    public struct SemanticDerivation: Hashable, Codable, Sendable, Identifiable {
+        public let index: Int
+        public let syntaxFingerprint: String
+        public let value: SemanticValue?
+        public let diagnostic: SemanticDiagnostic?
+        public var id: Int { index }
     }
 
     public indirect enum SemanticValue: Hashable, Codable, Sendable {
@@ -313,7 +332,8 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
         }
         for observation in observations { try validate(observation) }
         if let semantics = semanticReport {
-            guard schemaVersion >= 2, semantics.schemaVersion == 1,
+            let expectedSemanticSchema = schemaVersion >= 3 ? 2 : 1
+            guard schemaVersion >= 2, semantics.schemaVersion == expectedSemanticSchema,
                   semantics.observations.map(\.engine) == engines else {
                 throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
             }
@@ -323,6 +343,9 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
                 case .evaluated:
                     valid = observation.derivationCount > 0
                         && !observation.values.isEmpty && observation.diagnostics.isEmpty
+                case .partiallyEvaluated:
+                    valid = semantics.schemaVersion >= 2 && observation.derivationCount > 1
+                        && !observation.values.isEmpty && !observation.diagnostics.isEmpty
                 case .parseRejected, .noSyntaxTree:
                     valid = observation.derivationCount == 0
                         && observation.values.isEmpty && observation.diagnostics.isEmpty
@@ -333,10 +356,17 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
                 guard valid else {
                     throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
                 }
+                if semantics.schemaVersion == 1 {
+                    guard observation.ambiguity == nil, observation.derivations == nil else {
+                        throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+                    }
+                } else {
+                    try validateSemanticDerivations(observation)
+                }
             }
             let evaluated = semantics.observations.filter { $0.status == .evaluated }
             let expectedAgreement: SemanticAgreement
-            if evaluated.count < 2 {
+            if evaluated.count < 2 || semantics.observations.contains(where: { $0.status == .partiallyEvaluated }) {
                 expectedAgreement = .inconclusive
             } else {
                 expectedAgreement = Set(evaluated.map { Set($0.values) }).count == 1
@@ -345,6 +375,57 @@ public struct GrammarREPLExperimentArtifact: Hashable, Codable, Sendable {
             guard semantics.agreement == expectedAgreement else {
                 throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
             }
+            if semantics.schemaVersion == 1 {
+                guard semantics.ambiguity == nil else {
+                    throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+                }
+            } else {
+                let classes = semantics.observations.compactMap(\.ambiguity)
+                let expectedAmbiguity: SemanticAmbiguity
+                if classes.contains(.semanticallyDivergent) { expectedAmbiguity = .semanticallyDivergent }
+                else if classes.contains(.unresolved) { expectedAmbiguity = .unresolved }
+                else if classes.contains(.semanticallyEquivalent) { expectedAmbiguity = .semanticallyEquivalent }
+                else { expectedAmbiguity = classes.isEmpty ? .unresolved : .syntacticallyUnambiguous }
+                guard semantics.ambiguity == expectedAmbiguity else {
+                    throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+                }
+            }
+        }
+    }
+
+    private func validateSemanticDerivations(_ observation: SemanticObservation) throws {
+        guard let ambiguity = observation.ambiguity,
+              let derivations = observation.derivations,
+              derivations.count == observation.derivationCount,
+              derivations.map(\.index) == Array(derivations.indices),
+              derivations.allSatisfy({
+                  $0.syntaxFingerprint.range(of: "^[0-9a-f]{16}$", options: .regularExpression) != nil
+                      && (($0.value == nil) != ($0.diagnostic == nil))
+              }) else {
+            throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+        }
+        let successful = derivations.compactMap(\.value)
+        let failures = derivations.compactMap(\.diagnostic)
+        guard Set(observation.values).count == observation.values.count,
+              Set(successful) == Set(observation.values),
+              failures == observation.diagnostics else {
+            throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+        }
+        if observation.status == .parseRejected || observation.status == .noSyntaxTree {
+            guard derivations.isEmpty, ambiguity == .unresolved else {
+                throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
+            }
+            return
+        }
+        let expectedStatus: SemanticStatus = failures.isEmpty
+            ? .evaluated : (successful.isEmpty ? .failed : .partiallyEvaluated)
+        let expectedAmbiguity: SemanticAmbiguity
+        if derivations.isEmpty || !failures.isEmpty { expectedAmbiguity = .unresolved }
+        else if derivations.count == 1 { expectedAmbiguity = .syntacticallyUnambiguous }
+        else if Set(successful).count == 1 { expectedAmbiguity = .semanticallyEquivalent }
+        else { expectedAmbiguity = .semanticallyDivergent }
+        guard observation.status == expectedStatus, ambiguity == expectedAmbiguity else {
+            throw GrammarREPLExperimentExplorerError.invalidSemanticEvidence
         }
     }
 
@@ -406,6 +487,7 @@ public struct GrammarREPLExperimentSummary: Hashable, Codable, Sendable {
     public let replayEventCount: Int
     public let semanticEvaluatedEngineCount: Int
     public let semanticAgreement: GrammarREPLExperimentArtifact.SemanticAgreement?
+    public let semanticAmbiguity: GrammarREPLExperimentArtifact.SemanticAmbiguity?
 
     init(artifact: GrammarREPLExperimentArtifact) {
         engineCount = artifact.observations.count
@@ -416,9 +498,10 @@ public struct GrammarREPLExperimentSummary: Hashable, Codable, Sendable {
         maximumForestNodeCount = artifact.observations.compactMap { $0.contract.forest?.nodes.count }.max() ?? 0
         replayEventCount = artifact.observations.reduce(0) { $0 + $1.contract.replay.count }
         semanticEvaluatedEngineCount = artifact.semanticReport?.observations.count {
-            $0.status == .evaluated
+            $0.status == .evaluated || $0.status == .partiallyEvaluated
         } ?? 0
         semanticAgreement = artifact.semanticReport?.agreement
+        semanticAmbiguity = artifact.semanticReport?.ambiguity
     }
 }
 
@@ -446,6 +529,8 @@ public struct GrammarREPLExperimentExplorerReport: Hashable, Codable, Sendable {
         public let diagnostics: Int
         public let semanticStatus: GrammarREPLExperimentArtifact.SemanticStatus?
         public let semanticValues: [String]
+        public let semanticAmbiguity: GrammarREPLExperimentArtifact.SemanticAmbiguity?
+        public let semanticDerivations: Int
     }
 
     public init(_ artifact: GrammarREPLExperimentArtifact) {
@@ -468,7 +553,9 @@ public struct GrammarREPLExperimentExplorerReport: Hashable, Codable, Sendable {
                 replayEvents: $0.contract.replay.count,
                 diagnostics: $0.contract.diagnostics.count,
                 semanticStatus: artifact.semanticObservation(for: $0.parser)?.status,
-                semanticValues: artifact.semanticObservation(for: $0.parser)?.values.map(\.displayValue) ?? []
+                semanticValues: artifact.semanticObservation(for: $0.parser)?.values.map(\.displayValue) ?? [],
+                semanticAmbiguity: artifact.semanticObservation(for: $0.parser)?.ambiguity,
+                semanticDerivations: artifact.semanticObservation(for: $0.parser)?.derivations?.count ?? 0
             )
         }
     }

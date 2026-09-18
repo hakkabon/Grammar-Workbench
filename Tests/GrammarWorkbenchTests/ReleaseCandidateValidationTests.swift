@@ -187,6 +187,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.counterexampleDiscoveryAndMinimization == .stable)
     #expect(GrammarWorkbenchCapabilities.recoveryTruthfulness == .stable)
     #expect(GrammarWorkbenchCapabilities.sharedCorpusV5 == .stable)
+    #expect(GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -195,7 +196,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.16.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.17.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
     #expect(experiments?["schemaVersion"] as? Int == 2)
     #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
@@ -232,6 +233,19 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(sharedCorpusV5?["minimumGrammars"] as? Int == 5)
     #expect(sharedCorpusV5?["minimumCases"] as? Int == 49)
     #expect(sharedCorpusV5?["minimumRecoveryCases"] as? Int == 5)
+    let ambiguitySemantics = ecosystem?["ambiguityAwareSemanticConvergence"] as? [String: Any]
+    #expect(ambiguitySemantics?["schemaVersion"] as? Int == 1)
+    #expect(ambiguitySemantics?["compilerReportSchemaVersion"] as? Int == 2)
+    #expect(ambiguitySemantics?["grammarREPLExperimentSchemaVersion"] as? Int == 3)
+    #expect(ambiguitySemantics?["workbenchExplorerSchemaVersion"] as? Int == 3)
+    #expect(ambiguitySemantics?["minimumCompilerVersion"] as? String == "0.3.0")
+    #expect(ambiguitySemantics?["minimumGrammarREPLVersion"] as? String == "0.8.0")
+    #expect(ambiguitySemantics?["derivationIdentity"] as? String == "syntax-fnv1a64")
+    #expect(ambiguitySemantics?["classifications"] as? [String] == [
+        "syntacticallyUnambiguous", "semanticallyEquivalent",
+        "semanticallyDivergent", "unresolved",
+    ])
+    #expect(ambiguitySemantics?["partialFailuresPreserved"] as? Bool == true)
     let repositories = ecosystem?["repositories"] as? [[String: Any]]
     #expect(Set(repositories?.compactMap { $0["name"] as? String } ?? []) == [
         "Grammar", "Parser", "Lexer", "LL-Parsing", "Earley-Parser", "Earley-TableParser", "CYK-Parser",
@@ -242,10 +256,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     } == true)
     let compilerRepository = repositories?.first { $0["name"] as? String == "Compiler" }
     #expect(compilerRepository?["adoption"] as? String == "conformance")
-    #expect(compilerRepository?["version"] as? String == "0.2.0")
+    #expect(compilerRepository?["version"] as? String == "0.2.1")
     let grammarREPLRepository = repositories?.first { $0["name"] as? String == "Grammar-REPL" }
     #expect(grammarREPLRepository?["adoption"] as? String == "conformance")
-    #expect(grammarREPLRepository?["version"] as? String == "0.6.0")
+    #expect(grammarREPLRepository?["version"] as? String == "0.7.0")
     let corpusURL = packageRoot().appendingPathComponent(policy.ecosystemConformanceCorpus)
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)

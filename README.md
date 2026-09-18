@@ -87,6 +87,12 @@ and 49 cases without weakening the version-4 engine, forest, replay, stress, or
 semantic expectations. See
 [Documentation/SharedCorpusV5.md](Documentation/SharedCorpusV5.md).
 
+Ambiguity-aware semantic convergence now preserves the Compiler result for
+every syntax derivation. Equivalent ambiguity, meaningfully different values,
+and partial semantic failures remain distinct in Grammar-REPL schema-3
+experiments and the Workbench explorer. See
+[Documentation/AmbiguityAwareSemanticConvergence.md](Documentation/AmbiguityAwareSemanticConvergence.md).
+
 [![Swift 5.9+](https://img.shields.io/badge/Swift-5.9%2B-orange.svg)](https://swift.org)
 [![Platforms](https://img.shields.io/badge/platforms-macOS%2014-blue.svg)](https://developer.apple.com/swift/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

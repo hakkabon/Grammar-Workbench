@@ -69,6 +69,14 @@ struct GrammarREPLExperimentExplorerView: View {
                     .padding(10).frame(minWidth: 130, alignment: .leading)
                     .background(.background.secondary, in: RoundedRectangle(cornerRadius: 9))
                 }
+                if let ambiguity = summary.semanticAmbiguity {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ambiguity.rawValue).font(.title3.bold())
+                        Text("Semantic ambiguity").font(.caption).foregroundStyle(.secondary)
+                    }
+                    .padding(10).frame(minWidth: 160, alignment: .leading)
+                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 9))
+                }
             }
             Label(
                 "Recorded fingerprint only. Run `grammar-repl-experiment verify` for semantic verification.",
@@ -160,7 +168,7 @@ struct GrammarREPLExperimentExplorerView: View {
         _ observation: GrammarREPLExperimentArtifact.SemanticObservation?
     ) -> some View {
         Text(observation.map {
-            $0.status == .evaluated
+            $0.status == .evaluated || $0.status == .partiallyEvaluated
                 ? $0.values.map(\.displayValue).joined(separator: " | ")
                 : $0.status.rawValue
         } ?? "—")
@@ -177,6 +185,10 @@ struct GrammarREPLExperimentExplorerView: View {
                         observation.status.rawValue,
                         systemImage: observation.status == .evaluated ? "function" : "exclamationmark.triangle"
                     )
+                    if let ambiguity = observation.ambiguity {
+                        Text("Ambiguity: \(ambiguity.rawValue)")
+                            .font(.caption.bold()).foregroundStyle(.secondary)
+                    }
                     if !observation.values.isEmpty {
                         Text(observation.values.map(\.displayValue).joined(separator: "\n"))
                             .font(.body.monospaced()).textSelection(.enabled)
@@ -184,6 +196,21 @@ struct GrammarREPLExperimentExplorerView: View {
                     ForEach(Array(observation.diagnostics.enumerated()), id: \.offset) { _, diagnostic in
                         Text("\(diagnostic.stage): \(diagnostic.message)")
                             .font(.caption.monospaced()).foregroundStyle(.orange)
+                    }
+                    if let derivations = observation.derivations {
+                        Divider()
+                        ForEach(derivations) { derivation in
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("#\(derivation.index + 1)").monospacedDigit()
+                                Text(derivation.syntaxFingerprint).font(.caption.monospaced())
+                                if let value = derivation.value {
+                                    Text(value.displayValue).font(.body.monospaced())
+                                } else if let diagnostic = derivation.diagnostic {
+                                    Text("\(diagnostic.stage): \(diagnostic.message)")
+                                        .font(.caption.monospaced()).foregroundStyle(.orange)
+                                }
+                            }
+                        }
                     }
                     Text("Recorded Compiler result; Workbench does not re-evaluate semantics.")
                         .font(.caption).foregroundStyle(.secondary)

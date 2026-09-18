@@ -122,6 +122,12 @@ The release-candidate gate verifies the product from four perspectives:
     and multiple-edit behavior, and include both the repaired source and token
     kinds. Workbench, LR-Parsing, and Grammar-REPL must agree on each edit and
     clean reparse; Compiler must keep recovery explicitly unsupported.
+40. Ambiguity-aware semantic convergence must retain one stable syntax
+    fingerprint and exactly one value or diagnostic per derivation. Compiler
+    must distinguish unambiguous, equivalent, divergent, and unresolved
+    semantics; partial failures must preserve successful paths. Grammar-REPL
+    must fingerprint schema-2 Compiler evidence in schema-3 experiments, and
+    Workbench must validate and present it without claiming local evaluation.
 
 Run the normal gate:
 

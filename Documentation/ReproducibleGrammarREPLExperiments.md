@@ -41,7 +41,12 @@ per-engine values, failures, derivation counts, and semantic agreement. The
 Workbench presents that evidence without evaluating it; schema-1 syntax-only
 experiments remain readable.
 
-The ecosystem manifest pins Grammar-REPL 0.6.0 and Compiler 0.2.0 and publishes the minimum
+Schema 3 embeds Compiler semantic report schema 2. It binds every parser-owned
+syntax derivation to a stable fingerprint and exactly one Compiler-owned value
+or diagnostic, distinguishes equivalent from divergent semantic ambiguity, and
+retains successful alternatives when another derivation fails.
+
+The ecosystem manifest records the independently released Grammar-REPL and Compiler revisions and publishes the minimum
 schema-2, `fnv1a64`, verifier-product, and explorer-projection compatibility
 facts. Pinned integration builds both the conformance adapter and experiment
 verifier, ensuring the research surface remains independently consumable

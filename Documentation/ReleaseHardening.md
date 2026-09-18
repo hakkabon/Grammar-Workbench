@@ -9,8 +9,8 @@ Actions is an execution host, not the owner of the contract.
 `Scripts/release-artifacts.mjs source` validates:
 
 - the single stable `major.minor.patch` version embedded in the product;
-- an optional release tag, accepting the repository's `1.0.22` convention and
-  the conventional `v1.0.22` spelling;
+- an optional release tag, accepting the repository's `1.0.23` convention and
+  the conventional `v1.0.23` spelling;
 - an optional full release revision against the checked-out `HEAD`;
 - a clean checkout when `--require-clean` is selected;
 - agreement between `Package.swift` and the pinned portability toolchain; and

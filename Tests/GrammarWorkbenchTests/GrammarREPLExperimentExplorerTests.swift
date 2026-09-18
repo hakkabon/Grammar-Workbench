@@ -120,7 +120,7 @@ struct GrammarREPLExperimentExplorerTests {
             try GrammarREPLExperimentArtifact.decode(experimentData(invalidEdge: true))
         }
         #expect(throws: GrammarREPLExperimentExplorerError.self) {
-            try GrammarREPLExperimentArtifact.decode(experimentData(schemaVersion: 3))
+            try GrammarREPLExperimentArtifact.decode(experimentData(schemaVersion: 4))
         }
     }
 
@@ -153,6 +153,58 @@ struct GrammarREPLExperimentExplorerTests {
         #expect(artifact.semanticObservation(for: "earley")?.values.first?.displayValue == "42")
         let report = GrammarREPLExperimentExplorerReport(artifact)
         #expect(report.engines.first?.semanticValues == ["42"])
+    }
+
+    @Test("Schema-three preserves ambiguity-aware derivation semantics")
+    func projectsAmbiguityAwareSemanticEvidence() throws {
+        var root = try #require(
+            JSONSerialization.jsonObject(with: experimentData(schemaVersion: 3)) as? [String: Any]
+        )
+        root["producer"] = ["name": "Grammar-REPL", "version": "0.8.0"]
+        root["semanticMapping"] = ["version": 1, "actions": [:]]
+        func value(_ integer: Int) -> [String: Any] {
+            ["kind": "integer", "integer": integer]
+        }
+        func derivation(_ index: Int, _ fingerprint: String, _ integer: Int) -> [String: Any] {
+            [
+                "index": index,
+                "syntaxFingerprint": fingerprint,
+                "value": value(integer),
+            ]
+        }
+        root["semanticReport"] = [
+            "schemaVersion": 2,
+            "agreement": "divergent",
+            "ambiguity": "semanticallyDivergent",
+            "observations": [
+                [
+                    "engine": "earley", "status": "evaluated", "derivationCount": 2,
+                    "values": [value(3), value(7)], "diagnostics": [],
+                    "ambiguity": "semanticallyDivergent",
+                    "derivations": [
+                        derivation(0, "1111111111111111", 3),
+                        derivation(1, "2222222222222222", 7),
+                    ],
+                ],
+                [
+                    "engine": "cyk", "status": "evaluated", "derivationCount": 1,
+                    "values": [value(3)], "diagnostics": [],
+                    "ambiguity": "syntacticallyUnambiguous",
+                    "derivations": [derivation(0, "3333333333333333", 3)],
+                ],
+            ],
+        ] as [String: Any]
+        let artifact = try GrammarREPLExperimentArtifact.decode(
+            JSONSerialization.data(withJSONObject: root)
+        )
+
+        #expect(artifact.semanticReport?.agreement == .divergent)
+        #expect(artifact.summary.semanticAmbiguity == .semanticallyDivergent)
+        #expect(artifact.semanticObservation(for: "earley")?.derivations?.count == 2)
+        #expect(artifact.semanticObservation(for: "earley")?.values.map(\.displayValue) == ["3", "7"])
+        let report = GrammarREPLExperimentExplorerReport(artifact)
+        #expect(report.engines.first?.semanticAmbiguity == .semanticallyDivergent)
+        #expect(report.engines.first?.semanticDerivations == 2)
     }
 
     @Test("Explorer never presents a recorded fingerprint as verification")

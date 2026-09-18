@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "contractVersion": "0.16.0",
+  "contractVersion": "0.17.0",
   "swiftIntegrationVersion": "6.0",
   "corpus": {
     "path": "Validation/Ecosystem/Corpus.json",
@@ -51,6 +51,22 @@
     "minimumGrammars": 5,
     "minimumCases": 49,
     "minimumRecoveryCases": 5
+  },
+  "ambiguityAwareSemanticConvergence": {
+    "schemaVersion": 1,
+    "compilerReportSchemaVersion": 2,
+    "grammarREPLExperimentSchemaVersion": 3,
+    "workbenchExplorerSchemaVersion": 3,
+    "minimumCompilerVersion": "0.3.0",
+    "minimumGrammarREPLVersion": "0.8.0",
+    "derivationIdentity": "syntax-fnv1a64",
+    "classifications": [
+      "syntacticallyUnambiguous",
+      "semanticallyEquivalent",
+      "semanticallyDivergent",
+      "unresolved"
+    ],
+    "partialFailuresPreserved": true
   },
   "repositories": [
     {
@@ -120,24 +136,24 @@
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "1d2616ccc07268cbc54541b2b92d2a2d05e22bce",
-      "version": "0.2.3",
+      "revision": "76f84447bc23db97abfdf5c57413ed13bc4fed30",
+      "version": "0.2.4",
       "role": "lr-engine",
       "adoption": "conformance"
     },
     {
       "name": "Compiler",
       "repository": "https://github.com/hakkabon/Compiler.git",
-      "revision": "7ab1923ca1ea0ac1238be4732c8c3ddf91d0130f",
-      "version": "0.2.0",
+      "revision": "ddbeb9e8e226cfc67520a677da2e90f615515432",
+      "version": "0.2.1",
       "role": "semantic-owner",
       "adoption": "conformance"
     },
     {
       "name": "Grammar-REPL",
       "repository": "https://github.com/hakkabon/Grammar-REPL.git",
-      "revision": "e3aa9d5423739db2408189f72826d342ba98513d",
-      "version": "0.6.0",
+      "revision": "bc1cd6542dcca097a43183d65e7ed964c8bbed87",
+      "version": "0.7.0",
       "role": "downstream-consumer",
       "swiftVersion": "6.1",
       "adoption": "conformance"
@@ -145,8 +161,8 @@
     {
       "name": "Grammar-Workbench",
       "repository": "https://github.com/hakkabon/Grammar-Workbench.git",
-      "revision": "d928663b65abc2fa89179cef0d35506dcf26535f",
-      "version": "1.0.21",
+      "revision": "0b8a43fad672910adb764185af4a2c8c12cee2da",
+      "version": "1.0.22",
       "role": "integration-coordinator",
       "adoption": "conformance"
     }

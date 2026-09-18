@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/LR-Parsing.git",
       "state" : {
-        "revision" : "1d2616ccc07268cbc54541b2b92d2a2d05e22bce",
-        "version" : "0.2.3"
+        "revision" : "76f84447bc23db97abfdf5c57413ed13bc4fed30",
+        "version" : "0.2.4"
       }
     },
     {

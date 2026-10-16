@@ -36,6 +36,8 @@
   "requiredResearchProgrammes": [
     "Examples/ResearchValidationProgramme.json"
   ],
+  "researchBenchmarkProtocol": "Examples/ResearchBenchmarkProtocol.json",
+  "benchmarkPublicationManifestSchema": "Validation/Research/BenchmarkPublicationManifest.schema.json",
   "requiredSourceProjects": [
     "Examples/SourceProject/.grammar-workbench-source.json"
   ],
@@ -96,6 +98,8 @@
     "selectedResearchMaximumStudies": 3,
     "selectedResearchPreviewMaximumBytes": 100000,
     "researchStudyExplorerMaximumBytes": 300000,
+    "researchBenchmarkMaximumMeasurements": 50,
+    "researchBenchmarkReportMaximumBytes": 500000,
     "editorMinimumViewportWidth": 300,
     "editorMinimumViewportHeight": 240,
     "visualMinimumWorkspaceWidth": 1120,

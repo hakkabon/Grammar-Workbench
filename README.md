@@ -163,6 +163,12 @@ See [Documentation/ResearchQualityDistribution.md](Documentation/ResearchQuality
 
 The Research workspace also offers three selected previews for ambiguity growth, precedence-hidden alternatives, and search reproducibility. Each gives a plain-language conclusion while retaining its complete validation report. Phase 20 can run them as one fingerprinted, archivable study suite and drill back into every case. See [Documentation/ResearchStudyExplorer.md](Documentation/ResearchStudyExplorer.md).
 
+Phase 21 adds a versioned macrobenchmark and self-verifying publication
+protocol around that complete study suite. Raw samples and host metadata remain
+separate from semantic evidence, and timing ratios are withheld across
+incompatible protocols, evidence, or environments. See
+[Documentation/BenchmarkPublicationProtocol.md](Documentation/BenchmarkPublicationProtocol.md).
+
 Graph visualization now uses a shared, portable platform backed by the published [Swift-Layout](https://github.com/hakkabon/Swift-Layout) binary package and its Rust Sugiyama engine. LR automata, syntax trees, shared parse forests, and semantic dependencies share validated graph models, configurable layout, bounded caching, SDK/CLI access, and SVG export. See [Documentation/GraphVisualizationPlatform.md](Documentation/GraphVisualizationPlatform.md).
 
 Graph correctness is continuously checked with deterministic pathological corpora, geometry invariants, minimized regression fixtures, phase-separated timing, and stable Graphviz DOT export. These facilities are available through the library, CLI, and language-tooling SDK.

@@ -232,7 +232,7 @@ public enum GrammarResearchDistribution {
           - family-names: "Akerstedt-Inoue"
             given-names: "Ulf"
         version: "\(GrammarWorkbenchRelease.version)"
-        date-released: "2026-09-13"
+        date-released: "2026-10-16"
         repository-code: "https://github.com/hakkabon/Grammar-Workbench"
         license: MIT
         """ + "\n"
@@ -285,7 +285,7 @@ public enum GrammarResearchDistribution {
     }
 }
 
-private enum ResearchSHA256 {
+enum ResearchSHA256 {
     private static let constants: [UInt32] = [
         0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
         0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,

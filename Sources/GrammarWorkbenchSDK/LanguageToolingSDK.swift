@@ -35,6 +35,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case researchValidate
     case selectedResearchPreview
     case researchStudyExplorer
+    case researchBenchmark
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -86,6 +87,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "ambiguityAwareSemanticConvergence": GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "researchStudyExplorer": GrammarWorkbenchCapabilities.researchStudyExplorer,
+            "benchmarkAndPublicationProtocol": GrammarWorkbenchCapabilities.benchmarkAndPublicationProtocol,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
             "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
@@ -115,7 +117,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
             .graphValidate, .graphMeasure, .graphDOT, .graphGeometry, .parserVisualization,
             .portableGrammarImport, .portableGrammarRender, .portableGrammarAudit, .bootstrapBundle, .researchValidate,
-            .selectedResearchPreview, .researchStudyExplorer
+            .selectedResearchPreview, .researchStudyExplorer, .researchBenchmark
         ],
         transports: ["in-process", "json"],
         features: [
@@ -136,6 +138,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "ambiguityAwareSemanticConvergence": GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
             "researchStudyExplorer": GrammarWorkbenchCapabilities.researchStudyExplorer,
+            "benchmarkAndPublicationProtocol": GrammarWorkbenchCapabilities.benchmarkAndPublicationProtocol,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
@@ -179,6 +182,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
     public var bootstrapOptions: GrammarBootstrapOptions?
     public var researchProgramme: GrammarResearchProgramme?
     public var researchStudyID: String?
+    public var researchBenchmarkProtocol: GrammarResearchBenchmarkProtocol?
     public var sessionID: String?
     public var documentID: String?
     public var revision: Int?
@@ -221,6 +225,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         bootstrapOptions: GrammarBootstrapOptions? = nil,
         researchProgramme: GrammarResearchProgramme? = nil,
         researchStudyID: String? = nil,
+        researchBenchmarkProtocol: GrammarResearchBenchmarkProtocol? = nil,
         sessionID: String? = nil,
         documentID: String? = nil,
         revision: Int? = nil,
@@ -266,6 +271,7 @@ public struct GrammarToolingRequest: Hashable, Codable, Sendable {
         self.bootstrapOptions = bootstrapOptions
         self.researchProgramme = researchProgramme
         self.researchStudyID = researchStudyID
+        self.researchBenchmarkProtocol = researchBenchmarkProtocol
         self.sessionID = sessionID
         self.documentID = documentID
         self.revision = revision
@@ -370,6 +376,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let researchReport: GrammarResearchReport?
     public let selectedResearchPreview: GrammarSelectedResearchPreview?
     public let researchStudyExplorer: GrammarResearchStudyExplorerReport?
+    public let researchBenchmarkReport: GrammarResearchBenchmarkReport?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -409,6 +416,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         researchReport: GrammarResearchReport? = nil,
         selectedResearchPreview: GrammarSelectedResearchPreview? = nil,
         researchStudyExplorer: GrammarResearchStudyExplorerReport? = nil,
+        researchBenchmarkReport: GrammarResearchBenchmarkReport? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil,
@@ -449,6 +457,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.researchReport = researchReport
         self.selectedResearchPreview = selectedResearchPreview
         self.researchStudyExplorer = researchStudyExplorer
+        self.researchBenchmarkReport = researchBenchmarkReport
         self.session = session
         self.document = document
         self.events = events
@@ -649,6 +658,13 @@ public struct GrammarLanguageToolingService: Sendable {
                 return .init(
                     requestID: request.requestID,
                     researchStudyExplorer: try GrammarResearchStudyExplorerEngine.runCatalog()
+                )
+            case .researchBenchmark:
+                return .init(
+                    requestID: request.requestID,
+                    researchBenchmarkReport: try GrammarResearchBenchmarkRunner.run(
+                        request.researchBenchmarkProtocol ?? .publication
+                    )
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
                  .documentOpen, .documentChange, .documentClose,

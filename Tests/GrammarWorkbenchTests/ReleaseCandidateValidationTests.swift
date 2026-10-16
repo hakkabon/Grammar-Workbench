@@ -61,6 +61,8 @@ private struct ReleaseCandidatePolicy: Decodable {
         let selectedResearchMaximumStudies: Int
         let selectedResearchPreviewMaximumBytes: Int
         let researchStudyExplorerMaximumBytes: Int
+        let researchBenchmarkMaximumMeasurements: Int
+        let researchBenchmarkReportMaximumBytes: Int
         let editorMinimumViewportWidth: Double
         let editorMinimumViewportHeight: Double
         let visualMinimumWorkspaceWidth: Double
@@ -117,6 +119,8 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredInteroperabilityFixtures: [String]
     let requiredGraphFixtures: [String]
     let requiredResearchProgrammes: [String]
+    let researchBenchmarkProtocol: String
+    let benchmarkPublicationManifestSchema: String
     let requiredSourceProjects: [String]
     let ecosystemCompatibilityManifest: String
     let ecosystemConformanceCorpus: String
@@ -169,6 +173,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
     #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
     #expect(GrammarWorkbenchCapabilities.researchStudyExplorer == .stable)
+    #expect(GrammarWorkbenchCapabilities.benchmarkAndPublicationProtocol == .stable)
     #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
     #expect(GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement == .stable)
     #expect(GrammarWorkbenchCapabilities.advancedGraphGeometry == .stable)
@@ -308,8 +313,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     ) as? [String: Any]
     #expect(corePlan?["schemaVersion"] as? Int == 2)
     let classifications = corePlan?["classifications"] as? [String: Any]
-    #expect((classifications?["core"] as? [String])?.count == 58)
-    #expect((classifications?["native"] as? [String])?.count == 13)
+    #expect((classifications?["core"] as? [String])?.count == 64)
+    #expect((classifications?["native"] as? [String])?.count == 14)
     #expect((classifications?["mixed"] as? [String])?.isEmpty == true)
     let coreBaselineURL = packageRoot().appendingPathComponent(policy.coreSeparationBaseline)
     let coreBaseline = try JSONSerialization.jsonObject(
@@ -318,7 +323,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(coreBaseline?["schemaVersion"] as? Int == 2)
     #expect((coreBaseline?["state"] as? [String: Any])?["physicallySeparated"] as? Bool == true)
     #expect((coreBaseline?["state"] as? [String: Any])?["coreDependsOnFacade"] as? Bool == false)
-    #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 71)
+    #expect((coreBaseline?["totals"] as? [String: Any])?["files"] as? Int == 78)
     #expect(policy.releaseArtifactManifestVersion == 1)
     let releaseManifestSchema = try JSONSerialization.jsonObject(
         with: Data(contentsOf: packageRoot().appendingPathComponent(policy.releaseArtifactManifestSchema))
@@ -711,6 +716,32 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(report.passed)
     #expect(report.reproducible)
     #expect(try GrammarResearchStudyExplorerCodec.encode(report).count <= budget.researchStudyExplorerMaximumBytes)
+}
+
+@Test func benchmarkProtocolIsPublishedAndWithinReleaseBudgets() throws {
+    let policy = try releaseCandidatePolicy()
+    let protocolData = try Data(contentsOf: packageRoot().appendingPathComponent(
+        policy.researchBenchmarkProtocol
+    ))
+    let protocolValue = try GrammarResearchBenchmarkCodec.decodeProtocol(protocolData)
+    #expect(protocolValue.measurementIterations <= policy.budgets.researchBenchmarkMaximumMeasurements)
+    #expect(protocolValue.studyIDs == GrammarSelectedResearchCatalog.studies.map(\.id))
+
+    let lightweight = GrammarResearchBenchmarkProtocol(
+        id: protocolValue.id, title: protocolValue.title, rationale: protocolValue.rationale,
+        buildConfiguration: protocolValue.buildConfiguration, warmupIterations: 0,
+        measurementIterations: 3, studyIDs: protocolValue.studyIDs
+    )
+    let report = try GrammarResearchBenchmarkRunner.run(lightweight)
+    #expect(report.passed)
+    #expect(try GrammarResearchBenchmarkCodec.encode(report).count
+        <= policy.budgets.researchBenchmarkReportMaximumBytes)
+    #expect(GrammarWorkbenchCapabilities.benchmarkAndPublicationProtocol == .stable)
+    let schema = try JSONSerialization.jsonObject(with: Data(contentsOf:
+        packageRoot().appendingPathComponent(policy.benchmarkPublicationManifestSchema)
+    )) as? [String: Any]
+    #expect(schema?["$id"] as? String
+        == "https://grammar-workbench.dev/schemas/benchmark-publication-v1.json")
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

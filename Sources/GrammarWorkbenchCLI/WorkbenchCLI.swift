@@ -836,6 +836,55 @@ struct GrammarWorkbenchCLI {
             }
             let manifest = try verifyResearchDistribution(at: arguments[1])
             print("Verified \(arguments[1]): \(manifest.programmeID), evidence \(manifest.evidenceFingerprint)")
+        case "research-benchmark":
+            guard arguments.count == 2 || arguments.count == 3 else {
+                throw CLIError.usage("research-benchmark requires PROTOCOL [OUTPUT]")
+            }
+            let protocolValue = try GrammarResearchBenchmarkCodec.decodeProtocol(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let report = try GrammarResearchBenchmarkRunner.run(protocolValue)
+            let data = try GrammarResearchBenchmarkCodec.encode(report)
+            if arguments.count == 3 {
+                try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
+                print("Wrote \(arguments[2]): \(report.results.count) studies, measurement \(report.measurementFingerprint)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.passed else { throw CLIError.researchValidationFailed }
+        case "research-benchmark-compare":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("research-benchmark-compare requires BASELINE CANDIDATE")
+            }
+            let baseline = try GrammarResearchBenchmarkCodec.decodeReport(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let candidate = try GrammarResearchBenchmarkCodec.decodeReport(
+                Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let comparison = GrammarResearchBenchmarkRunner.compare(
+                baseline: baseline, candidate: candidate
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            print(String(decoding: try encoder.encode(comparison), as: UTF8.self))
+        case "research-benchmark-package":
+            guard arguments.count == 5 else {
+                throw CLIError.usage("research-benchmark-package requires PROTOCOL ECOSYSTEM LICENSE OUTPUT_DIRECTORY")
+            }
+            let bundle = try GrammarResearchBenchmarkPublication.create(
+                protocolData: Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+                ecosystemData: Data(contentsOf: URL(fileURLWithPath: arguments[2])),
+                licenseData: Data(contentsOf: URL(fileURLWithPath: arguments[3]))
+            )
+            try writeBenchmarkPublication(bundle, to: arguments[4])
+            print("Wrote \(arguments[4]): benchmark publication \(bundle.manifest.measurementFingerprint)")
+        case "research-benchmark-package-verify":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("research-benchmark-package-verify requires DIRECTORY")
+            }
+            let manifest = try verifyBenchmarkPublication(at: arguments[1])
+            print("Verified \(manifest.title): measurement \(manifest.measurementFingerprint), \(manifest.files.count) files")
         case "laws-validate":
             guard arguments.count == 1 || arguments.count == 2 else {
                 throw CLIError.usage("laws-validate accepts at most one OUTPUT path")
@@ -1076,6 +1125,57 @@ struct GrammarWorkbenchCLI {
         return try GrammarResearchDistribution.verify(manifestData: manifestData, files: files)
     }
 
+    private static func writeBenchmarkPublication(
+        _ bundle: GrammarResearchBenchmarkPublicationBundle,
+        to path: String
+    ) throws {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        if manager.fileExists(atPath: directory.path) {
+            guard try manager.contentsOfDirectory(atPath: directory.path).isEmpty else {
+                throw CLIError.usage("benchmark publication output directory must be empty")
+            }
+        } else {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        for name in bundle.files.keys.sorted() {
+            try bundle.files[name]!.write(
+                to: directory.appendingPathComponent(name), options: .atomic
+            )
+        }
+        try bundle.manifestData().write(
+            to: directory.appendingPathComponent(
+                GrammarResearchBenchmarkPublicationManifest.manifestFilename
+            ), options: .atomic
+        )
+    }
+
+    private static func verifyBenchmarkPublication(
+        at path: String
+    ) throws -> GrammarResearchBenchmarkPublicationManifest {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        let manifestName = GrammarResearchBenchmarkPublicationManifest.manifestFilename
+        let manifestData = try Data(contentsOf: directory.appendingPathComponent(manifestName))
+        let names = try manager.contentsOfDirectory(atPath: directory.path)
+            .filter { $0 != manifestName }
+        var files: [String: Data] = [:]
+        for name in names {
+            guard !name.contains("/"), !name.contains("..") else {
+                throw CLIError.usage("benchmark publication contains an unsafe path")
+            }
+            let url = directory.appendingPathComponent(name)
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw CLIError.usage("benchmark publication entries must be regular files")
+            }
+            files[name] = try Data(contentsOf: url)
+        }
+        return try GrammarResearchBenchmarkPublication.verify(
+            manifestData: manifestData, files: files
+        )
+    }
+
     private static func write(_ files: [GrammarGeneratedFile], to path: String) throws {
         let destination = URL(fileURLWithPath: path)
         if files.count == 1 {
@@ -1139,6 +1239,10 @@ struct GrammarWorkbenchCLI {
       grammar-workbench research-validate PROGRAMME [OUTPUT]
       grammar-workbench research-package PROGRAMME ECOSYSTEM LICENSE OUTPUT_DIRECTORY
       grammar-workbench research-package-verify DIRECTORY
+      grammar-workbench research-benchmark PROTOCOL [OUTPUT]
+      grammar-workbench research-benchmark-compare BASELINE CANDIDATE
+      grammar-workbench research-benchmark-package PROTOCOL ECOSYSTEM LICENSE OUTPUT_DIRECTORY
+      grammar-workbench research-benchmark-package-verify DIRECTORY
       grammar-workbench laws-validate [OUTPUT]
       grammar-workbench laws-discover [OUTPUT]
       grammar-workbench recovery-validate [OUTPUT]

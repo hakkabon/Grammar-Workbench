@@ -130,6 +130,13 @@ The release-candidate gate verifies the product from four perspectives:
     semantics; partial failures must preserve successful paths. Grammar-REPL
     must fingerprint schema-2 Compiler evidence in schema-3 experiments, and
     Workbench must validate and present it without claiming local evaluation.
+41. Benchmark publications must execute a versioned selected-study protocol,
+    retain raw samples and host metadata, and preserve the complete passing
+    study report beneath every measurement. Comparisons may expose descriptive
+    timing ratios only for identical protocol, semantic evidence, and
+    environment identities. The
+    publication must bind protocol, semantic evidence, measurements, ecosystem
+    pins, citation, license, and every payload digest in a verified manifest.
 
 Run the normal gate:
 

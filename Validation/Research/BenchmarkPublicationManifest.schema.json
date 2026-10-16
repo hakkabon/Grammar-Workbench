@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grammar-workbench.dev/schemas/benchmark-publication-v1.json",
+  "title": "Grammar Workbench benchmark publication manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "kind", "title", "softwareVersion", "publicAPIVersion",
+    "protocolID", "protocolFingerprint", "studyEvidenceFingerprint",
+    "measurementFingerprint", "ecosystemContractVersion", "digestAlgorithm",
+    "license", "files"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "grammar-workbench-benchmark-publication" },
+    "title": { "type": "string", "minLength": 1 },
+    "softwareVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "publicAPIVersion": { "type": "integer", "minimum": 1 },
+    "protocolID": { "type": "string", "minLength": 1 },
+    "protocolFingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "studyEvidenceFingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "measurementFingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "ecosystemContractVersion": { "type": "string", "minLength": 1 },
+    "digestAlgorithm": { "const": "sha256" },
+    "license": { "const": "MIT" },
+    "files": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "mediaType", "bytes", "sha256"],
+        "properties": {
+          "path": {
+            "enum": ["CITATION.cff", "LICENSE.txt", "README.md", "benchmark-protocol.json", "benchmark-report.json", "ecosystem.json"]
+          },
+          "mediaType": { "type": "string", "minLength": 1 },
+          "bytes": { "type": "integer", "minimum": 1 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "planVersion": "2.0.0",
-  "planSHA256": "eda79d815ec496a91404381d0680e73dbf7dea352d7eabb960d5c997503c0e4e",
+  "planVersion": "2.1.0",
+  "planSHA256": "39bbcf4d3279760148d1ff4c2c49f14ae90ea9d4232a923c8304026e9fc25ae3",
   "state": {
     "coreTarget": "GrammarWorkbenchCore",
     "facadeTarget": "GrammarWorkbench",
@@ -11,32 +11,32 @@
     "physicallySeparated": true
   },
   "totals": {
-    "files": 71,
-    "bytes": 1011195,
-    "lines": 21967,
-    "nonblankLines": 20312,
-    "publicDeclarations": 2387,
+    "files": 78,
+    "bytes": 1167825,
+    "lines": 25398,
+    "nonblankLines": 23497,
+    "publicDeclarations": 2811,
     "packageDeclarations": 185
   },
   "categories": {
     "core": {
-      "files": 58,
-      "bytes": 782359,
-      "lines": 17202,
-      "nonblankLines": 15854,
-      "publicDeclarations": 2359,
+      "files": 64,
+      "bytes": 913386,
+      "lines": 20114,
+      "nonblankLines": 18548,
+      "publicDeclarations": 2783,
       "packageDeclarations": 185
     },
     "native": {
-      "files": 13,
-      "bytes": 228836,
-      "lines": 4765,
-      "nonblankLines": 4458,
+      "files": 14,
+      "bytes": 254439,
+      "lines": 5284,
+      "nonblankLines": 4949,
       "publicDeclarations": 28,
       "packageDeclarations": 0
     }
   },
-  "corePercent": 78.31,
+  "corePercent": 79.2,
   "extractionQueue": [],
   "nativeFrameworkImports": [
     "AppKit",
@@ -49,5 +49,5 @@
     "files": 2,
     "bytes": 6708
   },
-  "sourceMetricsSHA256": "48e62b1e19c9c849ef906c12b59e93ad2df3e072550257e75bff62b52d6cb2b9"
+  "sourceMetricsSHA256": "c751473729049438909eaeb1a2594858a4910c2dae087d36bcc9d71160716510"
 }

@@ -1,0 +1,15 @@
+{
+  "buildConfiguration" : "release",
+  "id" : "org.grammar-workbench.selected-studies.v1",
+  "kind" : "grammar-workbench-benchmark-protocol",
+  "measurementIterations" : 5,
+  "rationale" : "Measure complete, correctness-checked research studies under a declared host and build configuration.",
+  "schemaVersion" : 1,
+  "studyIDs" : [
+    "ambiguity-growth",
+    "precedence-hidden-ambiguity",
+    "search-reproducibility"
+  ],
+  "title" : "Grammar Workbench selected-study macrobenchmark",
+  "warmupIterations" : 1
+}

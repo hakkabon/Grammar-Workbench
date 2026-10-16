@@ -86,6 +86,9 @@ Research programmes package falsifiable parser hypotheses and bounded corpora fo
 
 Selected research previews reuse those programmes to provide guided conclusions in the native Workbench, CLI, and SDK without weakening or duplicating the underlying evidence.
 The Phase 20 research-study explorer aggregates the complete preview catalog into one validated artifact, while retaining each nested programme report for case-level inspection.
+Phase 21 benchmarks that artifact as a Workbench-owned macrobenchmark. Grammar
+and Parser remain the sources of semantic truth; Workbench owns only protocol
+orchestration, environment-qualified measurement, and publication packaging.
 
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 

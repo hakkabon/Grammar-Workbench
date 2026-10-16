@@ -16,6 +16,9 @@ Research hosts can negotiate `researchValidate` and submit a complete `GrammarRe
 
 Educational and guided hosts can negotiate `selectedResearchPreview` with one of the stable catalog identifiers. The response includes the plain-language observations and the complete research report rather than a simplified result with discarded evidence.
 Hosts that need an archivable study rather than one guided question can negotiate `researchStudyExplorer`; the response contains the complete catalog, nested evidence, reproducibility summary, and aggregate fingerprint.
+Hosts can negotiate `researchBenchmark` to run a supplied versioned benchmark
+protocol and receive raw study durations, environment identity, nested
+correctness evidence, and separate measurement and evidence fingerprints.
 
 ## Swift integration
 

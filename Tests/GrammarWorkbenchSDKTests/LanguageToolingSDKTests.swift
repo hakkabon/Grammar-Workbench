@@ -572,3 +572,19 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.researchStudyExplorer?.reproducible == true)
     #expect(response.researchStudyExplorer?.studies.count == 3)
 }
+
+@Test func toolingRunsTheResearchBenchmarkProtocol() async {
+    let protocolValue = GrammarResearchBenchmarkProtocol(
+        id: "sdk-benchmark", title: "SDK benchmark",
+        rationale: "Validate transport of raw measurements.",
+        buildConfiguration: "release", warmupIterations: 0,
+        measurementIterations: 3, studyIDs: ["precedence-hidden-ambiguity"]
+    )
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "research-benchmark", operation: .researchBenchmark,
+        researchBenchmarkProtocol: protocolValue
+    ))
+    #expect(response.status == .success)
+    #expect(response.researchBenchmarkReport?.passed == true)
+    #expect(response.researchBenchmarkReport?.results.first?.durationsNanoseconds.count == 3)
+}

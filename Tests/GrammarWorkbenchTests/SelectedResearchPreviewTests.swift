@@ -46,6 +46,35 @@ func selectedResearchStudiesProducePlainLanguagePassingPreviews(
     }
 }
 
+@Test func researchStudyExplorerRunsAndRoundTripsTheCompleteCatalog() throws {
+    let report = try GrammarResearchStudyExplorerEngine.runCatalog()
+    #expect(report.passed)
+    #expect(report.reproducible)
+    #expect(report.studies.map(\.studyID) == GrammarSelectedResearchCatalog.studies.map(\.id))
+    #expect(report.supportedStudies == report.studies.count)
+    #expect(report.totalCases == report.studies.reduce(0) { $0 + $1.report.cases.count })
+    #expect(report.representedDerivations > 0)
+
+    let decoded = try GrammarResearchStudyExplorerCodec.decode(
+        GrammarResearchStudyExplorerCodec.encode(report)
+    )
+    #expect(decoded == report)
+    #expect(decoded.evidenceFingerprint == report.evidenceFingerprint)
+}
+
+@Test func researchStudyExplorerRejectsTamperedAggregateEvidence() throws {
+    let data = try GrammarResearchStudyExplorerCodec.encode(
+        GrammarResearchStudyExplorerEngine.runCatalog()
+    )
+    var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    object["evidenceFingerprint"] = "0000000000000000"
+    let tampered = try JSONSerialization.data(withJSONObject: object)
+
+    #expect(throws: GrammarResearchStudyExplorerError.self) {
+        try GrammarResearchStudyExplorerCodec.decode(tampered)
+    }
+}
+
 #if os(macOS)
 @MainActor
 @Test func explorerStoreRunsAndResetsSelectedResearchPreviews() async throws {
@@ -62,5 +91,12 @@ func selectedResearchStudiesProducePlainLanguagePassingPreviews(
     store.selectResearchStudy("search-reproducibility")
     #expect(store.selectedResearchPreview == nil)
     #expect(store.selectedResearchError == nil)
+
+    store.runResearchStudyExplorer()
+    for _ in 0..<200 where store.isRunningSelectedResearch {
+        try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(store.researchStudyReport?.passed == true)
+    #expect(store.selectedResearchPreview?.studyID == "search-reproducibility")
 }
 #endif

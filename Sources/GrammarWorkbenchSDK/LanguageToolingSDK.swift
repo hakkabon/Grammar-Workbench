@@ -34,6 +34,7 @@ public enum GrammarToolingOperation: String, CaseIterable, Codable, Sendable {
     case bootstrapBundle
     case researchValidate
     case selectedResearchPreview
+    case researchStudyExplorer
     case sessionOpen
     case sessionClose
     case sessionStatus
@@ -84,6 +85,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "sharedCorpusV5": GrammarWorkbenchCapabilities.sharedCorpusV5,
             "ambiguityAwareSemanticConvergence": GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
+            "researchStudyExplorer": GrammarWorkbenchCapabilities.researchStudyExplorer,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
             "advancedGraphGeometry": GrammarWorkbenchCapabilities.advancedGraphGeometry,
@@ -113,7 +115,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             .semanticWorkspace, .languageKitValidate, .languageKitAnalyze, .graphLayout,
             .graphValidate, .graphMeasure, .graphDOT, .graphGeometry, .parserVisualization,
             .portableGrammarImport, .portableGrammarRender, .portableGrammarAudit, .bootstrapBundle, .researchValidate,
-            .selectedResearchPreview
+            .selectedResearchPreview, .researchStudyExplorer
         ],
         transports: ["in-process", "json"],
         features: [
@@ -133,6 +135,7 @@ public struct GrammarToolingCapabilities: Hashable, Codable, Sendable {
             "sharedCorpusV5": GrammarWorkbenchCapabilities.sharedCorpusV5,
             "ambiguityAwareSemanticConvergence": GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence,
             "selectedResearchPreview": GrammarWorkbenchCapabilities.selectedResearchPreview,
+            "researchStudyExplorer": GrammarWorkbenchCapabilities.researchStudyExplorer,
             "sourceProjectsAndExternalEditorWorkflow": GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow,
             "languageToolingSDKAndPortability": GrammarWorkbenchCapabilities.languageToolingSDKAndPortability,
             "graphCorrectnessAndMeasurement": GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement,
@@ -366,6 +369,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
     public let bootstrapBundle: GrammarBootstrapInterchangeBundle?
     public let researchReport: GrammarResearchReport?
     public let selectedResearchPreview: GrammarSelectedResearchPreview?
+    public let researchStudyExplorer: GrammarResearchStudyExplorerReport?
     public let session: GrammarToolingSessionSnapshot?
     public let document: GrammarIncrementalAnalysisSnapshot?
     public let events: [GrammarToolingEvent]?
@@ -404,6 +408,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         bootstrapBundle: GrammarBootstrapInterchangeBundle? = nil,
         researchReport: GrammarResearchReport? = nil,
         selectedResearchPreview: GrammarSelectedResearchPreview? = nil,
+        researchStudyExplorer: GrammarResearchStudyExplorerReport? = nil,
         session: GrammarToolingSessionSnapshot? = nil,
         document: GrammarIncrementalAnalysisSnapshot? = nil,
         events: [GrammarToolingEvent]? = nil,
@@ -443,6 +448,7 @@ public struct GrammarToolingResponse: Hashable, Codable, Sendable {
         self.bootstrapBundle = bootstrapBundle
         self.researchReport = researchReport
         self.selectedResearchPreview = selectedResearchPreview
+        self.researchStudyExplorer = researchStudyExplorer
         self.session = session
         self.document = document
         self.events = events
@@ -638,6 +644,11 @@ public struct GrammarLanguageToolingService: Sendable {
                 return .init(
                     requestID: request.requestID,
                     selectedResearchPreview: try GrammarSelectedResearchPreviewEngine.run(studyID: id)
+                )
+            case .researchStudyExplorer:
+                return .init(
+                    requestID: request.requestID,
+                    researchStudyExplorer: try GrammarResearchStudyExplorerEngine.runCatalog()
                 )
             case .sessionOpen, .sessionClose, .sessionStatus, .sessionReplaceGrammar,
                  .documentOpen, .documentChange, .documentClose,

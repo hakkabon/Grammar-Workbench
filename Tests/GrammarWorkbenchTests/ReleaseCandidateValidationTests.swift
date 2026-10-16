@@ -60,6 +60,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let recoveryTruthReportMaximumBytes: Int
         let selectedResearchMaximumStudies: Int
         let selectedResearchPreviewMaximumBytes: Int
+        let researchStudyExplorerMaximumBytes: Int
         let editorMinimumViewportWidth: Double
         let editorMinimumViewportHeight: Double
         let visualMinimumWorkspaceWidth: Double
@@ -167,6 +168,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.bootstrapAndInterchangeExpansion == .stable)
     #expect(GrammarWorkbenchCapabilities.researchValidationProgramme == .stable)
     #expect(GrammarWorkbenchCapabilities.selectedResearchPreview == .stable)
+    #expect(GrammarWorkbenchCapabilities.researchStudyExplorer == .stable)
     #expect(GrammarWorkbenchCapabilities.sourceProjectsAndExternalEditorWorkflow == .stable)
     #expect(GrammarWorkbenchCapabilities.graphCorrectnessAndMeasurement == .stable)
     #expect(GrammarWorkbenchCapabilities.advancedGraphGeometry == .stable)
@@ -701,6 +703,14 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         #expect(preview.passed)
         #expect(try encoder.encode(preview).count <= budget.selectedResearchPreviewMaximumBytes)
     }
+}
+
+@Test func researchStudyExplorerStaysWithinReleaseBudget() throws {
+    let budget = try releaseCandidatePolicy().budgets
+    let report = try GrammarResearchStudyExplorerEngine.runCatalog()
+    #expect(report.passed)
+    #expect(report.reproducible)
+    #expect(try GrammarResearchStudyExplorerCodec.encode(report).count <= budget.researchStudyExplorerMaximumBytes)
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

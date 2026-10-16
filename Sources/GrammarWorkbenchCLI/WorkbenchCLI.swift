@@ -933,6 +933,21 @@ struct GrammarWorkbenchCLI {
                 print(String(decoding: data, as: UTF8.self))
             }
             guard preview.passed else { throw CLIError.researchValidationFailed }
+        case "research-study":
+            guard arguments.count == 1 || arguments.count == 2 else {
+                throw CLIError.usage("research-study accepts at most one OUTPUT path")
+            }
+            let report = try GrammarResearchStudyExplorerEngine.runCatalog()
+            let data = try GrammarResearchStudyExplorerCodec.encode(report)
+            if arguments.count == 2 {
+                try data.write(to: URL(fileURLWithPath: arguments[1]), options: .atomic)
+                print("Wrote \(arguments[1]): \(report.supportedStudies)/\(report.studies.count) studies supported, evidence \(report.evidenceFingerprint)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+            guard report.passed, report.reproducible else {
+                throw CLIError.researchValidationFailed
+            }
         case "generalized-parse", "research-parse":
             guard arguments.count >= 3 else {
                 throw CLIError.usage("\(command) requires GRAMMAR INPUT [OUTPUT] [OPTIONS]")
@@ -1129,6 +1144,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench recovery-validate [OUTPUT]
       grammar-workbench research-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench research-preview list|STUDY [OUTPUT]
+      grammar-workbench research-study [OUTPUT]
       grammar-workbench generalized-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]
       grammar-workbench research-parse GRAMMAR INPUT [OUTPUT] [OPTIONS]  (compatibility alias)
       grammar-workbench --version

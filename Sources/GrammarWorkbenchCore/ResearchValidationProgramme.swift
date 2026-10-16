@@ -449,7 +449,7 @@ public enum GrammarResearchValidator {
     }
 }
 
-private enum ResearchFingerprint {
+enum ResearchFingerprint {
     static func make(_ data: Data) -> String {
         var hash: UInt64 = 14_695_981_039_346_656_037
         for byte in data { hash = (hash ^ UInt64(byte)) &* 1_099_511_628_211 }

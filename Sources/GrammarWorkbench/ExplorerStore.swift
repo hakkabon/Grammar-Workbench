@@ -29,6 +29,7 @@ final class ExplorerStore {
     private(set) var isRunningBootstrap = false
     var selectedResearchStudyID = GrammarSelectedResearchCatalog.studies[0].id
     private(set) var selectedResearchPreview: GrammarSelectedResearchPreview?
+    private(set) var researchStudyReport: GrammarResearchStudyExplorerReport?
     private(set) var selectedResearchError: String?
     private(set) var isRunningSelectedResearch = false
     private(set) var experimentArtifact: GrammarREPLExperimentArtifact?
@@ -296,13 +297,36 @@ final class ExplorerStore {
         }
     }
 
+    func runResearchStudyExplorer() {
+        guard !isRunningSelectedResearch else { return }
+        selectedResearchTask?.cancel()
+        selectedResearchError = nil
+        isRunningSelectedResearch = true
+        selectedResearchTask = Task { [weak self] in
+            let result = await Task.detached {
+                Result { try GrammarResearchStudyExplorerEngine.runCatalog() }
+            }.value
+            guard !Task.isCancelled, let self else { return }
+            switch result {
+            case .success(let report):
+                self.researchStudyReport = report
+                self.selectedResearchPreview = report.studies.first {
+                    $0.studyID == self.selectedResearchStudyID
+                }
+            case .failure(let error): self.selectedResearchError = error.localizedDescription
+            }
+            self.isRunningSelectedResearch = false
+            self.selectedResearchTask = nil
+        }
+    }
+
     func selectResearchStudy(_ id: String) {
         guard GrammarSelectedResearchCatalog.study(id: id) != nil else { return }
         selectedResearchTask?.cancel()
         selectedResearchTask = nil
         isRunningSelectedResearch = false
         selectedResearchStudyID = id
-        selectedResearchPreview = nil
+        selectedResearchPreview = researchStudyReport?.studies.first { $0.studyID == id }
         selectedResearchError = nil
     }
 

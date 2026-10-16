@@ -562,3 +562,13 @@ private struct StatefulReleasePolicy: Decodable {
     #expect(response.selectedResearchPreview?.passed == true)
     #expect(response.selectedResearchPreview?.report.cases.first?.derivationCount == 2)
 }
+
+@Test func toolingRunsTheCompleteResearchStudyExplorer() async {
+    let response = await GrammarLanguageToolingService().handle(.init(
+        requestID: "research-study", operation: .researchStudyExplorer
+    ))
+    #expect(response.status == .success)
+    #expect(response.researchStudyExplorer?.passed == true)
+    #expect(response.researchStudyExplorer?.reproducible == true)
+    #expect(response.researchStudyExplorer?.studies.count == 3)
+}

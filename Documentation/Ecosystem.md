@@ -85,6 +85,7 @@ lets registries and CI reject oversized exchanges before parser construction.
 Research programmes package falsifiable parser hypotheses and bounded corpora for local runs, CI, SDK hosts, and cross-version baseline comparison. Deterministic evidence fingerprints remain separate from hardware-sensitive timing summaries.
 
 Selected research previews reuse those programmes to provide guided conclusions in the native Workbench, CLI, and SDK without weakening or duplicating the underlying evidence.
+The Phase 20 research-study explorer aggregates the complete preview catalog into one validated artifact, while retaining each nested programme report for case-level inspection.
 
 Grammar Workbench exposes the same compilation and editor behavior through several independently consumable surfaces.
 

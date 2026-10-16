@@ -15,6 +15,7 @@ before sending newer enum cases to an older decoder.
 Research hosts can negotiate `researchValidate` and submit a complete `GrammarResearchProgramme`. The returned report preserves the same hypothesis failures, evidence fingerprints, environment metadata, and timing distributions as `research-validate` on the CLI.
 
 Educational and guided hosts can negotiate `selectedResearchPreview` with one of the stable catalog identifiers. The response includes the plain-language observations and the complete research report rather than a simplified result with discarded evidence.
+Hosts that need an archivable study rather than one guided question can negotiate `researchStudyExplorer`; the response contains the complete catalog, nested evidence, reproducibility summary, and aggregate fingerprint.
 
 ## Swift integration
 

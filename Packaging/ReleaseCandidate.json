@@ -95,6 +95,7 @@
     "recoveryTruthReportMaximumBytes": 150000,
     "selectedResearchMaximumStudies": 3,
     "selectedResearchPreviewMaximumBytes": 100000,
+    "researchStudyExplorerMaximumBytes": 300000,
     "editorMinimumViewportWidth": 300,
     "editorMinimumViewportHeight": 240,
     "visualMinimumWorkspaceWidth": 1120,

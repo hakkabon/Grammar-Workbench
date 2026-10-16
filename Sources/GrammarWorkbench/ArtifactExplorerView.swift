@@ -1550,6 +1550,10 @@ public struct ArtifactExplorerView: View {
                                 }
                                 .buttonStyle(.borderedProminent)
                                 .disabled(store.isRunningSelectedResearch)
+                                Button("Run complete study", systemImage: "books.vertical") {
+                                    store.runResearchStudyExplorer()
+                                }
+                                .disabled(store.isRunningSelectedResearch)
                                 if store.isRunningSelectedResearch { ProgressView().controlSize(.small) }
                             }
                         }
@@ -1558,6 +1562,9 @@ public struct ArtifactExplorerView: View {
                 }
                 if let error = store.selectedResearchError {
                     Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.red)
+                }
+                if let report = store.researchStudyReport {
+                    researchStudySummaryView(report)
                 }
                 if let preview = store.selectedResearchPreview {
                     selectedResearchPreviewView(preview)
@@ -1624,6 +1631,46 @@ public struct ArtifactExplorerView: View {
                 }
             }
             .padding()
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    @ViewBuilder
+    private func researchStudySummaryView(_ report: GrammarResearchStudyExplorerReport) -> some View {
+        GroupBox("Study suite") {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(
+                    report.passed && report.reproducible
+                        ? "All declared studies are supported and reproducible"
+                        : "At least one study needs investigation",
+                    systemImage: report.passed && report.reproducible
+                        ? "checkmark.seal.fill" : "exclamationmark.triangle.fill"
+                )
+                .font(.headline)
+                .foregroundStyle(report.passed && report.reproducible ? .green : .orange)
+                Grid(alignment: .leading, horizontalSpacing: 24, verticalSpacing: 5) {
+                    GridRow { Text("Studies"); Text("\(report.supportedStudies)/\(report.studies.count) supported") }
+                    GridRow { Text("Cases"); Text("\(report.totalCases)") }
+                    GridRow { Text("Derivations"); Text("\(report.representedDerivations)") }
+                    GridRow { Text("Evidence"); Text(report.evidenceFingerprint) }
+                }
+                .font(.caption.monospacedDigit())
+                ForEach(report.studies, id: \.studyID) { study in
+                    Button {
+                        store.selectResearchStudy(study.studyID)
+                    } label: {
+                        HStack {
+                            Image(systemName: study.passed ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                .foregroundStyle(study.passed ? .green : .red)
+                            Text(study.title)
+                            Spacer()
+                            Text("\(study.report.passedCases)/\(study.report.cases.count)")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
     }

@@ -23,4 +23,6 @@ grammar-workbench research-preview ambiguity-growth preview.json
 
 SDK hosts can negotiate `selectedResearchPreview` and provide a catalog study identifier. The returned Codable preview contains the same observations and underlying report as the native Workbench.
 
+Phase 20 adds a complete study-suite artifact above these individual previews. See [Research study explorer](ResearchStudyExplorer.md).
+
 The release gate runs every selected study, requires each declared hypothesis to pass, bounds the catalog size, and bounds the encoded preview size. The full research-programme gate remains authoritative for broader regression validation.

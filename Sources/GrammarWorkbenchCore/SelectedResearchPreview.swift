@@ -50,6 +50,140 @@ public struct GrammarSelectedResearchPreview: Hashable, Codable, Sendable {
     public let report: GrammarResearchReport
 }
 
+/// A reproducible, integrity-checked snapshot of the complete selected-study
+/// catalog. Individual previews remain useful for guided exploration; this
+/// aggregate is the unit that can be archived, compared, and cited as a study.
+public struct GrammarResearchStudyExplorerReport: Hashable, Codable, Sendable {
+    public static let currentSchemaVersion = 1
+    public static let kindIdentifier = "grammar-workbench-research-study-explorer"
+
+    public let schemaVersion: Int
+    public let kind: String
+    public let studies: [GrammarSelectedResearchPreview]
+    public let evidenceFingerprint: String
+
+    public var passed: Bool { !studies.isEmpty && studies.allSatisfy(\.passed) }
+    public var supportedStudies: Int { studies.count(where: \.passed) }
+    public var totalCases: Int { studies.reduce(0) { $0 + $1.report.cases.count } }
+    public var representedDerivations: Int {
+        studies.reduce(0) { total, study in
+            total + study.report.cases.reduce(0) { $0 + $1.derivationCount }
+        }
+    }
+    public var reproducible: Bool {
+        studies.flatMap(\.report.cases).allSatisfy {
+            $0.searchStrategiesAgree && $0.repetitionsStable
+        }
+    }
+
+    init(studies: [GrammarSelectedResearchPreview], evidenceFingerprint: String) {
+        schemaVersion = Self.currentSchemaVersion
+        kind = Self.kindIdentifier
+        self.studies = studies
+        self.evidenceFingerprint = evidenceFingerprint
+    }
+}
+
+public enum GrammarResearchStudyExplorerError: Error, LocalizedError, Sendable {
+    case unsupportedVersion(Int)
+    case invalidKind(String)
+    case invalidReport(String)
+
+    public var errorDescription: String? {
+        switch self {
+        case .unsupportedVersion(let version):
+            "Unsupported research-study explorer schema version \(version)."
+        case .invalidKind(let kind):
+            "Unexpected research-study explorer kind: \(kind)."
+        case .invalidReport(let message):
+            "Invalid research-study explorer report: \(message)"
+        }
+    }
+}
+
+public enum GrammarResearchStudyExplorerCodec {
+    public static func encode(_ report: GrammarResearchStudyExplorerReport) throws -> Data {
+        try validate(report)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        return try encoder.encode(report)
+    }
+
+    public static func decode(_ data: Data) throws -> GrammarResearchStudyExplorerReport {
+        let report = try JSONDecoder().decode(GrammarResearchStudyExplorerReport.self, from: data)
+        try validate(report)
+        return report
+    }
+
+    static func fingerprint(_ studies: [GrammarSelectedResearchPreview]) -> String {
+        let evidence = studies.sorted { $0.studyID < $1.studyID }.map {
+            let observations = $0.observations.map {
+                [$0.id, $0.title, $0.value, $0.explanation, String($0.passed)]
+                    .joined(separator: "\u{1f}")
+            }.joined(separator: "\u{1e}")
+            return [
+                $0.studyID, $0.title, $0.question, $0.conclusion,
+                observations, $0.limitations.joined(separator: "\u{1e}"),
+                $0.report.programmeFingerprint,
+                $0.report.evidenceFingerprint,
+                String($0.passed)
+            ].joined(separator: "\u{1d}")
+        }.joined(separator: "\n")
+        return ResearchFingerprint.make(Data(evidence.utf8))
+    }
+
+    private static func validate(_ report: GrammarResearchStudyExplorerReport) throws {
+        guard report.schemaVersion == GrammarResearchStudyExplorerReport.currentSchemaVersion else {
+            throw GrammarResearchStudyExplorerError.unsupportedVersion(report.schemaVersion)
+        }
+        guard report.kind == GrammarResearchStudyExplorerReport.kindIdentifier else {
+            throw GrammarResearchStudyExplorerError.invalidKind(report.kind)
+        }
+        guard !report.studies.isEmpty else {
+            throw GrammarResearchStudyExplorerError.invalidReport("The study catalog is empty.")
+        }
+        var identifiers: Set<String> = []
+        for preview in report.studies {
+            guard identifiers.insert(preview.studyID).inserted else {
+                throw GrammarResearchStudyExplorerError.invalidReport(
+                    "Study identifiers must be unique; ‘\(preview.studyID)’ occurs more than once."
+                )
+            }
+            guard let study = GrammarSelectedResearchCatalog.study(id: preview.studyID) else {
+                throw GrammarResearchStudyExplorerError.invalidReport(
+                    "Study ‘\(preview.studyID)’ is not in the selected catalog."
+                )
+            }
+            guard preview.title == study.title, preview.question == study.question else {
+                throw GrammarResearchStudyExplorerError.invalidReport(
+                    "Study ‘\(preview.studyID)’ does not match its catalog declaration."
+                )
+            }
+            _ = try GrammarResearchProgrammeCodec.decodeReport(
+                GrammarResearchProgrammeCodec.encode(preview.report)
+            )
+            let invariant = preview.report.cases.allSatisfy {
+                $0.searchStrategiesAgree && $0.repetitionsStable
+            }
+            guard preview.passed == (preview.report.passed && invariant) else {
+                throw GrammarResearchStudyExplorerError.invalidReport(
+                    "Study ‘\(preview.studyID)’ has an inconsistent conclusion."
+                )
+            }
+        }
+        guard identifiers == Set(GrammarSelectedResearchCatalog.studies.map(\.id)) else {
+            throw GrammarResearchStudyExplorerError.invalidReport(
+                "The report does not contain the complete selected-study catalog."
+            )
+        }
+        guard fingerprint(report.studies) == report.evidenceFingerprint else {
+            throw GrammarResearchStudyExplorerError.invalidReport(
+                "The aggregate evidence fingerprint does not match the embedded studies."
+            )
+        }
+    }
+}
+
 public enum GrammarSelectedResearchPreviewError: Error, LocalizedError, Sendable {
     case unknownStudy(String)
 
@@ -219,5 +353,22 @@ public enum GrammarSelectedResearchPreviewEngine {
         case .reproducibility:
             "The represented forest is stable across repeated runs and across depth-first and breadth-first exploration."
         }
+    }
+}
+
+public enum GrammarResearchStudyExplorerEngine {
+    public static func runCatalog() throws -> GrammarResearchStudyExplorerReport {
+        let studies = try GrammarSelectedResearchCatalog.studies.map {
+            try GrammarSelectedResearchPreviewEngine.run($0)
+        }
+        let report = GrammarResearchStudyExplorerReport(
+            studies: studies,
+            evidenceFingerprint: GrammarResearchStudyExplorerCodec.fingerprint(studies)
+        )
+        // Use the public artifact boundary here as well as in consumers. This
+        // catches accidental schema or fingerprint drift at production time.
+        return try GrammarResearchStudyExplorerCodec.decode(
+            GrammarResearchStudyExplorerCodec.encode(report)
+        )
     }
 }

@@ -14,10 +14,10 @@ grammar-workbench research-package \
   Examples/ResearchValidationProgramme.json \
   Packaging/EcosystemCompatibility.json \
   LICENSE \
-  Grammar-Workbench-Research-1.0.25
+  Grammar-Workbench-Research-1.0.26
 
 grammar-workbench research-package-verify \
-  Grammar-Workbench-Research-1.0.25
+  Grammar-Workbench-Research-1.0.26
 ```
 
 The output directory must be new or empty. Verification fails on a missing,

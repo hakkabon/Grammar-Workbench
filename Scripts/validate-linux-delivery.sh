@@ -2,17 +2,22 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+SWIFT_BUILD_JOBS="${SWIFT_BUILD_JOBS:-2}"
 if [ "$(uname -s)" != "Linux" ]; then
     echo "Linux delivery validation must run on Linux." >&2
     exit 2
 fi
+case "$SWIFT_BUILD_JOBS" in
+    ''|*[!0-9]*|0) echo "SWIFT_BUILD_JOBS must be a positive integer." >&2; exit 2 ;;
+esac
+export SWIFT_BUILD_JOBS
 
 cd "$ROOT_DIR"
-swift build --force-resolved-versions --product grammar-workbench
-swift build --force-resolved-versions --product grammar-workbench-lsp
-swift build --force-resolved-versions --product grammar-workbench-service
-swift test --force-resolved-versions --jobs "${SWIFT_BUILD_JOBS:-2}" --filter coreModuleCompilesPortableContracts
-swift test --force-resolved-versions --filter runtimePlatformReportIsStablePortableAndComplete
+swift build --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" --product grammar-workbench
+swift build --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" --product grammar-workbench-lsp
+swift build --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" --product grammar-workbench-service
+swift test --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" --filter coreModuleCompilesPortableContracts
+swift test --force-resolved-versions --jobs "$SWIFT_BUILD_JOBS" --filter runtimePlatformReportIsStablePortableAndComplete
 
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-linux-validation.XXXXXX")"
 trap 'rm -rf "$WORK_DIR"' EXIT

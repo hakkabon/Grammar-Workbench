@@ -11,6 +11,8 @@ permissions:
 jobs:
   linux-delivery:
     runs-on: ubuntu-latest
+    env:
+      SWIFT_BUILD_JOBS: 2
     steps:
       - uses: actions/checkout@v4
       - uses: swift-actions/setup-swift@v2
@@ -19,7 +21,7 @@ jobs:
       - name: Build, package, and smoke-test Linux delivery
         run: Scripts/validate-linux-delivery.sh
       - name: Build Linux container
-        run: docker build --tag grammar-workbench:ci .
+        run: docker build --build-arg SWIFT_BUILD_JOBS="$SWIFT_BUILD_JOBS" --tag grammar-workbench:ci .
       - name: Smoke-test Linux container
         run: docker run --rm grammar-workbench:ci platform-info
 

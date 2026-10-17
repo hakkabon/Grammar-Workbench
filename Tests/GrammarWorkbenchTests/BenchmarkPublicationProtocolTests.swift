@@ -8,7 +8,7 @@ private let benchmarkEcosystem = Data("""
   "contractVersion": "0.12.0",
   "repositories": [{
     "name": "Grammar-Workbench",
-    "version": "1.0.25",
+    "version": "1.0.26",
     "revision": "0123456789abcdef0123456789abcdef01234567"
   }]
 }

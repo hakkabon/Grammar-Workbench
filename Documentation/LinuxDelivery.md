@@ -43,6 +43,13 @@ docker run --rm -v "$PWD:/workspace" grammar-workbench validate /workspace/MyLan
 
 Override the entry point with `grammar-workbench-lsp` or `grammar-workbench-service` for an editor/tooling container.
 
+Container and archive packaging discover the SwiftPM resource directory through
+the same fail-closed installer. The current Core-owned name is
+`GrammarWorkbench_GrammarWorkbenchCore.resources` on Linux (and `.bundle` on
+Apple platforms); the legacy façade-owned spelling remains accepted only for
+older compatible build layouts. Docker release compilation is bounded by
+`SWIFT_BUILD_JOBS`, which defaults to two in CI.
+
 ## Producing and validating a release
 
 On Linux:

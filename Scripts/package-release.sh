@@ -63,8 +63,16 @@ for ARCH in $ARCHS; do
     CLI_BINARIES+=("$BIN_DIR/grammar-workbench")
     LSP_BINARIES+=("$BIN_DIR/grammar-workbench-lsp")
     SERVICE_BINARIES+=("$BIN_DIR/grammar-workbench-service")
-    if [ -z "$RESOURCE_BUNDLE" ] && [ -d "$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle" ]; then
-        RESOURCE_BUNDLE="$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle"
+    if [ -z "$RESOURCE_BUNDLE" ]; then
+        for CANDIDATE in \
+            "$BIN_DIR/GrammarWorkbench_GrammarWorkbenchCore.bundle" \
+            "$BIN_DIR/GrammarWorkbench_GrammarWorkbench.bundle"
+        do
+            if [ -d "$CANDIDATE" ]; then
+                RESOURCE_BUNDLE="$CANDIDATE"
+                break
+            fi
+        done
     fi
 done
 

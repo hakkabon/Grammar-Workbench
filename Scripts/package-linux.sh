@@ -55,9 +55,7 @@ mkdir -p "$PACKAGE_DIR/bin"
 for BINARY in grammar-workbench grammar-workbench-lsp grammar-workbench-service; do
     install -m 755 "$BIN_DIR/$BINARY" "$PACKAGE_DIR/bin/$BINARY"
 done
-for RESOURCE in "$BIN_DIR"/GrammarWorkbench_GrammarWorkbench.resources "$BIN_DIR"/GrammarWorkbench_GrammarWorkbench.bundle; do
-    if [ -d "$RESOURCE" ]; then cp -R "$RESOURCE" "$PACKAGE_DIR/bin/"; fi
-done
+"$ROOT_DIR/Scripts/install-workbench-resources.sh" "$BIN_DIR" "$PACKAGE_DIR/bin"
 cp "$ROOT_DIR/LICENSE" "$PACKAGE_DIR/LICENSE.txt"
 cp "$ROOT_DIR/LocalDependencies/LICENSE.txt" "$PACKAGE_DIR/THIRD-PARTY-LICENSE.txt"
 cp "$ROOT_DIR/Documentation/LinuxDelivery.md" "$PACKAGE_DIR/README.md"

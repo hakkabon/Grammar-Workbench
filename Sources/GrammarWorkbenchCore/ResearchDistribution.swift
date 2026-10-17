@@ -232,7 +232,7 @@ public enum GrammarResearchDistribution {
           - family-names: "Akerstedt-Inoue"
             given-names: "Ulf"
         version: "\(GrammarWorkbenchRelease.version)"
-        date-released: "2026-10-16"
+        date-released: "2026-10-17"
         repository-code: "https://github.com/hakkabon/Grammar-Workbench"
         license: MIT
         """ + "\n"

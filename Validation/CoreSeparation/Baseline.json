@@ -12,19 +12,19 @@
   },
   "totals": {
     "files": 78,
-    "bytes": 1167825,
-    "lines": 25398,
-    "nonblankLines": 23497,
-    "publicDeclarations": 2811,
+    "bytes": 1189627,
+    "lines": 25916,
+    "nonblankLines": 23975,
+    "publicDeclarations": 2894,
     "packageDeclarations": 185
   },
   "categories": {
     "core": {
       "files": 64,
-      "bytes": 913386,
-      "lines": 20114,
-      "nonblankLines": 18548,
-      "publicDeclarations": 2783,
+      "bytes": 935188,
+      "lines": 20632,
+      "nonblankLines": 19026,
+      "publicDeclarations": 2866,
       "packageDeclarations": 185
     },
     "native": {
@@ -36,7 +36,7 @@
       "packageDeclarations": 0
     }
   },
-  "corePercent": 79.2,
+  "corePercent": 79.61,
   "extractionQueue": [],
   "nativeFrameworkImports": [
     "AppKit",
@@ -49,5 +49,5 @@
     "files": 2,
     "bytes": 6708
   },
-  "sourceMetricsSHA256": "c751473729049438909eaeb1a2594858a4910c2dae087d36bcc9d71160716510"
+  "sourceMetricsSHA256": "f1c9067e32bbf440fb6925aabc619102aec414b1187ac9da116277c99919b71e"
 }

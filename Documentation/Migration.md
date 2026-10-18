@@ -1,5 +1,15 @@
 # Compatibility and migration
 
+## Public extension boundary
+
+Existing generators remain `GrammarGenerator` implementations and require no
+migration. New analysis, export, and research packages can adopt
+`GrammarWorkbenchExtension` without depending on native Workbench targets or
+private engine models. Registration is explicit; there is no global registry or
+automatic plugin discovery. Hosts should inspect the Codable registry snapshot
+for discovery and execute only trusted in-process extensions. Use an external
+process plus `GrammarToolingTransport` when isolation is required.
+
 ## Workbench parse-console naming
 
 Use `GrammarWorkbenchConsoleSession`, `GrammarWorkbenchConsoleEntry`, and

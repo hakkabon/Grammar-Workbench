@@ -19,6 +19,7 @@ run_consumer() {
     case "$name:$output" in
         LibraryConsumer:*library-consumer-ok*) ;;
         CoreConsumer:*core-consumer-ok*) ;;
+        ReferenceExtension:*reference-extension-ok*) ;;
         LSPConsumer:*lsp-consumer-ok*) ;;
         PluginConsumer:*plugin-consumer-ok*) ;;
         SDKConsumer:*sdk-consumer-ok*) ;;
@@ -28,6 +29,7 @@ run_consumer() {
 
 run_consumer LibraryConsumer
 run_consumer CoreConsumer
+run_consumer ReferenceExtension
 run_consumer LSPConsumer
 run_consumer PluginConsumer
 run_consumer SDKConsumer

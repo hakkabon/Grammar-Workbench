@@ -123,6 +123,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let benchmarkPublicationManifestSchema: String
     let requiredSourceProjects: [String]
     let ecosystemCompatibilityManifest: String
+    let ecosystemCapabilityLedger: String
     let ecosystemConformanceCorpus: String
     let dependencyBoundaryPolicy: String
     let coreSeparationPlan: String
@@ -195,6 +196,8 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.recoveryTruthfulness == .stable)
     #expect(GrammarWorkbenchCapabilities.sharedCorpusV5 == .stable)
     #expect(GrammarWorkbenchCapabilities.ambiguityAwareSemanticConvergence == .stable)
+    #expect(GrammarWorkbenchCapabilities.publicExtensionBoundary == .stable)
+    #expect(GrammarWorkbenchCapabilities.ecosystemCapabilityLedgerAndReferenceExtension == .stable)
     let portabilityURL = packageRoot().appendingPathComponent(policy.portabilityToolchainManifest)
     let portability = try JSONSerialization.jsonObject(with: Data(contentsOf: portabilityURL)) as? [String: Any]
     #expect(portability?["schemaVersion"] as? Int == 1)
@@ -203,7 +206,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.17.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.18.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
     #expect(experiments?["schemaVersion"] as? Int == 2)
     #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
@@ -261,6 +264,17 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(repositories?.allSatisfy {
         (($0["revision"] as? String)?.count == 40)
     } == true)
+    let ledgerURL = packageRoot().appendingPathComponent(policy.ecosystemCapabilityLedger)
+    let ledger = try JSONSerialization.jsonObject(
+        with: Data(contentsOf: ledgerURL)
+    ) as? [String: Any]
+    #expect(ledger?["schemaVersion"] as? Int == 1)
+    #expect((ledger?["capabilities"] as? [[String: Any]])?.count == 13)
+    #expect((ledger?["repositories"] as? [[String: Any]])?.count == 12)
+    #expect((ledger?["engines"] as? [[String: Any]])?.count == 10)
+    let referenceExtension = ledger?["referenceExtension"] as? [String: Any]
+    #expect(referenceExtension?["id"] as? String == "org.grammar-workbench.reference.capability-report")
+    #expect(referenceExtension?["packagePath"] as? String == "Validation/Consumers/ReferenceExtension")
     let compilerRepository = repositories?.first { $0["name"] as? String == "Compiler" }
     #expect(compilerRepository?["adoption"] as? String == "conformance")
     #expect(compilerRepository?["version"] as? String == "0.2.1")

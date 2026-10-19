@@ -36,10 +36,10 @@ significance; the raw observations remain available for independent analysis.
 grammar-workbench research-benchmark-package \
   Examples/ResearchBenchmarkProtocol.json \
   Packaging/EcosystemCompatibility.json \
-  LICENSE Grammar-Workbench-Benchmark-1.0.27
+  LICENSE Grammar-Workbench-Benchmark-1.0.28
 
 grammar-workbench research-benchmark-package-verify \
-  Grammar-Workbench-Benchmark-1.0.27
+  Grammar-Workbench-Benchmark-1.0.28
 ```
 
 The publication contains the canonical protocol, benchmark report (including

@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "ledgerVersion": "1.0.0",
+  "capabilities": [
+    { "id": "grammar-model", "owner": "Grammar", "maturity": "stable", "summary": "Canonical grammar model, analysis, normalization, and notation transformations." },
+    { "id": "parser-contracts", "owner": "Parser", "maturity": "stable", "summary": "Engine-neutral parse outcomes, diagnostics, forests, replay, and recovery contracts." },
+    { "id": "lexical-runtime", "owner": "Lexer", "maturity": "stable", "summary": "Tokenization and lexical runtime used by parser and tooling consumers." },
+    { "id": "ll-engine", "owner": "LL-Parsing", "maturity": "stable", "summary": "Predictive LL(1) parsing with token-level replay for compatible grammars." },
+    { "id": "earley-engine", "owner": "Earley-Parser", "maturity": "stable", "summary": "General Earley parsing with portable forest traversal and ambiguity evidence." },
+    { "id": "earley-table-engine", "owner": "Earley-TableParser", "maturity": "stable", "summary": "Validated table-driven Earley variants with truthful lookahead behavior." },
+    { "id": "cyk-engine", "owner": "CYK-Parser", "maturity": "stable", "summary": "CYK parsing over canonical Grammar-owned normal-form transformations." },
+    { "id": "rnglr-engine", "owner": "RNGLR-Parser", "maturity": "stable", "summary": "RNGLR generalized parsing with portable shared-forest evidence." },
+    { "id": "lr-engine", "owner": "LR-Parsing", "maturity": "stable", "summary": "LR(0), SLR, LALR, and canonical LR(1) construction and runtime ownership." },
+    { "id": "semantic-evaluation", "owner": "Compiler", "maturity": "stable", "summary": "Derivation-aware semantic evaluation and convergence classification." },
+    { "id": "reproducible-experiments", "owner": "Grammar-REPL", "maturity": "stable", "summary": "Serializable, replayable engine and semantic comparison experiments." },
+    { "id": "integration-research-ui", "owner": "Grammar-Workbench", "maturity": "stable", "summary": "Integrated experiment, counterexample, benchmark, and publication exploration." },
+    { "id": "public-extension-host", "owner": "Grammar-Workbench", "maturity": "stable", "summary": "Versioned in-process extension discovery and bounded portable results." }
+  ],
+  "repositories": [
+    { "name": "Grammar", "role": "grammar-model", "minimumVersion": "0.3.3", "provides": ["grammar-model"], "consumes": [] },
+    { "name": "Parser", "role": "parser-contracts", "minimumVersion": "0.3.1", "provides": ["parser-contracts"], "consumes": ["grammar-model"] },
+    { "name": "Lexer", "role": "lexical-runtime", "minimumVersion": "0.2.0", "provides": ["lexical-runtime"], "consumes": ["grammar-model"] },
+    { "name": "LL-Parsing", "role": "ll-engine", "minimumVersion": "0.1.0", "provides": ["ll-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "Earley-Parser", "role": "earley-engine", "minimumVersion": "0.2.0", "provides": ["earley-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "Earley-TableParser", "role": "earley-table-engine", "minimumVersion": "0.2.0", "provides": ["earley-table-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "CYK-Parser", "role": "cyk-engine", "minimumVersion": "0.2.0", "provides": ["cyk-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "RNGLR-Parser", "role": "rnglr-engine", "minimumVersion": "0.2.1", "provides": ["rnglr-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "LR-Parsing", "role": "lr-engine", "minimumVersion": "0.2.4", "provides": ["lr-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "Compiler", "role": "semantic-owner", "minimumVersion": "0.3.0", "provides": ["semantic-evaluation"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "Grammar-REPL", "role": "experiment-owner", "minimumVersion": "0.8.0", "provides": ["reproducible-experiments"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "ll-engine", "earley-engine", "earley-table-engine", "cyk-engine", "rnglr-engine", "lr-engine", "semantic-evaluation"] },
+    { "name": "Grammar-Workbench", "role": "integration-coordinator", "minimumVersion": "1.0.28", "provides": ["integration-research-ui", "public-extension-host"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "lr-engine", "semantic-evaluation", "reproducible-experiments"] }
+  ],
+  "engines": [
+    { "id": "earley", "repository": "Earley-Parser", "capability": "earley-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "earley-sl", "repository": "Earley-TableParser", "capability": "earley-table-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "earley-el", "repository": "Earley-TableParser", "capability": "earley-table-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "cyk", "repository": "CYK-Parser", "capability": "cyk-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "rnglr", "repository": "RNGLR-Parser", "capability": "rnglr-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },
+    { "id": "ll1", "repository": "LL-Parsing", "capability": "ll-engine", "family": "deterministic", "maturity": "stable", "forest": "none", "replay": "tokenTrace", "requires": ["ll1"] },
+    { "id": "lr0", "repository": "LR-Parsing", "capability": "lr-engine", "family": "deterministic", "maturity": "stable", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "slr", "repository": "LR-Parsing", "capability": "lr-engine", "family": "deterministic", "maturity": "stable", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "lalr", "repository": "LR-Parsing", "capability": "lr-engine", "family": "deterministic", "maturity": "stable", "forest": "none", "replay": "runtimeTrace", "requires": [] },
+    { "id": "lr1", "repository": "LR-Parsing", "capability": "lr-engine", "family": "deterministic", "maturity": "stable", "forest": "none", "replay": "runtimeTrace", "requires": [] }
+  ],
+  "referenceExtension": {
+    "id": "org.grammar-workbench.reference.capability-report",
+    "version": "1.0.0",
+    "packagePath": "Validation/Consumers/ReferenceExtension",
+    "product": "GrammarWorkbenchReferenceExtension",
+    "commands": ["capability-report"],
+    "demonstrates": ["public-extension-host"]
+  }
+}

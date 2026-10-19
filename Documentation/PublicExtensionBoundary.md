@@ -1,6 +1,6 @@
 # Public extension boundary
 
-Grammar Workbench 1.0.27 adds an explicit extension host for trusted Swift
+Grammar Workbench 1.0.27 added an explicit extension host for trusted Swift
 packages. It is designed for grammar analyses, portable exports, and
 reproducible research commands that need stable Workbench data but do not own
 parsing or semantic execution.

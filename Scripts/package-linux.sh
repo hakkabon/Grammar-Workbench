@@ -59,6 +59,11 @@ done
 cp "$ROOT_DIR/LICENSE" "$PACKAGE_DIR/LICENSE.txt"
 cp "$ROOT_DIR/LocalDependencies/LICENSE.txt" "$PACKAGE_DIR/THIRD-PARTY-LICENSE.txt"
 cp "$ROOT_DIR/Documentation/LinuxDelivery.md" "$PACKAGE_DIR/README.md"
+mkdir -p "$PACKAGE_DIR/share/grammar-workbench/ecosystem"
+cp "$ROOT_DIR/Packaging/EcosystemCapabilities.json" \
+    "$PACKAGE_DIR/share/grammar-workbench/ecosystem/EcosystemCapabilities.json"
+cp "$ROOT_DIR/Validation/Ecosystem/CapabilityLedger.schema.json" \
+    "$PACKAGE_DIR/share/grammar-workbench/ecosystem/CapabilityLedger.schema.json"
 "$PACKAGE_DIR/bin/grammar-workbench" platform-info "$PACKAGE_DIR/platform.json"
 
 ARCHIVE="$OUTPUT_DIR/$PACKAGE_NAME.tar.gz"

@@ -44,6 +44,51 @@ for (const repository of manifest.repositories) {
 for (const required of ["Grammar", "Parser", "LR-Parsing", "Compiler", "Grammar-REPL", "Grammar-Workbench"]) {
   if (!names.has(required)) fail(`missing repository ${required}`);
 }
+
+const ledgerPath = join(root, manifest.capabilityLedger?.path ?? "");
+const ledgerSchemaPath = join(root, manifest.capabilityLedger?.schemaPath ?? "");
+if (!existsSync(ledgerPath) || !existsSync(ledgerSchemaPath)) fail("capability ledger or schema is missing");
+const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
+const ledgerSchema = JSON.parse(readFileSync(ledgerSchemaPath, "utf8"));
+if (manifest.capabilityLedger?.version !== 1 ||
+    ledger.schemaVersion !== manifest.capabilityLedger.version ||
+    ledgerSchema.properties?.schemaVersion?.const !== ledger.schemaVersion ||
+    !/^\d+\.\d+\.\d+$/.test(ledger.ledgerVersion)) fail("unsupported capability ledger");
+if (!Array.isArray(ledger.capabilities) || ledger.capabilities.length < 12 ||
+    !Array.isArray(ledger.repositories) || ledger.repositories.length !== names.size ||
+    !Array.isArray(ledger.engines) || ledger.engines.length !== 10) fail("incomplete capability ledger");
+
+const capabilityIDs = new Set();
+const capabilityOwners = new Map();
+for (const capability of ledger.capabilities) {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(capability.id) || capabilityIDs.has(capability.id)) fail(`invalid or duplicate capability ${capability.id}`);
+  if (!names.has(capability.owner) || !["stable", "experimental"].includes(capability.maturity) || typeof capability.summary !== "string" || capability.summary.length < 20) fail(`invalid capability ${capability.id}`);
+  capabilityIDs.add(capability.id);
+  capabilityOwners.set(capability.id, capability.owner);
+}
+const ledgerRepositories = new Map();
+const capabilityProviders = new Map();
+for (const repository of ledger.repositories) {
+  if (!names.has(repository.name) || ledgerRepositories.has(repository.name) || !/^\d+\.\d+\.\d+$/.test(repository.minimumVersion)) fail(`invalid ledger repository ${repository.name}`);
+  if (!Array.isArray(repository.provides) || repository.provides.length === 0 || new Set(repository.provides).size !== repository.provides.length || !Array.isArray(repository.consumes) || new Set(repository.consumes).size !== repository.consumes.length) fail(`invalid capability lists for ${repository.name}`);
+  for (const id of [...repository.provides, ...repository.consumes]) if (!capabilityIDs.has(id)) fail(`${repository.name} references unknown capability ${id}`);
+  for (const id of repository.provides) {
+    if (capabilityProviders.has(id)) fail(`capability ${id} has multiple providers`);
+    capabilityProviders.set(id, repository.name);
+  }
+  ledgerRepositories.set(repository.name, repository);
+}
+if (ledgerRepositories.size !== names.size || [...names].some(name => !ledgerRepositories.has(name))) fail("capability ledger repository scope differs from compatibility manifest");
+for (const [id, owner] of capabilityOwners) if (capabilityProviders.get(id) !== owner) fail(`capability ${id} owner and provider differ`);
+const referenceExtension = ledger.referenceExtension;
+if (referenceExtension?.id !== "org.grammar-workbench.reference.capability-report" ||
+    !/^\d+\.\d+\.\d+$/.test(referenceExtension.version) ||
+    !existsSync(join(root, referenceExtension.packagePath, "Package.swift")) ||
+    referenceExtension.product !== "GrammarWorkbenchReferenceExtension" ||
+    JSON.stringify(referenceExtension.commands) !== JSON.stringify(["capability-report"]) ||
+    !Array.isArray(referenceExtension.demonstrates) || referenceExtension.demonstrates.some(id => !capabilityIDs.has(id))) {
+  fail("invalid reference extension declaration");
+}
 const grammarREPL = manifest.repositories.find(repository => repository.name === "Grammar-REPL");
 if (!versionAtLeast(grammarREPL.version, experiments.minimumGrammarREPLVersion)) fail("Grammar-REPL repository predates the experiment capability");
 const executableLaws = manifest.executableLaws;
@@ -138,6 +183,20 @@ for (const engine of corpus.engines) {
   if (engine.family === "generalized" && (engine.forest !== "portable" || engine.replay !== "forestTraversal")) fail(`invalid generalized capabilities for ${engine.id}`);
   if (engine.family === "deterministic" && (engine.forest !== "none" || !["runtimeTrace", "tokenTrace"].includes(engine.replay))) fail(`invalid deterministic capabilities for ${engine.id}`);
   if ((engine.id === "ll1") !== (engine.requires.length === 1 && engine.requires[0] === "ll1")) fail(`invalid LL(1) capability declaration for ${engine.id}`);
+}
+const ledgerEngines = new Map();
+for (const engine of ledger.engines) {
+  const provider = ledgerRepositories.get(engine.repository);
+  if (ledgerEngines.has(engine.id) || !provider || !capabilityIDs.has(engine.capability) ||
+      !provider.provides.includes(engine.capability) || capabilityOwners.get(engine.capability) !== engine.repository ||
+      !["stable", "experimental"].includes(engine.maturity)) fail(`invalid ledger engine ${engine.id}`);
+  ledgerEngines.set(engine.id, engine);
+}
+if (ledgerEngines.size !== engineIDs.size || [...engineIDs].some(id => !ledgerEngines.has(id))) fail("capability ledger engine scope differs from corpus");
+for (const engine of corpus.engines) {
+  const declared = ledgerEngines.get(engine.id);
+  for (const key of ["family", "forest", "replay"]) if (declared[key] !== engine[key]) fail(`capability ledger ${key} differs for ${engine.id}`);
+  if (JSON.stringify(declared.requires) !== JSON.stringify(engine.requires)) fail(`capability ledger requirements differ for ${engine.id}`);
 }
 
 const grammarIDs = new Set();
@@ -495,4 +554,4 @@ if (grammarREPLIndex >= 0) {
   }
 }
 
-console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}${compilerIndex >= 0 ? ", Compiler corpus coverage recorded" : ""}${grammarREPLIndex >= 0 ? ", Grammar-REPL conformant" : ""}.`);
+console.log(`Ecosystem contract valid: ${manifest.repositories.length} pinned repositories, ${ledger.capabilities.length} owned capabilities, ${corpus.grammars.length} grammars, ${corpus.cases.length} corpus cases${cliIndex >= 0 ? ", Workbench conformant" : ""}${lrIndex >= 0 ? ", LR convergence recorded" : ""}${compilerIndex >= 0 ? ", Compiler corpus coverage recorded" : ""}${grammarREPLIndex >= 0 ? ", Grammar-REPL conformant" : ""}.`);

@@ -97,6 +97,11 @@ sed -e "s/@VERSION@/$VERSION/g" \
     "$ROOT_DIR/Packaging/Info.plist" > "$APP_PATH/Contents/Info.plist"
 printf 'APPL????' > "$APP_PATH/Contents/PkgInfo"
 cp "$ROOT_DIR/LICENSE" "$APP_PATH/Contents/Resources/LICENSE.txt"
+mkdir -p "$APP_PATH/Contents/Resources/Ecosystem"
+cp "$ROOT_DIR/Packaging/EcosystemCapabilities.json" \
+    "$APP_PATH/Contents/Resources/Ecosystem/EcosystemCapabilities.json"
+cp "$ROOT_DIR/Validation/Ecosystem/CapabilityLedger.schema.json" \
+    "$APP_PATH/Contents/Resources/Ecosystem/CapabilityLedger.schema.json"
 if [ -n "$RESOURCE_BUNDLE" ]; then
     cp -R "$RESOURCE_BUNDLE" "$APP_PATH/"
     cp "$RESOURCE_BUNDLE/PrivacyInfo.xcprivacy" "$APP_PATH/Contents/Resources/PrivacyInfo.xcprivacy"

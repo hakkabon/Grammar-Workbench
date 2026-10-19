@@ -6,6 +6,7 @@
   "requiredConsumerFixtures": [
     "LibraryConsumer",
     "CoreConsumer",
+    "ReferenceExtension",
     "LSPConsumer",
     "PluginConsumer",
     "SDKConsumer"
@@ -42,6 +43,7 @@
     "Examples/SourceProject/.grammar-workbench-source.json"
   ],
   "ecosystemCompatibilityManifest": "Packaging/EcosystemCompatibility.json",
+  "ecosystemCapabilityLedger": "Packaging/EcosystemCapabilities.json",
   "ecosystemConformanceCorpus": "Validation/Ecosystem/Corpus.json",
   "dependencyBoundaryPolicy": "Validation/Ecosystem/DependencyBoundaries.json",
   "coreSeparationPlan": "Validation/CoreSeparation/Plan.json",

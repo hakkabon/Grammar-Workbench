@@ -7,6 +7,12 @@ versioned shared corpus, while the scheduled integration workflow builds
 Grammar, Parser, LR-Parsing, Compiler, and Grammar-REPL at the exact revisions
 declared in `Packaging/EcosystemCompatibility.json`.
 
+[The ecosystem capability ledger](EcosystemCapabilityLedger.md) separates the
+current ownership and minimum-release view from that immutable compatibility
+snapshot. Its ten-engine projection is checked against the shared corpus, and a
+standalone reference extension proves the public extension boundary from an
+external Swift package.
+
 The executable [dependency-boundary audit](DependencyBoundaryAudit.md) checks
 those manifests against reviewed owners, architectural layers, direct dependency
 allowlists, and release-based or exact SwiftPM requirements. New edges fail

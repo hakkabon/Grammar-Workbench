@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hakkabon/Grammar-Workbench/Validation/Ecosystem/CapabilityLedger.schema.json",
+  "title": "Grammar/parser ecosystem capability ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "ledgerVersion", "capabilities", "repositories", "engines", "referenceExtension"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "ledgerVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "capabilities": {
+      "type": "array",
+      "minItems": 12,
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "repositories": {
+      "type": "array",
+      "minItems": 12,
+      "maxItems": 12,
+      "items": { "$ref": "#/$defs/repository" }
+    },
+    "engines": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": { "$ref": "#/$defs/engine" }
+    },
+    "referenceExtension": { "$ref": "#/$defs/referenceExtension" }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$" },
+    "maturity": { "enum": ["stable", "experimental"] },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "owner", "maturity", "summary"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "owner": { "type": "string", "minLength": 1 },
+        "maturity": { "$ref": "#/$defs/maturity" },
+        "summary": { "type": "string", "minLength": 20 }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "role", "minimumVersion", "provides", "consumes"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "role": { "$ref": "#/$defs/identifier" },
+        "minimumVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "provides": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } },
+        "consumes": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "repository", "capability", "family", "maturity", "forest", "replay", "requires"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "repository": { "type": "string", "minLength": 1 },
+        "capability": { "$ref": "#/$defs/identifier" },
+        "family": { "enum": ["generalized", "deterministic"] },
+        "maturity": { "$ref": "#/$defs/maturity" },
+        "forest": { "enum": ["portable", "none"] },
+        "replay": { "enum": ["forestTraversal", "runtimeTrace", "tokenTrace"] },
+        "requires": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } }
+      }
+    },
+    "referenceExtension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "packagePath", "product", "commands", "demonstrates"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(\\.[a-z0-9-]+)+$" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "packagePath": { "type": "string", "pattern": "^Validation/Consumers/[^/]+$" },
+        "product": { "type": "string", "minLength": 1 },
+        "commands": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } },
+        "demonstrates": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/identifier" } }
+      }
+    }
+  }
+}

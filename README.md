@@ -58,6 +58,13 @@ semantic agreement. Use Grammar-REPL's verifier for replay authority.
 Headless consumers can run `grammar-workbench experiment-inspect EXPERIMENT
 [OUTPUT]`. See [Documentation/WorkbenchExperimentExplorer.md](Documentation/WorkbenchExperimentExplorer.md).
 
+Grammar Workbench 1.0.29 also opens Grammar-REPL 0.9 experiment projects and
+turns their named cases into fingerprint-preserving research notebooks. Notes,
+evidence citations, and conclusions remain separate from the immutable parser
+and Compiler evidence, and notebooks report when their source project changes.
+The same workflow is available through `notebook-create`, `notebook-add`, and
+`notebook-inspect`. See [Documentation/ResearchNotebooks.md](Documentation/ResearchNotebooks.md).
+
 Executable Grammar and Parser laws now carry exact grammar transformations
 through Workbench's real LALR runtime and compare the resulting portable parser
 observations. Grammar owns transformation witnesses, Parser owns validation and

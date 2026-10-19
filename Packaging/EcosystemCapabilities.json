@@ -14,21 +14,22 @@
     { "id": "semantic-evaluation", "owner": "Compiler", "maturity": "stable", "summary": "Derivation-aware semantic evaluation and convergence classification." },
     { "id": "reproducible-experiments", "owner": "Grammar-REPL", "maturity": "stable", "summary": "Serializable, replayable engine and semantic comparison experiments." },
     { "id": "integration-research-ui", "owner": "Grammar-Workbench", "maturity": "stable", "summary": "Integrated experiment, counterexample, benchmark, and publication exploration." },
+    { "id": "research-notebooks", "owner": "Grammar-Workbench", "maturity": "stable", "summary": "Fingerprint-preserving narrative notebooks over named Grammar-REPL experiment projects." },
     { "id": "public-extension-host", "owner": "Grammar-Workbench", "maturity": "stable", "summary": "Versioned in-process extension discovery and bounded portable results." }
   ],
   "repositories": [
     { "name": "Grammar", "role": "grammar-model", "minimumVersion": "0.3.3", "provides": ["grammar-model"], "consumes": [] },
     { "name": "Parser", "role": "parser-contracts", "minimumVersion": "0.3.1", "provides": ["parser-contracts"], "consumes": ["grammar-model"] },
     { "name": "Lexer", "role": "lexical-runtime", "minimumVersion": "0.2.0", "provides": ["lexical-runtime"], "consumes": ["grammar-model"] },
-    { "name": "LL-Parsing", "role": "ll-engine", "minimumVersion": "0.1.0", "provides": ["ll-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "LL-Parsing", "role": "ll-engine", "minimumVersion": "0.1.1", "provides": ["ll-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
     { "name": "Earley-Parser", "role": "earley-engine", "minimumVersion": "0.2.0", "provides": ["earley-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
     { "name": "Earley-TableParser", "role": "earley-table-engine", "minimumVersion": "0.2.0", "provides": ["earley-table-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
     { "name": "CYK-Parser", "role": "cyk-engine", "minimumVersion": "0.2.0", "provides": ["cyk-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
-    { "name": "RNGLR-Parser", "role": "rnglr-engine", "minimumVersion": "0.2.1", "provides": ["rnglr-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
+    { "name": "RNGLR-Parser", "role": "rnglr-engine", "minimumVersion": "0.2.2", "provides": ["rnglr-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
     { "name": "LR-Parsing", "role": "lr-engine", "minimumVersion": "0.2.4", "provides": ["lr-engine"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
     { "name": "Compiler", "role": "semantic-owner", "minimumVersion": "0.3.0", "provides": ["semantic-evaluation"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime"] },
-    { "name": "Grammar-REPL", "role": "experiment-owner", "minimumVersion": "0.8.0", "provides": ["reproducible-experiments"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "ll-engine", "earley-engine", "earley-table-engine", "cyk-engine", "rnglr-engine", "lr-engine", "semantic-evaluation"] },
-    { "name": "Grammar-Workbench", "role": "integration-coordinator", "minimumVersion": "1.0.28", "provides": ["integration-research-ui", "public-extension-host"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "lr-engine", "semantic-evaluation", "reproducible-experiments"] }
+    { "name": "Grammar-REPL", "role": "experiment-owner", "minimumVersion": "0.9.0", "provides": ["reproducible-experiments"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "ll-engine", "earley-engine", "earley-table-engine", "cyk-engine", "rnglr-engine", "lr-engine", "semantic-evaluation"] },
+    { "name": "Grammar-Workbench", "role": "integration-coordinator", "minimumVersion": "1.0.29", "provides": ["integration-research-ui", "public-extension-host", "research-notebooks"], "consumes": ["grammar-model", "parser-contracts", "lexical-runtime", "lr-engine", "semantic-evaluation", "reproducible-experiments"] }
   ],
   "engines": [
     { "id": "earley", "repository": "Earley-Parser", "capability": "earley-engine", "family": "generalized", "maturity": "stable", "forest": "portable", "replay": "forestTraversal", "requires": [] },

@@ -6,6 +6,13 @@ import GrammarWorkbenchCore
 struct GrammarREPLExperimentExplorerView: View {
     @Bindable var store: ExplorerStore
     let openExperiment: () -> Void
+    let openNotebook: () -> Void
+    let saveNotebook: () -> Void
+    @State private var notebookTitle = "Research notebook"
+    @State private var researchQuestion = "What do these parser experiments show?"
+    @State private var cellTitle = "Observation"
+    @State private var cellBody = "Record the observed result and why it matters."
+    @State private var notebookMessage: String?
 
     var body: some View {
         if let artifact = store.experimentArtifact {
@@ -25,14 +32,149 @@ struct GrammarREPLExperimentExplorerView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 header(artifact)
+                if let project = store.experimentProject { projectNavigator(project) }
                 summary(artifact.summary)
                 engineMatrix(artifact)
                 engineInspector(artifact)
+                if store.experimentProject != nil { researchNotebook }
             }
             .padding(22)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .accessibilityIdentifier("grammar-repl-experiment-explorer")
+    }
+
+    private func projectNavigator(_ project: GrammarREPLExperimentProjectArtifact) -> some View {
+        GroupBox("Experiment project") {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(project.name).font(.headline)
+                        if let description = project.description {
+                            Text(description).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Text("\(project.experiments.count) experiments")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(project.experiments) { entry in
+                            Button {
+                                store.selectExperimentProjectEntry(entry.id)
+                            } label: {
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(entry.title ?? entry.id).font(.subheadline.bold())
+                                    Text(entry.experiment.input.debugDescription)
+                                        .font(.caption.monospaced()).lineLimit(1)
+                                }
+                                .padding(8)
+                                .frame(minWidth: 150, alignment: .leading)
+                                .background(
+                                    store.experimentProjectSelectedID == entry.id
+                                        ? Color.accentColor.opacity(0.16) : Color.secondary.opacity(0.08),
+                                    in: RoundedRectangle(cornerRadius: 8)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("experiment-project-\(entry.id)")
+                        }
+                    }
+                }
+                Text("Recorded project fingerprint: \(project.fingerprint)")
+                    .font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+            }.padding(6)
+        }
+    }
+
+    private var researchNotebook: some View {
+        GroupBox("Research notebook") {
+            VStack(alignment: .leading, spacing: 12) {
+                if let notebook = store.researchNotebook {
+                    HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(notebook.title).font(.headline)
+                            Text(notebook.researchQuestion).foregroundStyle(.secondary)
+                            if let resolution = store.researchNotebookResolution {
+                                Label(
+                                    resolution.isResolved ? "Evidence references resolved" : "Evidence changed or unavailable",
+                                    systemImage: resolution.isResolved ? "checkmark.shield" : "exclamationmark.triangle"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(resolution.isResolved ? .green : .orange)
+                            }
+                        }
+                        Spacer()
+                        HStack {
+                            Button("Open Notebook…", action: openNotebook)
+                            Button("Save Notebook…", action: saveNotebook)
+                        }
+                    }
+                    Divider()
+                    ForEach(notebook.cells) { cell in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Label(cell.title, systemImage: notebookIcon(cell.kind)).font(.subheadline.bold())
+                            Text(cell.body)
+                            if let experimentID = cell.experimentID {
+                                Text("Evidence: \(experimentID)\(cell.selectedEngines.isEmpty ? "" : " · \(cell.selectedEngines.joined(separator: ", "))")")
+                                    .font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }
+                        }
+                        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 8))
+                    }
+                    HStack {
+                        TextField("Cell title", text: $cellTitle)
+                        TextField("Observation or conclusion", text: $cellBody)
+                        Button("Add Note") { addCell(.note) }
+                        Button("Cite Current Experiment") { addCell(.evidence) }
+                        Button("Add Conclusion") { addCell(.conclusion) }
+                    }
+                } else {
+                    TextField("Notebook title", text: $notebookTitle)
+                    TextField("Research question", text: $researchQuestion)
+                    HStack {
+                        Button("Create Notebook", systemImage: "book.closed") {
+                            do {
+                                try store.createResearchNotebook(
+                                    title: notebookTitle, question: researchQuestion
+                                )
+                                notebookMessage = nil
+                            } catch { notebookMessage = error.localizedDescription }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Open Notebook…", action: openNotebook)
+                    }
+                }
+                if let notebookMessage {
+                    Text(notebookMessage).font(.caption).foregroundStyle(.red)
+                }
+                Text("Notebooks cite immutable Grammar-REPL fingerprints; Workbench does not rewrite or re-verify parser evidence.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }.padding(6)
+        }
+    }
+
+    private func addCell(_ kind: GrammarResearchNotebook.CellKind) {
+        let prefix = kind == .evidence ? "evidence" : kind.rawValue
+        let id = "\(prefix)-\((store.researchNotebook?.cells.count ?? 0) + 1)"
+        do {
+            let engines = kind == .evidence ? [store.experimentSelectedEngine].compactMap { $0 } : []
+            try store.addResearchNotebookCell(
+                id: id, kind: kind, title: cellTitle, body: cellBody,
+                selectedEngines: engines
+            )
+            notebookMessage = nil
+        } catch { notebookMessage = error.localizedDescription }
+    }
+
+    private func notebookIcon(_ kind: GrammarResearchNotebook.CellKind) -> String {
+        switch kind {
+        case .note: "note.text"
+        case .evidence: "link"
+        case .conclusion: "checkmark.seal"
+        }
     }
 
     private func header(_ artifact: GrammarREPLExperimentArtifact) -> some View {

@@ -69,17 +69,80 @@ struct GrammarWorkbenchCLI {
             }
         case "experiment-inspect":
             guard arguments.count == 2 || arguments.count == 3 else {
-                throw CLIError.usage("experiment-inspect requires EXPERIMENT [OUTPUT]")
+                throw CLIError.usage("experiment-inspect requires EXPERIMENT_OR_PROJECT [OUTPUT]")
             }
-            let artifact = try GrammarREPLExperimentArtifact.decode(
+            let imported = try GrammarREPLExperimentImport.decode(
                 Data(contentsOf: URL(fileURLWithPath: arguments[1]))
             )
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
-            let data = try encoder.encode(GrammarREPLExperimentExplorerReport(artifact))
+            let data: Data = switch imported {
+            case .experiment(let artifact):
+                try encoder.encode(GrammarREPLExperimentExplorerReport(artifact))
+            case .project(let project):
+                try encoder.encode(GrammarREPLExperimentProjectExplorerReport(project))
+            }
             if arguments.count == 3 {
                 try data.write(to: URL(fileURLWithPath: arguments[2]), options: .atomic)
                 print("Wrote \(arguments[2])")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+        case "notebook-create":
+            guard arguments.count == 5 else {
+                throw CLIError.usage("notebook-create requires PROJECT OUTPUT TITLE QUESTION")
+            }
+            let project = try GrammarREPLExperimentProjectArtifact.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let notebook = try GrammarResearchNotebook.create(
+                title: arguments[3], researchQuestion: arguments[4], project: project
+            )
+            try notebook.json().write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]): \(notebook.fingerprint)")
+        case "notebook-add":
+            guard (7...9).contains(arguments.count),
+                  let kind = GrammarResearchNotebook.CellKind(rawValue: arguments[3]) else {
+                throw CLIError.usage("notebook-add requires NOTEBOOK OUTPUT note|evidence|conclusion CELL_ID TITLE BODY [EXPERIMENT_ID] [ENGINE,...]")
+            }
+            let notebook = try GrammarResearchNotebook.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let experimentID = arguments.count >= 8 ? arguments[7] : nil
+            let engines = arguments.count == 9
+                ? arguments[8].split(separator: ",").map(String.init) : []
+            let updated = try notebook.adding(.init(
+                id: arguments[4], kind: kind, title: arguments[5], body: arguments[6],
+                experimentID: experimentID, selectedEngines: engines
+            ))
+            try updated.json().write(
+                to: URL(fileURLWithPath: arguments[2]), options: .atomic
+            )
+            print("Wrote \(arguments[2]): \(updated.fingerprint)")
+        case "notebook-inspect":
+            guard (2...4).contains(arguments.count) else {
+                throw CLIError.usage("notebook-inspect requires NOTEBOOK [PROJECT] [OUTPUT]")
+            }
+            let notebook = try GrammarResearchNotebook.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let project: GrammarREPLExperimentProjectArtifact?
+            if arguments.count >= 3 {
+                project = try GrammarREPLExperimentProjectArtifact.decode(
+                    Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+                )
+            } else {
+                project = nil
+            }
+            let report = GrammarResearchNotebookExplorerReport(notebook, project: project)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            if arguments.count == 4 {
+                try data.write(to: URL(fileURLWithPath: arguments[3]), options: .atomic)
+                print("Wrote \(arguments[3])")
             } else {
                 print(String(decoding: data, as: UTF8.self))
             }
@@ -1199,7 +1262,10 @@ struct GrammarWorkbenchCLI {
       grammar-workbench platform-info [OUTPUT]
       grammar-workbench wasm-feasibility [OUTPUT]
       grammar-workbench browser-runtime [OUTPUT]
-      grammar-workbench experiment-inspect EXPERIMENT [OUTPUT]
+      grammar-workbench experiment-inspect EXPERIMENT_OR_PROJECT [OUTPUT]
+      grammar-workbench notebook-create PROJECT OUTPUT TITLE QUESTION
+      grammar-workbench notebook-add NOTEBOOK OUTPUT note|evidence|conclusion CELL_ID TITLE BODY [EXPERIMENT_ID] [ENGINE,...]
+      grammar-workbench notebook-inspect NOTEBOOK [PROJECT] [OUTPUT]
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR

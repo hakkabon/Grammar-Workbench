@@ -63,8 +63,134 @@ private func experimentData(invalidEdge: Bool = false, schemaVersion: Int = 1) t
     return try JSONSerialization.data(withJSONObject: value, options: [.sortedKeys])
 }
 
+private func experimentProjectData(
+    fingerprint: String = "fedcba9876543210",
+    duplicateID: Bool = false
+) throws -> Data {
+    let experiment = try #require(
+        JSONSerialization.jsonObject(with: experimentData(schemaVersion: 3)) as? [String: Any]
+    )
+    var second = experiment
+    second["input"] = "b"
+    second["fingerprint"] = "1111111111111111"
+    let entries: [[String: Any]] = [
+        [
+            "id": "accepts-a", "title": "Accepted input", "tags": ["accepted", "baseline"],
+            "experiment": experiment,
+        ],
+        [
+            "id": duplicateID ? "accepts-a" : "rejects-b", "title": "Rejected input",
+            "tags": ["negative"], "experiment": second,
+        ],
+    ]
+    return try JSONSerialization.data(withJSONObject: [
+        "schemaVersion": 1,
+        "producer": ["name": "Grammar-REPL", "version": "0.9.0"],
+        "name": "Acceptance study",
+        "description": "Compare accepted and rejected inputs.",
+        "experiments": entries,
+        "fingerprintAlgorithm": "fnv1a64",
+        "fingerprint": fingerprint,
+    ], options: [.sortedKeys])
+}
+
 @Suite("Grammar-REPL experiment explorer")
 struct GrammarREPLExperimentExplorerTests {
+    @Test("Experiment projects preserve named evidence without claiming verification")
+    func decodesExperimentProjects() throws {
+        let project = try GrammarREPLExperimentProjectArtifact.decode(experimentProjectData())
+        #expect(project.name == "Acceptance study")
+        #expect(project.experiments.map(\.id) == ["accepts-a", "rejects-b"])
+        #expect(project.totalEngines == 4)
+        #expect(project.experiment(id: "accepts-a")?.tags == ["accepted", "baseline"])
+        let report = GrammarREPLExperimentProjectExplorerReport(project)
+        #expect(report.experimentCount == 2)
+        #expect(report.fingerprintStatus == "recorded-requires-grammar-repl-verification")
+        if case .project(let imported) = try GrammarREPLExperimentImport.decode(experimentProjectData()) {
+            #expect(imported.fingerprint == project.fingerprint)
+        } else {
+            Issue.record("Expected project import")
+        }
+        #expect(throws: GrammarResearchNotebookError.self) {
+            try GrammarREPLExperimentProjectArtifact.decode(experimentProjectData(duplicateID: true))
+        }
+    }
+
+    @Test("Research notebooks are deterministic narratives over immutable evidence")
+    func researchNotebookRoundTripAndResolution() throws {
+        let project = try GrammarREPLExperimentProjectArtifact.decode(experimentProjectData())
+        let empty = try GrammarResearchNotebook.create(
+            title: "Acceptance notebook",
+            researchQuestion: "Do engines agree on the acceptance boundary?",
+            project: project
+        )
+        let withNote = try empty.adding(.init(
+            id: "context", kind: .note, title: "Context",
+            body: "The project contains one positive and one negative input."
+        ))
+        let notebook = try withNote.adding(.init(
+            id: "accepted-evidence", kind: .evidence, title: "Accepted case",
+            body: "Inspect the generalized and deterministic evidence.",
+            experimentID: "accepts-a", selectedEngines: ["earley", "cyk"]
+        ))
+        let decoded = try GrammarResearchNotebook.decode(notebook.json())
+        let recreated = try GrammarResearchNotebook.create(
+            title: "Acceptance notebook",
+            researchQuestion: "Do engines agree on the acceptance boundary?",
+            project: project,
+            cells: notebook.cells
+        )
+
+        #expect(decoded == notebook)
+        #expect(recreated.fingerprint == notebook.fingerprint)
+        #expect(decoded.resolve(against: project).isResolved)
+        #expect(GrammarResearchNotebookExplorerReport(decoded, project: project).evidenceCellCount == 1)
+    }
+
+    @Test("Notebook tampering and stale project evidence fail visibly")
+    func notebookTamperAndStaleEvidence() throws {
+        let project = try GrammarREPLExperimentProjectArtifact.decode(experimentProjectData())
+        let notebook = try GrammarResearchNotebook.create(
+            title: "Evidence notebook", researchQuestion: "Is evidence stable?", project: project
+        ).adding(.init(
+            id: "evidence", kind: .evidence, title: "Baseline", body: "Recorded result.",
+            experimentID: "accepts-a", selectedEngines: []
+        ))
+        var object = try #require(
+            JSONSerialization.jsonObject(with: notebook.json()) as? [String: Any]
+        )
+        object["title"] = "Changed title"
+        #expect(throws: GrammarResearchNotebookError.self) {
+            try GrammarResearchNotebook.decode(JSONSerialization.data(withJSONObject: object))
+        }
+
+        let changedProject = try GrammarREPLExperimentProjectArtifact.decode(
+            experimentProjectData(fingerprint: "2222222222222222")
+        )
+        let resolution = notebook.resolve(against: changedProject)
+        #expect(!resolution.projectMatches)
+        #expect(!resolution.isResolved)
+    }
+
+    @Test("Published notebook schema tracks the executable codec")
+    func notebookSchemaAlignment() throws {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let data = try Data(contentsOf: root.appendingPathComponent(
+            "Validation/Research/ResearchNotebook.schema.json"
+        ))
+        let schema = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let properties = try #require(schema["properties"] as? [String: Any])
+        let version = try #require(properties["schemaVersion"] as? [String: Any])
+        let kind = try #require(properties["kind"] as? [String: Any])
+        let fingerprint = try #require(properties["fingerprintAlgorithm"] as? [String: Any])
+        #expect(version["const"] as? Int == GrammarResearchNotebook.currentSchemaVersion)
+        #expect(kind["const"] as? String == GrammarResearchNotebook.kindIdentifier)
+        #expect(fingerprint["const"] as? String == GrammarResearchNotebook.fingerprintAlgorithm)
+    }
+
     @Test("Schema-one artifacts become bounded comparison summaries")
     func decodesSummaryAndEngineDelta() throws {
         let artifact = try GrammarREPLExperimentArtifact.decode(experimentData())
@@ -228,6 +354,34 @@ struct GrammarREPLExperimentExplorerTests {
         #expect(store.experimentPlayback.step == 2)
         store.selectExperimentEngine("cyk")
         #expect(store.experimentPlayback.step == 0)
+    }
+
+    @Test("Native store navigates projects and builds a notebook")
+    @MainActor
+    func nativeNotebookWorkflow() throws {
+        let store = ExplorerStore()
+        try store.importExperiment(experimentProjectData(), name: "study.json")
+        #expect(store.experimentProject?.experiments.count == 2)
+        #expect(store.experimentProjectSelectedID == "accepts-a")
+        store.selectExperimentProjectEntry("rejects-b")
+        #expect(store.experimentArtifact?.input == "b")
+        try store.createResearchNotebook(
+            title: "Study notes", question: "Where do the engines disagree?"
+        )
+        try store.addResearchNotebookCell(
+            id: "rejected", kind: .evidence, title: "Rejected case",
+            body: "The negative boundary is retained.", selectedEngines: ["cyk"]
+        )
+        #expect(store.researchNotebook?.cells.first?.experimentID == "rejects-b")
+        #expect(store.researchNotebookResolution?.isResolved == true)
+        let saved = try store.researchNotebookData()
+        #expect(try GrammarResearchNotebook.decode(saved).cells.count == 1)
+
+        let reopened = ExplorerStore()
+        try reopened.importExperiment(experimentProjectData(), name: "study.json")
+        try reopened.importResearchNotebook(saved)
+        #expect(reopened.researchNotebook?.cells.count == 1)
+        #expect(reopened.researchNotebookResolution?.isResolved == true)
     }
     #endif
 

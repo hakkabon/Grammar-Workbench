@@ -33,11 +33,15 @@ final class ExplorerStore {
     private(set) var selectedResearchError: String?
     private(set) var isRunningSelectedResearch = false
     private(set) var experimentArtifact: GrammarREPLExperimentArtifact?
+    private(set) var experimentProject: GrammarREPLExperimentProjectArtifact?
+    private(set) var experimentProjectSelectedID: String?
     private(set) var experimentName: String?
     private(set) var experimentError: String?
     private(set) var experimentSelectedEngine: String?
     private(set) var experimentBaselineEngine: String?
     private(set) var experimentPlayback = GrammarREPLExperimentPlaybackState()
+    private(set) var researchNotebook: GrammarResearchNotebook?
+    private(set) var researchNotebookResolution: GrammarResearchNotebookResolution?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var currentCompilationSnapshot: GrammarCompilation { currentCompilation }
@@ -332,18 +336,96 @@ final class ExplorerStore {
 
     func importExperiment(_ data: Data, name: String) throws {
         do {
-            let artifact = try GrammarREPLExperimentArtifact.decode(data)
-            experimentArtifact = artifact
+            switch try GrammarREPLExperimentImport.decode(data) {
+            case .experiment(let artifact):
+                experimentProject = nil
+                experimentProjectSelectedID = nil
+                activateExperiment(artifact)
+            case .project(let project):
+                experimentProject = project
+                experimentProjectSelectedID = project.experiments.first?.id
+                experimentArtifact = project.experiments.first?.experiment
+                if let artifact = experimentArtifact { activateExperiment(artifact) }
+                else { clearExperimentSelection() }
+            }
             experimentName = name
             experimentError = nil
-            experimentBaselineEngine = artifact.engines.first
-            experimentSelectedEngine = artifact.observations.first(where: {
-                $0.contract.forest != nil
-            })?.parser ?? artifact.engines.first
-            experimentPlayback = .init()
+            researchNotebook = nil
+            researchNotebookResolution = nil
         } catch {
             experimentError = error.localizedDescription
             throw error
+        }
+    }
+
+    func selectExperimentProjectEntry(_ id: String) {
+        guard let entry = experimentProject?.experiment(id: id) else { return }
+        experimentProjectSelectedID = id
+        activateExperiment(entry.experiment)
+        refreshNotebookResolution()
+    }
+
+    func createResearchNotebook(title: String, question: String) throws {
+        guard let project = experimentProject else {
+            throw GrammarResearchNotebookError.invalidNotebookEvidence
+        }
+        researchNotebook = try GrammarResearchNotebook.create(
+            title: title, researchQuestion: question, project: project
+        )
+        refreshNotebookResolution()
+    }
+
+    func addResearchNotebookCell(
+        id: String,
+        kind: GrammarResearchNotebook.CellKind,
+        title: String,
+        body: String,
+        selectedEngines: [String] = []
+    ) throws {
+        guard let notebook = researchNotebook else {
+            throw GrammarResearchNotebookError.invalidNotebookMetadata
+        }
+        let experimentID = kind == .evidence ? experimentProjectSelectedID : nil
+        researchNotebook = try notebook.adding(.init(
+            id: id, kind: kind, title: title, body: body,
+            experimentID: experimentID, selectedEngines: selectedEngines
+        ))
+        refreshNotebookResolution()
+    }
+
+    func importResearchNotebook(_ data: Data) throws {
+        researchNotebook = try GrammarResearchNotebook.decode(data)
+        refreshNotebookResolution()
+    }
+
+    func researchNotebookData() throws -> Data {
+        guard let researchNotebook else {
+            throw GrammarResearchNotebookError.invalidNotebookMetadata
+        }
+        return try researchNotebook.json()
+    }
+
+    private func activateExperiment(_ artifact: GrammarREPLExperimentArtifact) {
+        experimentArtifact = artifact
+        experimentBaselineEngine = artifact.engines.first
+        experimentSelectedEngine = artifact.observations.first(where: {
+            $0.contract.forest != nil
+        })?.parser ?? artifact.engines.first
+        experimentPlayback = .init()
+    }
+
+    private func clearExperimentSelection() {
+        experimentArtifact = nil
+        experimentBaselineEngine = nil
+        experimentSelectedEngine = nil
+        experimentPlayback = .init()
+    }
+
+    private func refreshNotebookResolution() {
+        researchNotebookResolution = if let researchNotebook, let experimentProject {
+            researchNotebook.resolve(against: experimentProject)
+        } else {
+            nil
         }
     }
 

@@ -117,7 +117,7 @@ public struct ArtifactExplorerView: View {
             }
             ToolbarItem {
                 Button("Open Experiment", systemImage: "doc.text.magnifyingglass", action: openExperiment)
-                    .help("Open a reproducible Grammar-REPL experiment")
+                    .help("Open a reproducible Grammar-REPL experiment or project")
             }
             if document == nil {
                 ToolbarItem {
@@ -313,7 +313,11 @@ public struct ArtifactExplorerView: View {
         case .sample: sampleView
         case .bootstrap: bootstrapView
         case .experiments:
-            GrammarREPLExperimentExplorerView(store: store, openExperiment: openExperiment)
+            GrammarREPLExperimentExplorerView(
+                store: store, openExperiment: openExperiment,
+                openNotebook: openResearchNotebook,
+                saveNotebook: saveResearchNotebook
+            )
         case .research: researchView
         case .visuals: GrammarVisualProductGalleryView(timeline: store.parserVisualizationTimeline)
         case .tests: testsView
@@ -2149,13 +2153,43 @@ public struct ArtifactExplorerView: View {
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.json]
-        panel.message = "Choose a Grammar-REPL experiment (schema 1 or 2)."
+        panel.message = "Choose a Grammar-REPL experiment (schema 1–3) or experiment project (schema 1)."
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try store.importExperiment(Data(contentsOf: url), name: url.lastPathComponent)
             tab = .experiments
         } catch {
             exportMessage = "Could not open experiment: \(error.localizedDescription)"
+        }
+    }
+
+    private func saveResearchNotebook() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "research-notebook.json"
+        panel.message = "Save the path-independent Workbench research notebook."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try store.researchNotebookData().write(to: url, options: .atomic)
+            exportMessage = "Saved research notebook to \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not save research notebook: \(error.localizedDescription)"
+        }
+    }
+
+    private func openResearchNotebook() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose a Grammar Workbench research notebook."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try store.importResearchNotebook(Data(contentsOf: url))
+            tab = .experiments
+            exportMessage = "Opened research notebook from \(url.lastPathComponent)."
+        } catch {
+            exportMessage = "Could not open research notebook: \(error.localizedDescription)"
         }
     }
 

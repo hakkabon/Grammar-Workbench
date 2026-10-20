@@ -56,3 +56,8 @@ checks together. It is suitable for tracking the shipped research workflow,
 not for attributing time to an individual parser primitive. Such attribution
 uses the separate Parser schema-1 engine-owned microbenchmark protocol added in
 Phase 29. See [EngineOwnedMicrobenchmarks.md](EngineOwnedMicrobenchmarks.md).
+
+Phase 30 includes this complete benchmark evidence inside the
+[public research release](PublicResearchRelease.md), alongside the validation
+programme, shared corpus, capability ledger, and explicit non-claims. The
+standalone benchmark publication remains supported for timing-focused work.

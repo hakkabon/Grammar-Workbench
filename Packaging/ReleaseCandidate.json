@@ -39,6 +39,17 @@
   ],
   "researchBenchmarkProtocol": "Examples/ResearchBenchmarkProtocol.json",
   "benchmarkPublicationManifestSchema": "Validation/Research/BenchmarkPublicationManifest.schema.json",
+  "publicResearchRelease": {
+    "manifestSchemaVersion": 1,
+    "manifestSchema": "Validation/Research/PublicResearchReleaseManifest.schema.json",
+    "indexSchema": "Validation/Research/PublicResearchIndex.schema.json",
+    "programme": "Examples/ResearchValidationProgramme.json",
+    "benchmarkProtocol": "Examples/ResearchBenchmarkProtocol.json",
+    "ecosystem": "Packaging/EcosystemCompatibility.json",
+    "capabilities": "Packaging/EcosystemCapabilities.json",
+    "corpus": "Validation/Ecosystem/Corpus.json",
+    "license": "LICENSE"
+  },
   "requiredSourceProjects": [
     "Examples/SourceProject/.grammar-workbench-source.json"
   ],
@@ -102,6 +113,7 @@
     "researchStudyExplorerMaximumBytes": 300000,
     "researchBenchmarkMaximumMeasurements": 50,
     "researchBenchmarkReportMaximumBytes": 500000,
+    "publicResearchReleaseMaximumBytes": 2000000,
     "editorMinimumViewportWidth": 300,
     "editorMinimumViewportHeight": 240,
     "visualMinimumWorkspaceWidth": 1120,

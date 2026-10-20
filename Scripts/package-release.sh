@@ -42,6 +42,7 @@ elif [ "$RELEASE_REQUIRE_CLEAN" != "0" ]; then
     exit 2
 fi
 node "$ROOT_DIR/Scripts/release-artifacts.mjs" "${SOURCE_ARGUMENTS[@]}"
+SOURCE_REVISION_FOR_RESEARCH="${RELEASE_REVISION:-$(git -C "$ROOT_DIR" rev-parse HEAD)}"
 
 mkdir -p "$OUTPUT_DIR"
 WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/grammar-workbench-release.XXXXXX")"
@@ -153,11 +154,14 @@ ditto -c -k --keepParent "$CLIENTS_PACKAGE" "$CLIENTS_ZIP"
 RESEARCH_ZIP="$OUTPUT_DIR/Grammar-Workbench-Research-$VERSION.zip"
 rm -f "$RESEARCH_ZIP"
 RESEARCH_PACKAGE="$WORK_DIR/Grammar-Workbench-Research-$VERSION"
-"$OUTPUT_DIR/grammar-workbench" research-package \
+"$OUTPUT_DIR/grammar-workbench" public-research-release \
     "$ROOT_DIR/Examples/ResearchValidationProgramme.json" \
+    "$ROOT_DIR/Examples/ResearchBenchmarkProtocol.json" \
     "$ROOT_DIR/Packaging/EcosystemCompatibility.json" \
-    "$ROOT_DIR/LICENSE" "$RESEARCH_PACKAGE"
-"$OUTPUT_DIR/grammar-workbench" research-package-verify "$RESEARCH_PACKAGE"
+    "$ROOT_DIR/Packaging/EcosystemCapabilities.json" \
+    "$ROOT_DIR/Validation/Ecosystem/Corpus.json" \
+    "$ROOT_DIR/LICENSE" "$SOURCE_REVISION_FOR_RESEARCH" "$RESEARCH_PACKAGE"
+"$OUTPUT_DIR/grammar-workbench" public-research-release-verify "$RESEARCH_PACKAGE"
 ditto -c -k --keepParent "$RESEARCH_PACKAGE" "$RESEARCH_ZIP"
 
 if [ -n "$NOTARY_PROFILE" ]; then

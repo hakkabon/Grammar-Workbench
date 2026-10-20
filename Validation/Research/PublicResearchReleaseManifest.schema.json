@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grammar-workbench.dev/schemas/public-research-release-v1.json",
+  "title": "Grammar Workbench public research release manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "kind", "title", "softwareVersion", "publicAPIVersion",
+    "repository", "sourceRevision", "ecosystemContractVersion",
+    "capabilityLedgerVersion", "corpusVersion", "validationEvidenceFingerprint",
+    "benchmarkProtocolFingerprint", "benchmarkEvidenceFingerprint",
+    "benchmarkMeasurementFingerprint", "digestAlgorithm", "license", "files"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "grammar-workbench-public-research-release" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 256 },
+    "softwareVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "publicAPIVersion": { "type": "integer", "minimum": 1 },
+    "repository": { "const": "https://github.com/hakkabon/Grammar-Workbench" },
+    "sourceRevision": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "ecosystemContractVersion": { "type": "string", "minLength": 1 },
+    "capabilityLedgerVersion": { "type": "string", "minLength": 1 },
+    "corpusVersion": { "type": "integer", "minimum": 5 },
+    "validationEvidenceFingerprint": { "$ref": "#/$defs/fingerprint" },
+    "benchmarkProtocolFingerprint": { "$ref": "#/$defs/fingerprint" },
+    "benchmarkEvidenceFingerprint": { "$ref": "#/$defs/fingerprint" },
+    "benchmarkMeasurementFingerprint": { "$ref": "#/$defs/fingerprint" },
+    "digestAlgorithm": { "const": "sha256" },
+    "license": { "const": "MIT" },
+    "files": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "mediaType", "bytes", "sha256"],
+        "properties": {
+          "path": {
+            "enum": [
+              "CITATION.cff", "LICENSE.txt", "README.md", "benchmark-protocol.json",
+              "benchmark-report.json", "capabilities.json", "corpus.json", "ecosystem.json",
+              "research-index.json", "validation-programme.json", "validation-report.json"
+            ]
+          },
+          "mediaType": { "type": "string", "minLength": 1 },
+          "bytes": { "type": "integer", "minimum": 1, "maximum": 16777216 },
+          "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "fingerprint": { "type": "string", "pattern": "^[0-9a-f]{16}$" }
+  }
+}

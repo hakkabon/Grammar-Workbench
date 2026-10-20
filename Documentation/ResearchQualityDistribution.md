@@ -58,3 +58,8 @@ declared cases. It is not a formal proof of parser correctness, an exhaustive
 language corpus, or evidence of statistical significance beyond the recorded
 repetitions. New claims belong in a new programme or schema-compatible bundle;
 historical bundles remain immutable.
+
+Phase 30 composes this evidence with the benchmark publication, shared corpus,
+capability ledger, and an explicit claim index in the archival
+[public research release](PublicResearchRelease.md). This schema-1 distribution
+remains supported as the narrower validation-only artifact.

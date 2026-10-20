@@ -10,7 +10,7 @@ private func releaseSource(_ path: String) throws -> String {
 }
 
 @Test func stableReleaseVersionAdvancesWithTheHardenedArtifactContract() {
-    #expect(GrammarWorkbenchRelease.version == "1.0.30")
+    #expect(GrammarWorkbenchRelease.version == "1.0.31")
 }
 
 @Test func releaseToolReadsTheCoreOwnedVersionDeclaration() throws {
@@ -26,8 +26,8 @@ private func releaseSource(_ path: String) throws -> String {
         #expect(source.contains("create --directory"))
         #expect(source.contains(" verify "))
         #expect(source.contains("RELEASE_REQUIRE_CLEAN"))
-        #expect(source.contains("research-package"))
-        #expect(source.contains("research-package-verify"))
+        #expect(source.contains("public-research-release"))
+        #expect(source.contains("public-research-release-verify"))
         #expect(source.contains("EcosystemCapabilities.json"))
         #expect(source.contains("CapabilityLedger.schema.json"))
     }

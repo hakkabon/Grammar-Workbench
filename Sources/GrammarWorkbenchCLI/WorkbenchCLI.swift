@@ -995,6 +995,27 @@ struct GrammarWorkbenchCLI {
             }
             let manifest = try verifyBenchmarkPublication(at: arguments[1])
             print("Verified \(manifest.title): measurement \(manifest.measurementFingerprint), \(manifest.files.count) files")
+        case "public-research-release":
+            guard arguments.count == 9 else {
+                throw CLIError.usage("public-research-release requires PROGRAMME PROTOCOL ECOSYSTEM CAPABILITIES CORPUS LICENSE SOURCE_REVISION OUTPUT_DIRECTORY")
+            }
+            let bundle = try GrammarPublicResearchRelease.create(
+                programmeData: Data(contentsOf: URL(fileURLWithPath: arguments[1])),
+                benchmarkProtocolData: Data(contentsOf: URL(fileURLWithPath: arguments[2])),
+                ecosystemData: Data(contentsOf: URL(fileURLWithPath: arguments[3])),
+                capabilityLedgerData: Data(contentsOf: URL(fileURLWithPath: arguments[4])),
+                corpusData: Data(contentsOf: URL(fileURLWithPath: arguments[5])),
+                licenseData: Data(contentsOf: URL(fileURLWithPath: arguments[6])),
+                sourceRevision: arguments[7]
+            )
+            try writePublicResearchRelease(bundle, to: arguments[8])
+            print("Wrote \(arguments[8]): public research evidence \(bundle.manifest.validationEvidenceFingerprint), measurement \(bundle.manifest.benchmarkMeasurementFingerprint)")
+        case "public-research-release-verify":
+            guard arguments.count == 2 else {
+                throw CLIError.usage("public-research-release-verify requires DIRECTORY")
+            }
+            let manifest = try verifyPublicResearchRelease(at: arguments[1])
+            print("Verified \(manifest.title) \(manifest.softwareVersion): \(manifest.files.count) files")
         case "laws-validate":
             guard arguments.count == 1 || arguments.count == 2 else {
                 throw CLIError.usage("laws-validate accepts at most one OUTPUT path")
@@ -1286,6 +1307,57 @@ struct GrammarWorkbenchCLI {
         )
     }
 
+    private static func writePublicResearchRelease(
+        _ bundle: GrammarPublicResearchReleaseBundle,
+        to path: String
+    ) throws {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        if manager.fileExists(atPath: directory.path) {
+            guard try manager.contentsOfDirectory(atPath: directory.path).isEmpty else {
+                throw CLIError.usage("public research release output directory must be empty")
+            }
+        } else {
+            try manager.createDirectory(at: directory, withIntermediateDirectories: true)
+        }
+        for name in bundle.files.keys.sorted() {
+            try bundle.files[name]!.write(
+                to: directory.appendingPathComponent(name), options: .atomic
+            )
+        }
+        try bundle.manifestData().write(
+            to: directory.appendingPathComponent(
+                GrammarPublicResearchReleaseManifest.manifestFilename
+            ), options: .atomic
+        )
+    }
+
+    private static func verifyPublicResearchRelease(
+        at path: String
+    ) throws -> GrammarPublicResearchReleaseManifest {
+        let manager = FileManager.default
+        let directory = URL(fileURLWithPath: path).standardizedFileURL
+        let manifestName = GrammarPublicResearchReleaseManifest.manifestFilename
+        let manifestData = try Data(contentsOf: directory.appendingPathComponent(manifestName))
+        let names = try manager.contentsOfDirectory(atPath: directory.path)
+            .filter { $0 != manifestName }
+        var files: [String: Data] = [:]
+        for name in names {
+            guard !name.contains("/"), !name.contains("..") else {
+                throw CLIError.usage("public research release contains an unsafe path")
+            }
+            let url = directory.appendingPathComponent(name)
+            let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey])
+            guard values.isRegularFile == true, values.isSymbolicLink != true else {
+                throw CLIError.usage("public research release entries must be regular files")
+            }
+            files[name] = try Data(contentsOf: url)
+        }
+        return try GrammarPublicResearchRelease.verify(
+            manifestData: manifestData, files: files
+        )
+    }
+
     private static func write(_ files: [GrammarGeneratedFile], to path: String) throws {
         let destination = URL(fileURLWithPath: path)
         if files.count == 1 {
@@ -1358,6 +1430,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench research-benchmark-compare BASELINE CANDIDATE
       grammar-workbench research-benchmark-package PROTOCOL ECOSYSTEM LICENSE OUTPUT_DIRECTORY
       grammar-workbench research-benchmark-package-verify DIRECTORY
+      grammar-workbench public-research-release PROGRAMME PROTOCOL ECOSYSTEM CAPABILITIES CORPUS LICENSE SOURCE_REVISION OUTPUT_DIRECTORY
+      grammar-workbench public-research-release-verify DIRECTORY
       grammar-workbench laws-validate [OUTPUT]
       grammar-workbench laws-discover [OUTPUT]
       grammar-workbench recovery-validate [OUTPUT]

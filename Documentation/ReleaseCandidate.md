@@ -137,6 +137,12 @@ The release-candidate gate verifies the product from four perspectives:
     environment identities. The
     publication must bind protocol, semantic evidence, measurements, ecosystem
     pins, citation, license, and every payload digest in a verified manifest.
+42. Public research releases must bind the exact Workbench source revision,
+    validation programme and evidence, selected-study protocol and raw
+    measurements, shared corpus, capability ledger, ecosystem pins, citation,
+    license, and an explicit machine-readable claim/non-claim index. Verification
+    must reject missing, undeclared, oversized, corrupted, or semantically
+    inconsistent payloads.
 
 Run the normal gate:
 

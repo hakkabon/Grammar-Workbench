@@ -19,6 +19,18 @@ private struct ReleaseCandidatePolicy: Decodable {
         let license: String
     }
 
+    struct PublicResearchRelease: Decodable {
+        let manifestSchemaVersion: Int
+        let manifestSchema: String
+        let indexSchema: String
+        let programme: String
+        let benchmarkProtocol: String
+        let ecosystem: String
+        let capabilities: String
+        let corpus: String
+        let license: String
+    }
+
     struct Budgets: Decodable {
         let canonicalConstructionMilliseconds: Double
         let canonicalStates: Int
@@ -63,6 +75,7 @@ private struct ReleaseCandidatePolicy: Decodable {
         let researchStudyExplorerMaximumBytes: Int
         let researchBenchmarkMaximumMeasurements: Int
         let researchBenchmarkReportMaximumBytes: Int
+        let publicResearchReleaseMaximumBytes: Int
         let editorMinimumViewportWidth: Double
         let editorMinimumViewportHeight: Double
         let visualMinimumWorkspaceWidth: Double
@@ -121,6 +134,7 @@ private struct ReleaseCandidatePolicy: Decodable {
     let requiredResearchProgrammes: [String]
     let researchBenchmarkProtocol: String
     let benchmarkPublicationManifestSchema: String
+    let publicResearchRelease: PublicResearchRelease
     let requiredSourceProjects: [String]
     let ecosystemCompatibilityManifest: String
     let ecosystemCapabilityLedger: String
@@ -191,6 +205,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.grammarREPLExperimentExplorer == .stable)
     #expect(GrammarWorkbenchCapabilities.researchNotebooks == .stable)
     #expect(GrammarWorkbenchCapabilities.engineOwnedMicrobenchmarks == .stable)
+    #expect(GrammarWorkbenchCapabilities.publicResearchRelease == .stable)
     #expect(GrammarWorkbenchCapabilities.compilerSemanticConvergence == .stable)
     #expect(GrammarWorkbenchCapabilities.researchQualityDistribution == .stable)
     #expect(GrammarWorkbenchCapabilities.executableGrammarAndParserLaws == .stable)
@@ -208,17 +223,17 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ecosystemURL)
     ) as? [String: Any]
     #expect(ecosystem?["schemaVersion"] as? Int == 1)
-    #expect(ecosystem?["contractVersion"] as? String == "0.18.0")
+    #expect(ecosystem?["contractVersion"] as? String == "0.19.0")
     let experiments = ecosystem?["grammarREPLExperiments"] as? [String: Any]
-    #expect(experiments?["schemaVersion"] as? Int == 2)
-    #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.6.0")
+    #expect(experiments?["schemaVersion"] as? Int == 3)
+    #expect(experiments?["minimumGrammarREPLVersion"] as? String == "0.9.0")
     #expect(experiments?["fingerprintAlgorithm"] as? String == "fnv1a64")
     #expect(experiments?["verifierProduct"] as? String == "grammar-repl-experiment")
-    #expect(experiments?["explorerProjectionVersion"] as? Int == 2)
+    #expect(experiments?["explorerProjectionVersion"] as? Int == 3)
     let executableLaws = ecosystem?["executableLaws"] as? [String: Any]
     #expect(executableLaws?["schemaVersion"] as? Int == 1)
-    #expect(executableLaws?["minimumGrammarVersion"] as? String == "0.3.1")
-    #expect(executableLaws?["minimumParserVersion"] as? String == "0.3.1")
+    #expect(executableLaws?["minimumGrammarVersion"] as? String == "0.3.4")
+    #expect(executableLaws?["minimumParserVersion"] as? String == "0.4.1")
     #expect(executableLaws?["laws"] as? [String] == [
         "productionPermutation", "nonterminalAlphaRenaming"
     ])
@@ -271,7 +286,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ledgerURL)
     ) as? [String: Any]
     #expect(ledger?["schemaVersion"] as? Int == 1)
-    #expect((ledger?["capabilities"] as? [[String: Any]])?.count == 15)
+    #expect((ledger?["capabilities"] as? [[String: Any]])?.count == 16)
     #expect((ledger?["repositories"] as? [[String: Any]])?.count == 12)
     #expect((ledger?["engines"] as? [[String: Any]])?.count == 10)
     let referenceExtension = ledger?["referenceExtension"] as? [String: Any]
@@ -279,10 +294,10 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(referenceExtension?["packagePath"] as? String == "Validation/Consumers/ReferenceExtension")
     let compilerRepository = repositories?.first { $0["name"] as? String == "Compiler" }
     #expect(compilerRepository?["adoption"] as? String == "conformance")
-    #expect(compilerRepository?["version"] as? String == "0.2.1")
+    #expect(compilerRepository?["version"] as? String == "0.3.0")
     let grammarREPLRepository = repositories?.first { $0["name"] as? String == "Grammar-REPL" }
     #expect(grammarREPLRepository?["adoption"] as? String == "conformance")
-    #expect(grammarREPLRepository?["version"] as? String == "0.7.0")
+    #expect(grammarREPLRepository?["version"] as? String == "0.9.0")
     let corpusURL = packageRoot().appendingPathComponent(policy.ecosystemConformanceCorpus)
     let corpus = try JSONSerialization.jsonObject(
         with: Data(contentsOf: corpusURL)
@@ -758,6 +773,54 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     )) as? [String: Any]
     #expect(schema?["$id"] as? String
         == "https://grammar-workbench.dev/schemas/benchmark-publication-v1.json")
+}
+
+@Test func publicResearchReleaseIsLinkedVerifiableAndBounded() throws {
+    let policy = try releaseCandidatePolicy()
+    let release = policy.publicResearchRelease
+    #expect(release.manifestSchemaVersion
+        == GrammarPublicResearchReleaseManifest.currentSchemaVersion)
+    #expect(release.programme == policy.requiredResearchProgrammes.first)
+    #expect(release.benchmarkProtocol == policy.researchBenchmarkProtocol)
+    #expect(release.ecosystem == policy.ecosystemCompatibilityManifest)
+    #expect(release.capabilities == policy.ecosystemCapabilityLedger)
+    #expect(release.corpus == policy.ecosystemConformanceCorpus)
+
+    let manifestSchema = try JSONSerialization.jsonObject(with: Data(contentsOf:
+        packageRoot().appendingPathComponent(release.manifestSchema)
+    )) as? [String: Any]
+    #expect(manifestSchema?["$id"] as? String
+        == "https://grammar-workbench.dev/schemas/public-research-release-v1.json")
+    let indexSchema = try JSONSerialization.jsonObject(with: Data(contentsOf:
+        packageRoot().appendingPathComponent(release.indexSchema)
+    )) as? [String: Any]
+    #expect(indexSchema?["$id"] as? String
+        == "https://grammar-workbench.dev/schemas/public-research-index-v1.json")
+
+    let publishedProtocol = try GrammarResearchBenchmarkCodec.decodeProtocol(
+        Data(contentsOf: packageRoot().appendingPathComponent(release.benchmarkProtocol))
+    )
+    let lightweight = GrammarResearchBenchmarkProtocol(
+        id: publishedProtocol.id, title: publishedProtocol.title,
+        rationale: publishedProtocol.rationale,
+        buildConfiguration: publishedProtocol.buildConfiguration,
+        warmupIterations: 0, measurementIterations: 3,
+        studyIDs: publishedProtocol.studyIDs
+    )
+    let bundle = try GrammarPublicResearchRelease.create(
+        programmeData: Data(contentsOf: packageRoot().appendingPathComponent(release.programme)),
+        benchmarkProtocolData: GrammarResearchBenchmarkCodec.encode(lightweight),
+        ecosystemData: Data(contentsOf: packageRoot().appendingPathComponent(release.ecosystem)),
+        capabilityLedgerData: Data(contentsOf: packageRoot().appendingPathComponent(release.capabilities)),
+        corpusData: Data(contentsOf: packageRoot().appendingPathComponent(release.corpus)),
+        licenseData: Data(contentsOf: packageRoot().appendingPathComponent(release.license)),
+        sourceRevision: "0123456789abcdef0123456789abcdef01234567"
+    )
+    _ = try GrammarPublicResearchRelease.verify(
+        manifestData: bundle.manifestData(), files: bundle.files
+    )
+    #expect(bundle.files.values.reduce(0) { $0 + $1.count }
+        <= policy.budgets.publicResearchReleaseMaximumBytes)
 }
 
 @Test func grammarTransformationRemainsExplainableAndBehaviorChecked() throws {

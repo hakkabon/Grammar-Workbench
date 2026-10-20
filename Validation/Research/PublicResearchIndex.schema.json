@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grammar-workbench.dev/schemas/public-research-index-v1.json",
+  "title": "Grammar Workbench public research claim index",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "kind", "title", "claims", "nonClaims", "reproductionEntryPoints"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "grammar-workbench-public-research-index" },
+    "title": { "type": "string", "minLength": 1 },
+    "claims": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "statement", "evidence"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "statement": { "type": "string", "minLength": 1 },
+          "evidence": {
+            "type": "array", "minItems": 1, "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "nonClaims": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "reproductionEntryPoints": {
+      "type": "array", "minItems": 3, "maxItems": 3,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}

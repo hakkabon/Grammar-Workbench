@@ -30,6 +30,7 @@ elif [ "$RELEASE_REQUIRE_CLEAN" != "0" ]; then
     exit 2
 fi
 node "$ROOT_DIR/Scripts/release-artifacts.mjs" "${SOURCE_ARGUMENTS[@]}"
+SOURCE_REVISION_FOR_RESEARCH="${RELEASE_REVISION:-$(git -C "$ROOT_DIR" rev-parse HEAD)}"
 case "$ARCH" in
     x86_64|amd64) ARCHIVE_ARCH="x86_64" ;;
     aarch64|arm64) ARCHIVE_ARCH="arm64" ;;
@@ -71,11 +72,14 @@ tar -C "$WORK_DIR" -czf "$ARCHIVE" "$PACKAGE_NAME"
 tar -tzf "$ARCHIVE" >/dev/null
 RESEARCH_NAME="Grammar-Workbench-Research-$VERSION"
 RESEARCH_DIR="$WORK_DIR/$RESEARCH_NAME"
-"$PACKAGE_DIR/bin/grammar-workbench" research-package \
+"$PACKAGE_DIR/bin/grammar-workbench" public-research-release \
     "$ROOT_DIR/Examples/ResearchValidationProgramme.json" \
+    "$ROOT_DIR/Examples/ResearchBenchmarkProtocol.json" \
     "$ROOT_DIR/Packaging/EcosystemCompatibility.json" \
-    "$ROOT_DIR/LICENSE" "$RESEARCH_DIR"
-"$PACKAGE_DIR/bin/grammar-workbench" research-package-verify "$RESEARCH_DIR"
+    "$ROOT_DIR/Packaging/EcosystemCapabilities.json" \
+    "$ROOT_DIR/Validation/Ecosystem/Corpus.json" \
+    "$ROOT_DIR/LICENSE" "$SOURCE_REVISION_FOR_RESEARCH" "$RESEARCH_DIR"
+"$PACKAGE_DIR/bin/grammar-workbench" public-research-release-verify "$RESEARCH_DIR"
 RESEARCH_ARCHIVE="$OUTPUT_DIR/$RESEARCH_NAME.tar.gz"
 tar -C "$WORK_DIR" -czf "$RESEARCH_ARCHIVE" "$RESEARCH_NAME"
 tar -tzf "$RESEARCH_ARCHIVE" >/dev/null

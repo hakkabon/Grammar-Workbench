@@ -1,13 +1,13 @@
 {
-  "originHash" : "4cbd2e1dd00b91d90f84dc84e9852508f55c9ebc249750b727d6c67fd6732d08",
+  "originHash" : "b8c5e0577a89f0fc77e921e18fd325e2d1f7d9e6bdd588f92c8d6ed3b6b691b2",
   "pins" : [
     {
       "identity" : "grammar",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/Grammar.git",
       "state" : {
-        "revision" : "07fe749d6d5d85c0d11648634d3ad458d4d0abe4",
-        "version" : "0.3.1"
+        "revision" : "2dedc076be2e0a2bdb4bad843c717d4fd3d8bfdc",
+        "version" : "0.3.4"
       }
     },
     {
@@ -69,8 +69,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/LR-Parsing.git",
       "state" : {
-        "revision" : "76f84447bc23db97abfdf5c57413ed13bc4fed30",
-        "version" : "0.2.4"
+        "revision" : "885a4e5a0c9841b06e3bbad17fc21e0637b7eff5",
+        "version" : "0.2.5"
       }
     },
     {
@@ -78,8 +78,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hakkabon/Parser.git",
       "state" : {
-        "revision" : "38667267dc0b3c5f3313739217d7cedfb054ad69",
-        "version" : "0.3.1"
+        "revision" : "d9ae97b7a46a02d3a1a915fe803429c44ba8076a",
+        "version" : "0.4.1"
       }
     },
     {

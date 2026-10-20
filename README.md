@@ -72,6 +72,12 @@ Research workspace preserves each measured boundary and correctness identity;
 runs, never merely because two rows come from parser engines. See
 [Documentation/EngineOwnedMicrobenchmarks.md](Documentation/EngineOwnedMicrobenchmarks.md).
 
+Grammar Workbench 1.0.31 publishes one public research release that binds the
+validation programme, selected-study benchmark, shared corpus, capability
+ledger, exact ecosystem pins, source revision, citation, and explicit
+claims/non-claims. The archive is created and verified by the release tooling;
+see [Documentation/PublicResearchRelease.md](Documentation/PublicResearchRelease.md).
+
 Executable Grammar and Parser laws now carry exact grammar transformations
 through Workbench's real LALR runtime and compare the resulting portable parser
 observations. Grammar owns transformation witnesses, Parser owns validation and
@@ -174,6 +180,11 @@ exact ecosystem pins, citation metadata, license, and a SHA-256 inventory.
 `research-package` creates the portable directory contract and
 `research-package-verify` rejects incomplete, modified, or undeclared content.
 See [Documentation/ResearchQualityDistribution.md](Documentation/ResearchQualityDistribution.md).
+
+The Phase 30 public research release is the archival superset of that narrower
+bundle. It adds benchmark evidence, corpus v5, the capability ledger, exact
+source provenance, and a machine-readable claim/non-claim index; platform
+release packaging creates and verifies it automatically.
 
 The Research workspace also offers three selected previews for ambiguity growth, precedence-hidden alternatives, and search reproducibility. Each gives a plain-language conclusion while retaining its complete validation report. Phase 20 can run them as one fingerprinted, archivable study suite and drill back into every case. See [Documentation/ResearchStudyExplorer.md](Documentation/ResearchStudyExplorer.md).
 

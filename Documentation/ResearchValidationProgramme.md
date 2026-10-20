@@ -32,6 +32,10 @@ For archival release, `research-package` combines a passing report with exact
 ecosystem pins, a reproduction protocol, citation metadata, licensing, and a
 SHA-256 inventory. See [Research-quality distribution](ResearchQualityDistribution.md).
 
+The Phase 30 [public research release](PublicResearchRelease.md) composes that
+validation evidence with the selected-study benchmark, shared corpus,
+capability ledger, source revision, and explicit non-claims.
+
 ## Scope
 
 The programme provides repeatable regression evidence; it is not a formal proof of parser correctness. New research cases should cite their origin in `rationale` or `hypothesis`, use the smallest discriminating grammar, state expected limits explicitly, and preserve failing cases when they reveal a genuine defect.

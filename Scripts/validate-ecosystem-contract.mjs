@@ -23,11 +23,11 @@ if (!/^\d+\.\d+$/.test(manifest.swiftIntegrationVersion)) fail("invalid Swift in
 if (!Array.isArray(manifest.repositories) || manifest.repositories.length < 6) fail("ecosystem repositories are incomplete");
 
 const experiments = manifest.grammarREPLExperiments;
-if (experiments?.schemaVersion !== 2 ||
-    experiments.minimumGrammarREPLVersion !== "0.6.0" ||
+if (experiments?.schemaVersion !== 3 ||
+    experiments.minimumGrammarREPLVersion !== "0.9.0" ||
     experiments.fingerprintAlgorithm !== "fnv1a64" ||
     experiments.verifierProduct !== "grammar-repl-experiment" ||
-    experiments.explorerProjectionVersion !== 2) {
+    experiments.explorerProjectionVersion !== 3) {
   fail("invalid Grammar-REPL experiment capability");
 }
 
@@ -93,8 +93,8 @@ const grammarREPL = manifest.repositories.find(repository => repository.name ===
 if (!versionAtLeast(grammarREPL.version, experiments.minimumGrammarREPLVersion)) fail("Grammar-REPL repository predates the experiment capability");
 const executableLaws = manifest.executableLaws;
 if (executableLaws?.schemaVersion !== 1 ||
-    executableLaws.minimumGrammarVersion !== "0.3.1" ||
-    executableLaws.minimumParserVersion !== "0.3.1" ||
+    executableLaws.minimumGrammarVersion !== "0.3.4" ||
+    executableLaws.minimumParserVersion !== "0.4.1" ||
     executableLaws.grammarWitnessSchemaVersion !== 1 ||
     executableLaws.parserDiscrepancySchemaVersion !== 1 ||
     JSON.stringify(executableLaws.laws) !== JSON.stringify(["productionPermutation", "nonterminalAlphaRenaming"])) {

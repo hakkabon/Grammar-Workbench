@@ -65,6 +65,13 @@ and Compiler evidence, and notebooks report when their source project changes.
 The same workflow is available through `notebook-create`, `notebook-add`, and
 `notebook-inspect`. See [Documentation/ResearchNotebooks.md](Documentation/ResearchNotebooks.md).
 
+Grammar Workbench 1.0.30 imports Parser schema-1 microbenchmark reports emitted
+by the owning LL, Earley, Earley Table, CYK, RNGLR, and LR repositories. The
+Research workspace preserves each measured boundary and correctness identity;
+`engine-benchmark-compare` produces ratios only for compatible longitudinal
+runs, never merely because two rows come from parser engines. See
+[Documentation/EngineOwnedMicrobenchmarks.md](Documentation/EngineOwnedMicrobenchmarks.md).
+
 Executable Grammar and Parser laws now carry exact grammar transformations
 through Workbench's real LALR runtime and compare the resulting portable parser
 observations. Grammar owns transformation witnesses, Parser owns validation and

@@ -54,4 +54,5 @@ This is a whole-study macrobenchmark. It measures compilation, deterministic
 and generalized parsing, forest inspection, and the study's reproducibility
 checks together. It is suitable for tracking the shipped research workflow,
 not for attributing time to an individual parser primitive. Such attribution
-would require a separate engine-owned microbenchmark protocol.
+uses the separate Parser schema-1 engine-owned microbenchmark protocol added in
+Phase 29. See [EngineOwnedMicrobenchmarks.md](EngineOwnedMicrobenchmarks.md).

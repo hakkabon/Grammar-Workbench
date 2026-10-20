@@ -1573,6 +1573,7 @@ public struct ArtifactExplorerView: View {
                 if let preview = store.selectedResearchPreview {
                     selectedResearchPreviewView(preview)
                 }
+                engineMicrobenchmarkView
                 Divider().padding(.vertical, 4)
                 Text("Generalized LR exploration").font(.title2.bold())
                 Text("Merges equivalent parser configurations into a shared-packed forest, then materializes only the requested concrete alternatives. Explicit limits bound exploration and forest growth.")
@@ -1637,6 +1638,52 @@ public struct ArtifactExplorerView: View {
             .padding()
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var engineMicrobenchmarkView: some View {
+        GroupBox("Engine-owned microbenchmarks") {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Import reports produced by the engine repositories. Workbench preserves their declared measurement boundaries and emits ratios only for compatible longitudinal runs.")
+                    .foregroundStyle(.secondary)
+                Button("Open benchmark reports…", systemImage: "gauge.with.dots.needle.67percent") {
+                    openEngineMicrobenchmarkReports()
+                }
+                if let explorer = store.engineMicrobenchmarkExplorerReport {
+                    HStack {
+                        LabeledContent("Owners", value: "\(explorer.ownerCount)")
+                        LabeledContent("Engines", value: "\(explorer.engineCount)")
+                        LabeledContent("Environments", value: "\(explorer.environmentCount)")
+                    }
+                    ForEach(explorer.reports) { report in
+                        DisclosureGroup("\(report.engineID) · \(report.suiteTitle)") {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("\(report.owner) \(report.ownerVersion) · \(report.buildConfiguration)")
+                                    .font(.caption).foregroundStyle(.secondary)
+                                ForEach(report.cases) { item in
+                                    Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 3) {
+                                        GridRow { Text(item.title).font(.subheadline.bold()); Text("") }
+                                        GridRow { Text("Boundary"); Text(item.boundary) }
+                                        GridRow { Text("Median"); Text(formatBenchmarkNanoseconds(item.medianNanoseconds)) }
+                                        GridRow { Text("95th percentile"); Text(formatBenchmarkNanoseconds(item.percentile95Nanoseconds)) }
+                                        GridRow { Text("Samples"); Text("\(item.sampleCount)") }
+                                        GridRow { Text("Evidence"); Text(item.evidenceFingerprint).font(.caption.monospaced()) }
+                                    }
+                                }
+                            }.padding(.top, 6)
+                        }
+                    }
+                    Text(explorer.ratioPolicy).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(6)
+        }
+    }
+
+    private func formatBenchmarkNanoseconds(_ value: UInt64) -> String {
+        if value >= 1_000_000 { return String(format: "%.3f ms", Double(value) / 1_000_000) }
+        if value >= 1_000 { return String(format: "%.3f µs", Double(value) / 1_000) }
+        return "\(value) ns"
     }
 
     @ViewBuilder
@@ -2160,6 +2207,25 @@ public struct ArtifactExplorerView: View {
             tab = .experiments
         } catch {
             exportMessage = "Could not open experiment: \(error.localizedDescription)"
+        }
+    }
+
+    private func openEngineMicrobenchmarkReports() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.json]
+        panel.message = "Choose one or more engine-owned microbenchmark reports."
+        guard panel.runModal() == .OK else { return }
+        do {
+            let documents = try panel.urls.map {
+                (data: try Data(contentsOf: $0), name: $0.lastPathComponent)
+            }
+            try store.importEngineMicrobenchmarkReports(documents)
+            tab = .research
+            exportMessage = "Opened \(documents.count) engine benchmark report\(documents.count == 1 ? "" : "s")."
+        } catch {
+            exportMessage = "Could not open engine benchmark reports: \(error.localizedDescription)"
         }
     }
 

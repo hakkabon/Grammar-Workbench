@@ -190,6 +190,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
     #expect(GrammarWorkbenchCapabilities.collaborativeOrHostedWorkbench == .stable)
     #expect(GrammarWorkbenchCapabilities.grammarREPLExperimentExplorer == .stable)
     #expect(GrammarWorkbenchCapabilities.researchNotebooks == .stable)
+    #expect(GrammarWorkbenchCapabilities.engineOwnedMicrobenchmarks == .stable)
     #expect(GrammarWorkbenchCapabilities.compilerSemanticConvergence == .stable)
     #expect(GrammarWorkbenchCapabilities.researchQualityDistribution == .stable)
     #expect(GrammarWorkbenchCapabilities.executableGrammarAndParserLaws == .stable)
@@ -270,7 +271,7 @@ private func releaseCandidatePolicy() throws -> ReleaseCandidatePolicy {
         with: Data(contentsOf: ledgerURL)
     ) as? [String: Any]
     #expect(ledger?["schemaVersion"] as? Int == 1)
-    #expect((ledger?["capabilities"] as? [[String: Any]])?.count == 14)
+    #expect((ledger?["capabilities"] as? [[String: Any]])?.count == 15)
     #expect((ledger?["repositories"] as? [[String: Any]])?.count == 12)
     #expect((ledger?["engines"] as? [[String: Any]])?.count == 10)
     let referenceExtension = ledger?["referenceExtension"] as? [String: Any]

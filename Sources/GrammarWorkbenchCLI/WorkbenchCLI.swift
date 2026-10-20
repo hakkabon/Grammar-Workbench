@@ -146,6 +146,53 @@ struct GrammarWorkbenchCLI {
             } else {
                 print(String(decoding: data, as: UTF8.self))
             }
+        case "engine-benchmark-inspect":
+            guard arguments.count >= 2 else {
+                throw CLIError.usage("engine-benchmark-inspect requires REPORT... [--output=PATH]")
+            }
+            let output = arguments.dropFirst().first(where: { $0.hasPrefix("--output=") })
+                .map { String($0.dropFirst("--output=".count)) }
+            let paths = arguments.dropFirst().filter { !$0.hasPrefix("--output=") }
+            guard !paths.isEmpty, paths.count <= 64 else {
+                throw CLIError.usage("engine-benchmark-inspect accepts 1...64 REPORT paths")
+            }
+            let reports = try paths.map {
+                try GrammarEngineMicrobenchmarkExplorer.decode(
+                    Data(contentsOf: URL(fileURLWithPath: $0))
+                )
+            }
+            let report = try GrammarEngineMicrobenchmarkExplorer.inspect(reports)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(report)
+            if let output {
+                try data.write(to: URL(fileURLWithPath: output), options: .atomic)
+                print("Wrote \(output): \(report.engineCount) engines from \(report.ownerCount) owners")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
+        case "engine-benchmark-compare":
+            guard arguments.count == 3 || arguments.count == 4 else {
+                throw CLIError.usage("engine-benchmark-compare requires BASELINE CANDIDATE [OUTPUT]")
+            }
+            let baseline = try GrammarEngineMicrobenchmarkExplorer.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[1]))
+            )
+            let candidate = try GrammarEngineMicrobenchmarkExplorer.decode(
+                Data(contentsOf: URL(fileURLWithPath: arguments[2]))
+            )
+            let comparison = GrammarEngineMicrobenchmarkExplorer.compare(
+                baseline: baseline, candidate: candidate
+            )
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+            let data = try encoder.encode(comparison)
+            if arguments.count == 4 {
+                try data.write(to: URL(fileURLWithPath: arguments[3]), options: .atomic)
+                print("Wrote \(arguments[3]): \(comparison.reason)")
+            } else {
+                print(String(decoding: data, as: UTF8.self))
+            }
         case "tooling-request":
             guard arguments.count == 2 || arguments.count == 3 else {
                 throw CLIError.usage("tooling-request requires REQUEST_JSON [RESPONSE_JSON]")
@@ -1266,6 +1313,8 @@ struct GrammarWorkbenchCLI {
       grammar-workbench notebook-create PROJECT OUTPUT TITLE QUESTION
       grammar-workbench notebook-add NOTEBOOK OUTPUT note|evidence|conclusion CELL_ID TITLE BODY [EXPERIMENT_ID] [ENGINE,...]
       grammar-workbench notebook-inspect NOTEBOOK [PROJECT] [OUTPUT]
+      grammar-workbench engine-benchmark-inspect REPORT... [--output=PATH]
+      grammar-workbench engine-benchmark-compare BASELINE CANDIDATE [OUTPUT]
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR

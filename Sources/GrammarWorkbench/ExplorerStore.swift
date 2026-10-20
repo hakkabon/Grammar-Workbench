@@ -42,6 +42,7 @@ final class ExplorerStore {
     private(set) var experimentPlayback = GrammarREPLExperimentPlaybackState()
     private(set) var researchNotebook: GrammarResearchNotebook?
     private(set) var researchNotebookResolution: GrammarResearchNotebookResolution?
+    private(set) var engineMicrobenchmarkExplorerReport: GrammarEngineMicrobenchmarkExplorerReport?
     var selection: ArtifactIdentity? = .state(.init(rawValue: 0))
     private(set) var sourceSelection: SourceRange?
     var currentCompilationSnapshot: GrammarCompilation { currentCompilation }
@@ -403,6 +404,12 @@ final class ExplorerStore {
             throw GrammarResearchNotebookError.invalidNotebookMetadata
         }
         return try researchNotebook.json()
+    }
+
+    func importEngineMicrobenchmarkReports(_ documents: [(data: Data, name: String)]) throws {
+        let decoded = try documents.map { try GrammarEngineMicrobenchmarkExplorer.decode($0.data) }
+        let report = try GrammarEngineMicrobenchmarkExplorer.inspect(decoded)
+        engineMicrobenchmarkExplorerReport = report
     }
 
     private func activateExperiment(_ artifact: GrammarREPLExperimentArtifact) {

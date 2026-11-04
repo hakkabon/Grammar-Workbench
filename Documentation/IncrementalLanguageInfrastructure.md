@@ -4,6 +4,12 @@ Grammar Workbench exposes a stable, editor-neutral layer for maintaining analyze
 
 `GrammarIncrementalAnalysisCoordinator` is the preferred application boundary. It owns a session, reconciles external editor versions and unversioned saves with monotonic internal revisions, suppresses analysis of unchanged snapshots, and centralizes document open/close and grammar-replacement lifecycles. The native app and bundled LSP use this coordinator rather than maintaining independent source-analysis state.
 
+Workbench's line/column façade delegates validated sequential UTF-16
+application to `IncrementalParsing.SourceEditBatch`. Its token/node reuse and
+lexing/parsing strategy records also project to the shared operational-evidence
+contract. Workbench-specific snapshots remain source-compatible for SDK and
+Codable clients while migration proceeds.
+
 ## Text snapshots and edits
 
 `GrammarTextSnapshot` stores immutable text and a monotonically increasing revision. Apply one or more `GrammarTextEdit` values to create the next snapshot. Positions are zero-based UTF-16 line and column pairs, matching LSP, AppKit, and common editor protocols. Edits are applied sequentially; a nil range replaces the whole document.

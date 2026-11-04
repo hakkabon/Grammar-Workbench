@@ -24,6 +24,7 @@ let package = Package(
         .library(name: "GrammarWorkbenchSDK", targets: ["GrammarWorkbenchSDK"]),
         .executable(name: "grammar-workbench", targets: ["GrammarWorkbenchCLI"]),
         .executable(name: "grammar-workbench-service", targets: ["GrammarWorkbenchServiceHost"]),
+        .executable(name: "grammar-workbench-pl0-experiment", targets: ["GrammarWorkbenchPL0Experiment"]),
         .executable(name: "grammar-workbench-wasi", targets: ["GrammarWorkbenchWASIDemo"]),
         .library(name: "GrammarWorkbenchLSP", targets: ["GrammarWorkbenchLSP"]),
         .executable(name: "grammar-workbench-lsp", targets: ["GrammarWorkbenchLSPApp"]),
@@ -49,7 +50,9 @@ let package = Package(
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",
             .upToNextMinor(from: "0.1.0")
-        )
+        ),
+        .package(path: "../PL0-LanguageKit"),
+        .package(path: "../Incremental-Parsing")
     ],
     targets: [
         .target(
@@ -58,6 +61,7 @@ let package = Package(
                 .product(name: "Grammar", package: "Grammar"),
                 .product(name: "Parser", package: "Parser"),
                 .product(name: "LR-Parsing", package: "LR-Parsing"),
+                .product(name: "IncrementalParsing", package: "Incremental-Parsing"),
                 .product(name: "GrammarDiagramKit", package: "Grammar-DiagramKit"),
                 .product(
                     name: "SwiftLayout", package: "Swift-Layout",
@@ -81,6 +85,12 @@ let package = Package(
         .executableTarget(
             name: "GrammarWorkbenchServiceHost",
             dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbenchCore"]
+        ),
+        .executableTarget(
+            name: "GrammarWorkbenchPL0Experiment",
+            dependencies: [
+                .product(name: "PL0FrontendConformance", package: "PL0-LanguageKit")
+            ]
         ),
         .executableTarget(
             name: "GrammarWorkbenchWASIDemo",

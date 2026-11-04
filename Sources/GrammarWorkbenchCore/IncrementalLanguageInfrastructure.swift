@@ -1,4 +1,5 @@
 import Foundation
+import IncrementalParsing
 
 public struct GrammarTextPosition: Hashable, Codable, Sendable {
     public let line: Int
@@ -77,6 +78,7 @@ public struct GrammarTextSnapshot: Hashable, Codable, Sendable {
         var value = text
         var replaced = 0
         var inserted = 0
+        var replacements: [IncrementalParsing.SourceReplacement] = []
         for edit in edits {
             let source = value as NSString
             let range: NSRange
@@ -90,10 +92,25 @@ public struct GrammarTextSnapshot: Hashable, Codable, Sendable {
             }
             replaced += range.length
             inserted += edit.replacement.utf16.count
+            replacements.append(.init(
+                range: IncrementalParsing.SourceRange(
+                    location: range.location, length: range.length),
+                replacement: edit.replacement))
             value = source.replacingCharacters(in: range, with: edit.replacement)
         }
+        guard let base = UInt64(exactly: revision),
+              let proposed = UInt64(exactly: newRevision) else {
+            throw GrammarIncrementalLanguageError.staleRevision(
+                current: revision, proposed: newRevision)
+        }
+        let shared = try IncrementalParsing.SourceEditBatch(
+            baseRevision: .init(base), resultRevision: .init(proposed),
+            replacements: replacements
+        ).applying(to: .init(text: text, revision: .init(base)))
+        precondition(shared.after.text == value,
+                     "shared and Workbench edit application must agree")
         return (
-            .init(revision: newRevision, text: value),
+            .init(revision: newRevision, text: shared.after.text),
             .init(editCount: edits.count, replacedUTF16Length: replaced, insertedUTF16Length: inserted)
         )
     }
@@ -154,6 +171,16 @@ public struct GrammarIncrementalReuseMetrics: Hashable, Codable, Sendable {
     public let reusedNodes: Int
     public let createdNodes: Int
     public let removedNodes: Int
+
+    public init(reusedTokens: Int, createdTokens: Int, removedTokens: Int,
+                reusedNodes: Int, createdNodes: Int, removedNodes: Int) {
+        self.reusedTokens = reusedTokens
+        self.createdTokens = createdTokens
+        self.removedTokens = removedTokens
+        self.reusedNodes = reusedNodes
+        self.createdNodes = createdNodes
+        self.removedNodes = removedNodes
+    }
 }
 
 public enum GrammarIncrementalLexingStrategy: String, Hashable, Codable, Sendable {
@@ -188,6 +215,18 @@ public struct GrammarIncrementalParsingMetrics: Hashable, Codable, Sendable {
     public let reusedPrefixTokens: Int
     public let availableCheckpoints: Int
     public let fallbackReason: String?
+
+    public init(strategy: GrammarIncrementalParsingStrategy,
+                resumedTokenIndex: Int, reparsedTokenCount: Int,
+                reusedPrefixTokens: Int, availableCheckpoints: Int,
+                fallbackReason: String? = nil) {
+        self.strategy = strategy
+        self.resumedTokenIndex = resumedTokenIndex
+        self.reparsedTokenCount = reparsedTokenCount
+        self.reusedPrefixTokens = reusedPrefixTokens
+        self.availableCheckpoints = availableCheckpoints
+        self.fallbackReason = fallbackReason
+    }
 }
 
 public struct GrammarIncrementalAnalysisSnapshot: Hashable, Codable, Sendable {

@@ -69,6 +69,27 @@ private struct IncrementalListSemantics: GrammarSemanticReducer {
     }
 }
 
+@Test func incrementalContractsProjectSharedSourceAndOperationalEvidence() {
+    let snapshot = GrammarTextSnapshot(revision: 7, text: "one")
+    #expect(snapshot.incrementalSourceSnapshot.revision.rawValue == 7)
+    #expect(snapshot.incrementalSourceSnapshot.text == "one")
+
+    let reuse = GrammarIncrementalReuseMetrics(
+        reusedTokens: 3, createdTokens: 1, removedTokens: 2,
+        reusedNodes: 4, createdNodes: 2, removedNodes: 1)
+    #expect(reuse.incrementalReuseMeasurements.count == 2)
+    #expect(reuse.incrementalReuseMeasurements[0].dimension.rawValue == "syntaxNodes")
+    #expect(reuse.incrementalReuseMeasurements[1].dimension.rawValue == "tokens")
+
+    let fallback = GrammarIncrementalParsingMetrics(
+        strategy: .fallback, resumedTokenIndex: 0,
+        reparsedTokenCount: 3, reusedPrefixTokens: 0,
+        availableCheckpoints: 0, fallbackReason: "No checkpoint")
+        .incrementalExecutionEvidence
+    #expect(fallback.strategy.rawValue == "fallback")
+    #expect(fallback.fallback?.detail == "No checkpoint")
+}
+
 @Test func incrementalSessionRetainsTokenAndNodeIdentitiesAcrossEdits() async throws {
     let compilation = GrammarWorkbenchAPI.compile(.init(source: incrementalLanguageGrammar))
     let session = try GrammarIncrementalLanguageSession(compilation: compilation)

@@ -80,7 +80,8 @@ let package = Package(
         .executableTarget(
             name: "GrammarWorkbenchPL0Experiment",
             dependencies: [
-                .product(name: "PL0FrontendConformance", package: "PL0-LanguageKit")
+                .product(name: "PL0FrontendConformance", package: "PL0-LanguageKit"),
+                .product(name: "IncrementalParsing", package: "Incremental-Parsing")
             ]
         ),
         .executableTarget(

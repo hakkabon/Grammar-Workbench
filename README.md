@@ -1,5 +1,12 @@
 # Grammar Workbench
 
+The shared PL/0 product campaign is available headlessly without moving parser
+or measurement logic into the Workbench:
+
+```sh
+swift run grammar-workbench-pl0-experiment product-campaign workbench-product.json
+```
+
 An experimental large-iPad adaptive application is available in
 [`Platforms/GrammarWorkbenchTabletApp`](Platforms/GrammarWorkbenchTabletApp).
 Its supported pilot workflows and device verification checklist are described

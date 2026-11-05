@@ -35,18 +35,9 @@ let package = Package(
              url: "https://github.com/hakkabon/Swift-Layout.git",
              .upToNextMinor(from: "0.0.3")
         ),
-        .package(
-            url: "https://github.com/hakkabon/Grammar.git",
-            .upToNextMinor(from: "0.3.4")
-        ),
-        .package(
-            url: "https://github.com/hakkabon/Parser.git",
-            .upToNextMinor(from: "0.4.1")
-        ),
-        .package(
-            url: "https://github.com/hakkabon/LR-Parsing.git",
-            .upToNextMinor(from: "0.2.5")
-        ),
+        .package(path: "../Grammar"),
+        .package(path: "../Parser"),
+        .package(path: "../LR-Parsing"),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",
             .upToNextMinor(from: "0.1.0")

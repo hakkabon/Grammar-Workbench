@@ -91,7 +91,8 @@ enum EBNFGrammarAdapter {
         }
         func canonical(_ name: String) -> String { canonicalNames[name] ?? name }
 
-        let lexicalNames = converted.4.keys.sorted()
+        let lexicalSpecification = parser.lexicalSpecification
+        let lexicalNames = lexicalSpecification.significantRules.map(\.name)
         let fallbackRange = sourceIndex.range(for: originalGoals.first ?? "") ?? .zero
         let graph = Dictionary(grouping: converted.0, by: { $0.goal.name }).mapValues {
             Set($0.flatMap { $0.generatedNonTerminals.map(\.name) })
@@ -116,11 +117,17 @@ enum EBNFGrammarAdapter {
         }
         let startName = converted.2.isEmpty ? (originalGoals.first ?? converted.0[0].goal.name) : converted.2
         append("%start \(canonical(startName))", origin: sourceIndex.range(for: startName) ?? fallbackRange)
-        for name in lexicalNames {
-            guard let terminal = converted.4[name], let pattern = regexPattern(for: terminal) else { continue }
-            append("%token \(name) /\(escapePatternDelimiter(pattern))/", origin: sourceIndex.range(for: name) ?? fallbackRange)
+        for rule in lexicalSpecification.significantRules {
+            guard let pattern = matcherPattern(rule.matcher) else { continue }
+            append("%token \(rule.name) /\(escapePatternDelimiter(pattern))/",
+                   origin: sourceIndex.range(for: rule.name) ?? fallbackRange)
         }
-        if !lexicalNames.isEmpty { append("%skip /\\s+/", origin: sourceIndex.lexicalBlockRange ?? fallbackRange) }
+        for rule in lexicalSpecification.triviaRules {
+            guard let pattern = matcherPattern(rule.matcher) else { continue }
+            append("%skip /\(escapePatternDelimiter(pattern))/",
+                   origin: sourceIndex.range(for: rule.name)
+                    ?? sourceIndex.lexicalBlockRange ?? fallbackRange)
+        }
         append("", origin: fallbackRange)
 
         for production in converted.0 {
@@ -261,6 +268,33 @@ enum EBNFGrammarAdapter {
         case .string(let value): return NSRegularExpression.escapedPattern(for: value)
         case .meta: return nil
         }
+    }
+
+    private static func matcherPattern(_ matcher: LexicalMatcher) -> String? {
+        switch matcher {
+        case .literal(let value):
+            return NSRegularExpression.escapedPattern(for: value)
+        case .regularExpression(let pattern):
+            return pattern
+        case .characterRange(let lower, let upper):
+            return "[\(NSRegularExpression.escapedPattern(for: lower))-\(NSRegularExpression.escapedPattern(for: upper))]"
+        case .literals(let values):
+            return "(?:\(values.map(NSRegularExpression.escapedPattern(for:)).joined(separator: "|")))"
+        case .lineComment(let prefix):
+            return delimiterSafeLiteral(prefix) + "[^\\r\\n]*"
+        case .blockComment(let open, let close):
+            return delimiterSafeLiteral(open)
+                + "(?:.|[\\r\\n])*?"
+                + delimiterSafeLiteral(close)
+        }
+    }
+
+    private static func delimiterSafeLiteral(_ value: String) -> String {
+        value.map { character in
+            character == "/"
+                ? "\\x2F"
+                : NSRegularExpression.escapedPattern(for: String(character))
+        }.joined()
     }
 
     private static func literal(for terminal: Terminal) -> String? {

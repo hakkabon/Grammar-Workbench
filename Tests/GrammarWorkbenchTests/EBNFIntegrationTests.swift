@@ -10,6 +10,18 @@ expression = term { "+" term } ;
 term = NUMBER | "(" expression ")" ;
 """
 
+private let unifiedLanguageGrammar = #"""
+> Program
+lexical {
+    keyword BEGIN = "begin";
+    token IDENTIFIER = /[A-Za-z_][A-Za-z0-9_]*/;
+    symbol ASSIGN = ":=";
+    trivia WHITESPACE = /\s+/;
+    trivia LINE_COMMENT = lineComment("//");
+}
+Program ::= BEGIN IDENTIFIER ASSIGN IDENTIFIER;
+"""#
+
 @Test func existingGrammarModuleLowersEBNFForLRConstruction() throws {
     let compilation = GrammarWorkbenchAPI.compile(.init(
         source: expressionEBNF, algorithm: .lalr, notation: .ebnf
@@ -20,6 +32,21 @@ term = NUMBER | "(" expression ")" ;
     #expect(compilation.grammar?.nonterminals.contains("__ebnf_1") == true)
     #expect(compilation.parse("1 + (2 + 3)", options: .init(enablesRecovery: false)).status == .accepted)
     #expect(compilation.parse("1 +", options: .init(enablesRecovery: false)).status == .rejected)
+}
+
+@Test func unifiedLexicalSpecificationLowersWithoutASecondGrammarParser() throws {
+    let compilation = GrammarWorkbenchAPI.compile(.init(
+        source: unifiedLanguageGrammar, algorithm: .lalr, notation: .ebnf
+    ))
+    let lowering = try GrammarWorkbenchAPI.lowerEBNF(unifiedLanguageGrammar)
+
+    #expect(compilation.succeeded)
+    #expect(compilation.parse(
+        "begin value := other // retained by the source lexer",
+        options: .init(enablesRecovery: false)).status == .accepted)
+    #expect(lowering.loweredSource.contains("%token BEGIN /begin/"))
+    #expect(lowering.loweredSource.contains("%skip /\\s+/"))
+    #expect(lowering.loweredSource.contains("%skip /\\x2F\\x2F[^\\r\\n]*/"))
 }
 
 @Test func EBNFLoweringIsStableAcrossRepeatedCompilations() throws {

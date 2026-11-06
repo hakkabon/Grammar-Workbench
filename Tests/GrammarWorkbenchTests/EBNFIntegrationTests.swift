@@ -13,7 +13,7 @@ term = NUMBER | "(" expression ")" ;
 private let unifiedLanguageGrammar = #"""
 > Program
 lexical {
-    keyword BEGIN = "begin";
+    keyword BEGIN = insensitive("begin");
     token IDENTIFIER = /[A-Za-z_][A-Za-z0-9_]*/;
     symbol ASSIGN = ":=";
     trivia WHITESPACE = /\s+/;
@@ -42,9 +42,9 @@ Program ::= BEGIN IDENTIFIER ASSIGN IDENTIFIER;
 
     #expect(compilation.succeeded)
     #expect(compilation.parse(
-        "begin value := other // retained by the source lexer",
+        "BEGIN value := other // retained by the source lexer",
         options: .init(enablesRecovery: false)).status == .accepted)
-    #expect(lowering.loweredSource.contains("%token BEGIN /begin/"))
+    #expect(lowering.loweredSource.contains("%token BEGIN /(?i:begin)/"))
     #expect(lowering.loweredSource.contains("%skip /\\s+/"))
     #expect(lowering.loweredSource.contains("%skip /\\x2F\\x2F[^\\r\\n]*/"))
 }

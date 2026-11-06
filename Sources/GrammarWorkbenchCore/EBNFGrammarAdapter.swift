@@ -274,6 +274,8 @@ enum EBNFGrammarAdapter {
         switch matcher {
         case .literal(let value):
             return NSRegularExpression.escapedPattern(for: value)
+        case .caseInsensitiveLiteral(let value):
+            return "(?i:\(NSRegularExpression.escapedPattern(for: value)))"
         case .regularExpression(let pattern):
             return pattern
         case .characterRange(let lower, let upper):

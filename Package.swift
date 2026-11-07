@@ -43,7 +43,8 @@ let package = Package(
             .upToNextMinor(from: "0.1.0")
         ),
         .package(path: "../PL0-LanguageKit"),
-        .package(path: "../Incremental-Parsing")
+        .package(path: "../Incremental-Parsing"),
+        .package(path: "../Language-Tooling"),
     ],
     targets: [
         .target(
@@ -68,7 +69,12 @@ let package = Package(
                 .product(name: "GrammarDiagramKit", package: "Grammar-DiagramKit")
             ]
         ),
-        .target(name: "GrammarWorkbenchSDK", dependencies: ["GrammarWorkbenchCore"]),
+        .target(
+            name: "GrammarWorkbenchSDK",
+            dependencies: [
+                "GrammarWorkbenchCore",
+                .product(name: "LanguageTooling", package: "Language-Tooling")
+            ]),
         .executableTarget(
             name: "GrammarWorkbenchCLI",
             dependencies: ["GrammarWorkbenchCore", "GrammarWorkbenchSDK"]
@@ -99,7 +105,11 @@ let package = Package(
         ),
         .testTarget(
             name: "GrammarWorkbenchSDKTests",
-            dependencies: ["GrammarWorkbenchSDK", "GrammarWorkbenchCore"]
+            dependencies: [
+                "GrammarWorkbenchSDK", "GrammarWorkbenchCore",
+                .product(name: "LanguageTooling", package: "Language-Tooling"),
+                .product(name: "PL0Language", package: "PL0-LanguageKit")
+            ]
         ),
         .testTarget(name: "GrammarWorkbenchCoreTests", dependencies: ["GrammarWorkbenchCore"]),
         .target(

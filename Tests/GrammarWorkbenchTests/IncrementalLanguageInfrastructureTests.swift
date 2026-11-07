@@ -119,6 +119,10 @@ private struct IncrementalListSemantics: GrammarSemanticReducer {
     let newNodeIDs = Set(updated.syntaxTree?.descendants(named: "List").map(\.id) ?? [])
     #expect(!oldNodeIDs.intersection(newNodeIDs).isEmpty)
     #expect(updated.reuse.reusedNodes > 0)
+    let convergence = updated.runtimeConvergenceEvidence
+    #expect(convergence.constructionOwner == "LR-Parsing.LRParser")
+    #expect(convergence.executionOwner == "LR-Parsing.LRTableRuntime")
+    #expect(convergence.parsing.strategy == .incremental)
 }
 
 @Test func incrementalSessionIsolatesDocumentsAndRejectsOldRevisions() async throws {

@@ -304,6 +304,14 @@ print(next.reuse)
 print(next.semanticIndex.entries(named: "Declaration"))
 ```
 
+External language kits can be hosted through
+`GrammarWorkbenchToolingConsumer` in the SDK. It uses Language-Tooling's shared
+document lifecycle for versioned edits, completion, definition, and semantic
+tokens. Incremental analysis snapshots also expose
+`runtimeConvergenceEvidence`: LR construction is owned by
+`LR-Parsing.LRParser`, execution by `LR-Parsing.LRTableRuntime`, with the real
+lexing and parsing execution evidence attached.
+
 `GrammarWorkbenchAPI.version` and `GrammarArtifactSnapshot.apiVersion` identify the public contract (currently version 1). Artifact state and production identifiers are stable within one compiled artifact; incremental token and node identities are stable only within their owning language session. Neither identity kind should be persisted globally. Additive fields and APIs may appear within a version, while incompatible Codable schema changes require a new API version.
 
 Generated parsers are standalone Swift files with no Grammar Workbench dependency. They include deterministic ACTION/GOTO tables, lexer rules, typed tokens, parse-tree nodes, and structured lexical or syntax errors. Every reduction node records its production identity and exposes a bottom-up `evaluate` method, allowing applications to build typed ASTs without modifying generated parser tables. Generation rejects unresolved conflicts by default; callers may explicitly select shift, reduce, or table-order preference through `SwiftParserConflictPolicy`. The app provides **Interchange → Generate Swift Parser…**, and automation can use `grammar-workbench generate-swift GRAMMAR OUTPUT [ALGORITHM] [TYPE]`.

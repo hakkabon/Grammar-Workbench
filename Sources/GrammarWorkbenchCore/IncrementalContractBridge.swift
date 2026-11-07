@@ -1,5 +1,38 @@
 import IncrementalParsing
 
+/// Explicit ownership evidence for the Workbench compatibility layer. Grammar
+/// Workbench retains its public snapshot and positioned-tree types, while LR
+/// construction and execution are delegated to LR-Parsing's canonical table
+/// generator and `LRTableRuntime` through the canonical adapters.
+public struct GrammarRuntimeConvergenceEvidence: Hashable, Codable, Sendable {
+    public let constructionOwner: String
+    public let executionOwner: String
+    public let lexing: IncrementalExecutionEvidence
+    public let parsing: IncrementalExecutionEvidence
+
+    public init(
+        constructionOwner: String,
+        executionOwner: String,
+        lexing: IncrementalExecutionEvidence,
+        parsing: IncrementalExecutionEvidence
+    ) {
+        self.constructionOwner = constructionOwner
+        self.executionOwner = executionOwner
+        self.lexing = lexing
+        self.parsing = parsing
+    }
+}
+
+public extension GrammarIncrementalAnalysisSnapshot {
+    var runtimeConvergenceEvidence: GrammarRuntimeConvergenceEvidence {
+        .init(
+            constructionOwner: "LR-Parsing.LRParser",
+            executionOwner: "LR-Parsing.LRTableRuntime",
+            lexing: incrementalLexing.incrementalExecutionEvidence,
+            parsing: incrementalParsing.incrementalExecutionEvidence)
+    }
+}
+
 extension GrammarTextSnapshot {
     /// Shared source value used at package boundaries. Workbench retains its
     /// line/column edit façade, while application and validation are delegated

@@ -7,6 +7,13 @@ import LanguageTooling
 public struct GrammarWorkbenchToolingConsumer: Sendable {
     public let document: LanguageToolingDocument
 
+    public static func makeWorkspace(
+        providers: [any LanguageToolingProvider],
+        resolver: (any LanguageToolingProjectResolver)? = nil
+    ) -> LanguageToolingWorkspace {
+        LanguageToolingWorkspace(providers: providers, resolver: resolver)
+    }
+
     public static func makeProject(
         providers: [any LanguageToolingProvider],
         resolver: (any LanguageToolingProjectResolver)? = nil

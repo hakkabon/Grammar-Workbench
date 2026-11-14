@@ -8,14 +8,17 @@ import Testing
 @Suite("Shared language tooling consumer")
 struct SharedToolingConsumerTests {
     @Test func projectUsesRealFileURIs() async throws {
-        let project = GrammarWorkbenchToolingConsumer.makeProject(providers: [PL0Provider()])
+        let workspace = GrammarWorkbenchToolingConsumer.makeWorkspace(providers: [PL0Provider()])
         let uri = ToolingDocumentURI("file:///program.pl0")
         let source = IncrementalParsing.SourceSnapshot(
             text: "var x; begin x := 1 end.", revision: .init(1))
-        try await project.update(revision: 1, documents: [(uri, "pl0", source)])
-        let definition = try await project.definition(
+        try await workspace.submit(revision: 1, documents: [
+            .init(uri: uri, languageID: "pl0", snapshot: source),
+        ])
+        let definition = try await workspace.definition(
             in: uri, at: .init(line: 0, character: 13))
-        #expect(definition?.uri == uri.rawValue)
+        #expect(definition.value?.uri == uri.rawValue)
+        #expect(definition.analysis?.rebuiltDocuments == [uri])
     }
 
     @Test func consumesExternalKitThroughSharedDocumentHost() async throws {

@@ -19,6 +19,11 @@ public struct ArtifactExplorerView: View {
     @State private var sourceProjectSemantics: GrammarSemanticWorkspaceSnapshot?
     @State private var selectedSourceProjectDocumentID: String?
     @State private var isLoadingSourceProject = false
+    @State private var grammarDraft = ""
+    @State private var persistedGrammar = ""
+    @State private var checkedGrammarDraft: String?
+    @State private var grammarDraftImpact: GrammarDraftImpact?
+    @State private var isCheckingGrammarDraft = false
     @State private var sampleVisualization = SampleVisualization.trace
     private var document: Binding<GrammarWorkbenchDocument>?
 
@@ -458,6 +463,7 @@ public struct ArtifactExplorerView: View {
             Text(loaded.descriptorURL.path)
                 .font(.caption2.monospaced()).foregroundStyle(.tertiary)
                 .textSelection(.enabled)
+            grammarDraftSection(loaded, baseline: analysis.compilation)
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(loaded.manifest.sources) { source in
@@ -504,6 +510,79 @@ public struct ArtifactExplorerView: View {
         }
         .padding(14)
         .background(.background.secondary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    private func grammarDraftSection(
+        _ loaded: GrammarLoadedSourceProject, baseline: GrammarCompilation
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Grammar draft").font(.headline)
+            Text(loaded.descriptor.grammar.path).font(.caption.monospaced())
+            TextEditor(text: $grammarDraft)
+                .font(.system(.body, design: .monospaced))
+                .frame(minHeight: 160)
+                .accessibilityLabel("Project grammar draft")
+            HStack {
+                Button("Check Draft Against Examples") {
+                    checkGrammarDraft(loaded, baseline: baseline)
+                }
+                .disabled(isCheckingGrammarDraft || isLoadingSourceProject)
+                Button("Save Grammar") {
+                    do {
+                        try GrammarSourceProjectLoader.saveGrammar(
+                            grammarDraft, in: loaded, replacing: persistedGrammar)
+                        persistedGrammar = grammarDraft
+                        exportMessage = "Saved \(loaded.descriptor.grammar.path)"
+                    } catch {
+                        exportMessage = error.localizedDescription
+                    }
+                }
+                .disabled(isLoadingSourceProject || grammarDraft == persistedGrammar
+                          || checkedGrammarDraft != grammarDraft || grammarDraftImpact?.compiled != true)
+                if isCheckingGrammarDraft { ProgressView().controlSize(.small) }
+            }
+            if checkedGrammarDraft == grammarDraft, let impact = grammarDraftImpact {
+                Text(impact.compiled
+                     ? "Compared with the grammar when this project opened."
+                     : "Draft failed to compile. The open project still uses its accepted grammar.")
+                    .font(.caption)
+                ForEach(impact.diagnostics) { diagnostic in
+                    Text("\(diagnostic.range.start.line):\(diagnostic.range.start.column) \(diagnostic.message)")
+                        .textSelection(.enabled)
+                }
+                ForEach(impact.removedRules, id: \.self) { Text("− " + $0).monospaced() }
+                ForEach(impact.addedRules, id: \.self) { Text("+ " + $0).monospaced() }
+                ForEach(impact.examples) { example in
+                    VStack(alignment: .leading) {
+                        Text("\(example.path) · \(example.beforeLabel) → \(example.afterLabel)")
+                            .foregroundStyle(example.regressed ? Color.red : Color.primary)
+                        if example.after != .accepted {
+                            let position = example.range?.start
+                            let location = position.map { "\($0.line):\($0.column) " } ?? ""
+                            Text(location + example.message)
+                                .font(.caption)
+                        }
+                    }
+                    .textSelection(.enabled)
+                }
+            }
+        }
+    }
+
+    private func checkGrammarDraft(_ loaded: GrammarLoadedSourceProject, baseline: GrammarCompilation) {
+        let draft = grammarDraft
+        isCheckingGrammarDraft = true
+        Task {
+            let impact = await Task.detached {
+                GrammarDraftImpact.compare(draft: draft, baseline: baseline,
+                                           sources: loaded.manifest.sources)
+            }.value
+            isCheckingGrammarDraft = false
+            guard loadedSourceProject?.descriptorURL == loaded.descriptorURL,
+                  !isLoadingSourceProject, grammarDraft == draft else { return }
+            checkedGrammarDraft = draft
+            grammarDraftImpact = impact
+        }
     }
 
     private func selectedSourceProjectSource(in manifest: GrammarProjectManifest) -> GrammarProjectSource? {
@@ -2260,7 +2339,9 @@ public struct ArtifactExplorerView: View {
     }
 
     private func openSourceProject() {
+        guard !isCheckingGrammarDraft, !isLoadingSourceProject else { return }
         let panel = NSOpenPanel()
+        panel.showsHiddenFiles = true
         panel.allowsMultipleSelection = false
         panel.canChooseDirectories = false
         panel.allowedContentTypes = [.json]
@@ -2284,6 +2365,10 @@ public struct ArtifactExplorerView: View {
                 sourceProjectSemantics = semantics
                 selectedSourceProjectDocumentID = loaded.manifest.sources.first?.id
                 let grammar = loaded.manifest.grammar
+                grammarDraft = grammar.source
+                persistedGrammar = grammar.source
+                checkedGrammarDraft = nil
+                grammarDraftImpact = nil
                 if let document {
                     var updated = document.wrappedValue
                     updated.source = grammar.source

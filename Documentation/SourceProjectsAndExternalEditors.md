@@ -42,7 +42,22 @@ selecting a source problem selects the corresponding file.
 Source previews are intentionally read-only in this milestone. External
 editors remain authoritative for ordinary program files; reopening the
 descriptor refreshes the filesystem snapshot. The grammar remains editable in
-the native grammar editor.
+the Project workspace. Try the bundled `Examples/SourceProject` descriptor:
+
+1. In **Grammar draft**, remove the `E '+' E` alternative and its
+   `%left '+'` declaration, then choose **Check Draft Against Examples**.
+2. Inspect the removed rule and the status change for `Sources/main.expr`.
+   A grammar that fails to compile shows grammar diagnostics and keeps the
+   open project's accepted grammar available.
+3. Restore both lines, check again, and choose **Save Grammar** to
+   write the checked draft to the project's grammar file. Reopen the source
+   project to compare subsequent drafts against the newly saved baseline.
+
+For scripted checks, run
+`grammar-workbench source-project-impact DESCRIPTOR DRAFT_GRAMMAR`. It
+compares the supplied draft to the grammar named in the descriptor and
+returns a failure status for an invalid draft or a previously clean example
+that now fails or requires recovery.
 
 ## VS Code and Neovim
 

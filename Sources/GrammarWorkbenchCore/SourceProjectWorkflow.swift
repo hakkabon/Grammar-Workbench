@@ -112,9 +112,11 @@ public enum GrammarSourceProjectError: Error, LocalizedError, Sendable {
     case noSources
     case tooManySources(Int)
     case sourceTooLarge(String)
+    case grammarChangedOnDisk
 
     public var errorDescription: String? {
         switch self {
+        case .grammarChangedOnDisk: "The grammar changed on disk. Reopen the project before saving."
         case .unsupportedVersion(let value): "Unsupported source-project schema version \(value)."
         case .unsupportedAPIVersion(let value): "Unsupported source-project API version \(value)."
         case .invalidKind(let value): "Unexpected source-project kind ‘\(value)’."
@@ -207,6 +209,23 @@ public enum GrammarSourceProjectLoader {
     public static let maximumSources = 4_096
     public static let maximumSourceBytes = 8 * 1_024 * 1_024
 
+    public static func saveGrammar(
+        _ source: String, in project: GrammarLoadedSourceProject, replacing expected: String
+    ) throws {
+        let path = project.descriptor.grammar.path
+        let root = project.descriptorURL.deletingLastPathComponent()
+            .standardizedFileURL.resolvingSymlinksInPath()
+        let url = try sourceURL(path: path, beneath: root)
+        let replacement = Data(source.utf8)
+        guard replacement.count <= maximumSourceBytes else {
+            throw GrammarSourceProjectError.sourceTooLarge(path)
+        }
+        guard try Data(contentsOf: url) == Data(expected.utf8) else {
+            throw GrammarSourceProjectError.grammarChangedOnDisk
+        }
+        try replacement.write(to: url, options: .atomic)
+    }
+
     public static func load(at descriptorURL: URL) throws -> GrammarLoadedSourceProject {
         let descriptor = try GrammarSourceProjectCodec.decode(Data(contentsOf: descriptorURL))
         let root = descriptorURL.deletingLastPathComponent().standardizedFileURL.resolvingSymlinksInPath()
@@ -273,6 +292,11 @@ public enum GrammarSourceProjectLoader {
     }
 
     private static func data(path: String, beneath root: URL) throws -> Data {
+        let url = try sourceURL(path: path, beneath: root)
+        return try Data(contentsOf: url)
+    }
+
+    private static func sourceURL(path: String, beneath root: URL) throws -> URL {
         let url = root.appendingPathComponent(path).standardizedFileURL.resolvingSymlinksInPath()
         guard url.path == root.path || url.path.hasPrefix(root.path + "/") else {
             throw GrammarSourceProjectError.invalidPath(path)
@@ -284,7 +308,7 @@ public enum GrammarSourceProjectLoader {
         guard values.fileSize ?? 0 <= maximumSourceBytes else {
             throw GrammarSourceProjectError.sourceTooLarge(path)
         }
-        return try Data(contentsOf: url)
+        return url
     }
 
     private static func relativePath(of url: URL, beneath root: URL) -> String {

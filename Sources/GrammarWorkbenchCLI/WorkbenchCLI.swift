@@ -283,6 +283,37 @@ struct GrammarWorkbenchCLI {
             if !analysis.isSuccessful || semantics?.diagnostics.isEmpty == false {
                 throw CLIError.projectFailed
             }
+        case "source-project-impact":
+            guard arguments.count == 3 else {
+                throw CLIError.usage("source-project-impact requires DESCRIPTOR DRAFT_GRAMMAR")
+            }
+            let loaded = try GrammarSourceProjectLoader.load(
+                at: URL(fileURLWithPath: arguments[1]))
+            let grammar = loaded.manifest.grammar
+            let baseline = GrammarWorkbenchAPI.compile(.init(
+                source: grammar.source, algorithm: grammar.algorithm, notation: grammar.notation))
+            guard baseline.succeeded else {
+                throw CLIError.usage(baseline.diagnostics.first?.message ?? "Baseline grammar failed")
+            }
+            let impact = GrammarDraftImpact.compare(
+                draft: try read(arguments[2]), baseline: baseline, sources: loaded.manifest.sources)
+            for diagnostic in impact.diagnostics {
+                let position = diagnostic.range.start
+                print("\(position.line):\(position.column) \(diagnostic.message)")
+            }
+            for rule in impact.removedRules { print("- \(rule)") }
+            for rule in impact.addedRules { print("+ \(rule)") }
+            for example in impact.examples {
+                let position = example.range?.start
+                let suffix = position.map { ":\($0.line):\($0.column)" } ?? ""
+                print("\(example.path)\(suffix) \(example.beforeLabel) → \(example.afterLabel)")
+                if example.after != .accepted {
+                    print("  \(example.message)")
+                }
+            }
+            if !impact.compiled || impact.examples.contains(where: \.regressed) {
+                throw CLIError.projectFailed
+            }
         case "source-project-export":
             guard arguments.count == 3 else {
                 throw CLIError.usage("source-project-export requires DESCRIPTOR OUTPUT_PROJECT")
@@ -1390,6 +1421,7 @@ struct GrammarWorkbenchCLI {
       grammar-workbench test PROJECT
       grammar-workbench project-check PROJECT
       grammar-workbench source-project-check DESCRIPTOR
+      grammar-workbench source-project-impact DESCRIPTOR DRAFT_GRAMMAR
       grammar-workbench source-project-export DESCRIPTOR OUTPUT_PROJECT
       grammar-workbench project-generate PROJECT OUTPUT_ROOT
       grammar-workbench project-semantic PROJECT SCHEMA [OUTPUT]

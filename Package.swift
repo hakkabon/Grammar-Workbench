@@ -45,6 +45,7 @@ let package = Package(
         .package(path: "../PL0-LanguageKit"),
         .package(path: "../Incremental-Parsing"),
         .package(path: "../Language-Tooling"),
+        .package(path: "../Grammar-LanguageKit"),
     ],
     targets: [
         .target(
@@ -72,6 +73,7 @@ let package = Package(
         .target(
             name: "GrammarWorkbenchSDK",
             dependencies: [
+                .product(name: "GrammarLanguage", package: "Grammar-LanguageKit"),
                 "GrammarWorkbenchCore",
                 .product(name: "LanguageTooling", package: "Language-Tooling")
             ]),

@@ -1,3 +1,4 @@
+import GrammarLanguage
 import IncrementalParsing
 import LanguageTooling
 
@@ -6,6 +7,10 @@ import LanguageTooling
 /// provider owns parser, semantic, compiler, and incremental state.
 public struct GrammarWorkbenchToolingConsumer: Sendable {
     public let document: LanguageToolingDocument
+
+    public static func makeGrammarAuthoringSession() -> GrammarProviderSession {
+        GrammarProvider().makeAuthoringSession()
+    }
 
     public static func makeWorkspace(
         providers: [any LanguageToolingProvider],

@@ -7,6 +7,18 @@ import Testing
 
 @Suite("Shared language tooling consumer")
 struct SharedToolingConsumerTests {
+    @Test func grammarAuthoringRejectsUndefinedRules() async throws {
+        let session = GrammarWorkbenchToolingConsumer.makeGrammarAuthoringSession()
+        let first = IncrementalParsing.SourceSnapshot(
+            text: "<start> ::= \"a\" ;", revision: .init(1))
+        let accepted = try await session.submit(first)
+        #expect(accepted.activated)
+        let rejected = try await session.submit(.init(
+            text: "<start> ::= <missing> ;", revision: .init(2)))
+        #expect(!rejected.activated)
+        #expect(rejected.activeSource == first)
+    }
+
     @Test func projectUsesRealFileURIs() async throws {
         let workspace = GrammarWorkbenchToolingConsumer.makeWorkspace(providers: [PL0Provider()])
         let uri = ToolingDocumentURI("file:///program.pl0")

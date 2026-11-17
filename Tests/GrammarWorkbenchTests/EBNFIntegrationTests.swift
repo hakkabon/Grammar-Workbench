@@ -5,6 +5,7 @@ import GrammarWorkbench
 private let expressionEBNF = """
 lexical {
     NUMBER = /[0-9]+/ ;
+    trivia WHITESPACE = /\\s+/;
 }
 expression = term { "+" term } ;
 term = NUMBER | "(" expression ")" ;
@@ -59,10 +60,10 @@ Program ::= BEGIN IDENTIFIER ASSIGN IDENTIFIER;
     #expect(lowering.loweredSource.contains("__ebnf_1"))
     #expect(lowering.loweredSource.contains("%token NUMBER /[0-9]+/"))
     #expect(lowering.productionOrigins.count == first.grammar?.productions.count)
-    #expect(lowering.productionOrigins.allSatisfy { $0.sourceRange.start.line <= 5 })
+    #expect(lowering.productionOrigins.allSatisfy { $0.sourceRange.start.line <= 6 })
     let repetition = try #require(lowering.productionOrigins.first { $0.isSynthetic })
     #expect(repetition.sourceNonterminal == "expression")
-    #expect(repetition.sourceRange.start.line == 4)
+    #expect(repetition.sourceRange.start.line == 5)
 }
 
 @Test func EBNFReportsUndefinedReferencesAtNativeSourceLocations() throws {

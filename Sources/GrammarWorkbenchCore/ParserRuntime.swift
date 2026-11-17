@@ -96,10 +96,12 @@ package struct ParserRuntimeResult: Sendable {
     package let outcome: ParseOutcome
     package let diagnostics: [ParserDiagnostic]
     package let checkpoints: [ParserCheckpoint]
+    package let recoveryEdits: [GrammarRecoveryEdit]
 
     package init(
         tokens: [String], tree: ParseTreeNode?, frames: [ReplayFrame], outcome: ParseOutcome,
-        diagnostics: [ParserDiagnostic] = [], checkpoints: [ParserCheckpoint] = []
+        diagnostics: [ParserDiagnostic] = [], checkpoints: [ParserCheckpoint] = [],
+        recoveryEdits: [GrammarRecoveryEdit] = []
     ) {
         self.tokens = tokens
         self.tree = tree
@@ -107,6 +109,7 @@ package struct ParserRuntimeResult: Sendable {
         self.outcome = outcome
         self.diagnostics = diagnostics
         self.checkpoints = checkpoints
+        self.recoveryEdits = recoveryEdits
     }
 }
 

@@ -58,11 +58,20 @@ extension GrammarWorkbenchDocument: FileDocument {
             guard let source = String(data: data, encoding: .utf8) else {
                 throw CocoaError(.fileReadInapplicableStringEncoding)
             }
+            let notation: GrammarSourceNotation
+            // Launch Services can resolve several imported identifiers to
+            // the same registered grammar type. Detect from the source when
+            // the type cannot distinguish the notations.
+            let isEBNF = contentType == .ebnfGrammar || contentType == .bnfGrammar
+            let isYacc = contentType == .yaccGrammar
+            switch (isEBNF, isYacc) {
+            case (true, false): notation = .ebnf
+            case (false, true): notation = .workbench
+            default: notation = GrammarSourceNotationDetector.detect(source: source)
+            }
             self = Self(
                 source: source,
-                notation: contentType == .ebnfGrammar || contentType == .bnfGrammar
-                    ? .ebnf
-                    : GrammarSourceNotationDetector.detect(source: source),
+                notation: notation,
                 samples: [WorkbenchSample(name: "Sample 1", input: "")]
             )
         }

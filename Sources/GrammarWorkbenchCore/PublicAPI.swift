@@ -396,10 +396,7 @@ public struct GrammarCompilation: Sendable {
         let runtime = LRParserRuntime.parse(
             lexed.tokens.map(\.kind), artifact: compiledArtifact, recovery: recovery
         )
-        let recoveryEdits = GrammarRecoveryEvidence.edits(
-            diagnostics: runtime.diagnostics, frames: runtime.frames,
-            originalTokens: lexed.tokens.map(\.kind)
-        )
+        let recoveryEdits = runtime.recoveryEdits
         let syntaxDiagnostics = runtime.diagnostics.map { diagnostic in
             GrammarSyntaxDiagnostic(
                 id: diagnostic.index, message: diagnostic.message,
@@ -419,7 +416,8 @@ public struct GrammarCompilation: Sendable {
         let conflictSymbol: String?
         switch runtime.outcome {
         case .accepted:
-            status = recoveryEdits.isEmpty ? .accepted : .acceptedWithRecovery
+            status = runtime.diagnostics.contains { $0.recovery != nil }
+                ? .acceptedWithRecovery : .accepted
             expected = syntaxDiagnostics.last?.expected ?? []
             conflictState = nil; conflictSymbol = nil
         case .rejected(_, let values):

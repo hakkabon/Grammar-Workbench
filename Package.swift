@@ -35,17 +35,17 @@ let package = Package(
              url: "https://github.com/hakkabon/Swift-Layout.git",
              .upToNextMinor(from: "0.0.3")
         ),
-        .package(path: "../Grammar"),
-        .package(path: "../Parser"),
-        .package(path: "../LR-Parsing"),
+        .package(url: "https://github.com/hakkabon/Grammar.git", .upToNextMinor(from: "0.9.1")),
+        .package(url: "https://github.com/hakkabon/Parser.git", .upToNextMinor(from: "0.12.1")),
+        .package(url: "https://github.com/hakkabon/LR-Parsing.git", .upToNextMinor(from: "0.8.1")),
         .package(
             url: "https://github.com/hakkabon/Grammar-DiagramKit.git",
             .upToNextMinor(from: "0.1.0")
         ),
-        .package(path: "../PL0-LanguageKit"),
-        .package(path: "../Incremental-Parsing"),
-        .package(path: "../Language-Tooling"),
-        .package(path: "../Grammar-LanguageKit"),
+        .package(url: "https://github.com/hakkabon/PL0-LanguageKit.git", .upToNextMinor(from: "0.16.2")),
+        .package(url: "https://github.com/hakkabon/Incremental-Parsing.git", .upToNextMinor(from: "0.33.0")),
+        .package(url: "https://github.com/hakkabon/Language-Tooling.git", .upToNextMinor(from: "0.10.1")),
+        .package(url: "https://github.com/hakkabon/Grammar-LanguageKit.git", .upToNextMinor(from: "0.2.1")),
     ],
     targets: [
         .target(

@@ -2,53 +2,6 @@ import Foundation
 import Grammar
 import Parser
 
-enum GrammarRecoveryEvidence {
-    /// LR-Parsing currently exposes recovery diagnostics rather than its edit
-    /// buffer. Normalize their mutable-runtime positions back to positions in
-    /// the original token stream at this boundary.
-    static func edits(
-        diagnostics: [ParserDiagnostic], frames: [ReplayFrame], originalTokens: [String]
-    ) -> [GrammarRecoveryEdit] {
-        var indexDelta = 0
-        let recoveryFrames = frames.indices.filter { frames[$0].action.hasPrefix("recover:") }
-        var recoveryFrameIndex = 0
-        return diagnostics.compactMap { diagnostic in
-            guard let recovery = diagnostic.recovery else { return nil }
-            let frameIndex = recoveryFrames.indices.contains(recoveryFrameIndex)
-                ? recoveryFrames[recoveryFrameIndex] : nil
-            recoveryFrameIndex += 1
-            switch recovery {
-            case .insertedToken:
-                let index = max(0, diagnostic.tokenIndex - indexDelta)
-                indexDelta += 1
-                guard let terminal = diagnostic.recoverySymbol else { return nil }
-                return .insert(terminal: terminal, atToken: index)
-            case .deletedToken:
-                let index = max(0, diagnostic.tokenIndex - indexDelta)
-                indexDelta -= 1
-                let terminal = diagnostic.recoverySymbol ?? diagnostic.unexpected
-                return .delete(terminal: terminal, atToken: index)
-            case .synchronized:
-                let count = frameIndex.flatMap { index -> Int? in
-                    guard index > frames.startIndex else { return nil }
-                    return max(
-                        0,
-                        frames[frames.index(before: index)].remainingInput.count
-                            - frames[index].remainingInput.count
-                    )
-                } ?? 0
-                let runtimeStart = max(0, diagnostic.tokenIndex - count)
-                let start = max(0, runtimeStart - indexDelta)
-                let end = min(originalTokens.count, start + count)
-                return .skip(
-                    terminals: start < end ? Array(originalTokens[start..<end]) : [],
-                    fromToken: start
-                )
-            }
-        }
-    }
-}
-
 public enum GrammarRecoveryReplayError: Error, Equatable, LocalizedError, Sendable {
     case invalidInsertion(Int)
     case invalidDeletion(Int)

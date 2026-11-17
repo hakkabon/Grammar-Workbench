@@ -77,24 +77,24 @@
     {
       "name": "Grammar",
       "repository": "https://github.com/hakkabon/Grammar.git",
-      "revision": "2dedc076be2e0a2bdb4bad843c717d4fd3d8bfdc",
-      "version": "0.3.4",
+      "revision": "f1a463faaa9d7ab23524a1168d20de460a36714d",
+      "version": "0.9.1",
       "role": "grammar-model",
       "adoption": "pinned"
     },
     {
       "name": "Parser",
       "repository": "https://github.com/hakkabon/Parser.git",
-      "revision": "d9ae97b7a46a02d3a1a915fe803429c44ba8076a",
-      "version": "0.4.1",
+      "revision": "852eeed7218b8547374da02f1edc29070508bf4d",
+      "version": "0.12.1",
       "role": "parser-contracts",
       "adoption": "pinned"
     },
     {
       "name": "Lexer",
       "repository": "https://github.com/hakkabon/Lexer.git",
-      "revision": "cc3e964ac3312aa894243f4c3d32432976d93d90",
-      "version": "0.2.0",
+      "revision": "81ecdee11a9ad5d62653d6e03c4817fa3c3bb38f",
+      "version": "0.9.1",
       "role": "lexical-runtime",
       "adoption": "pinned"
     },
@@ -109,8 +109,8 @@
     {
       "name": "Earley-Parser",
       "repository": "https://github.com/hakkabon/Earley-Parser.git",
-      "revision": "8f2c2f184c0f9c918c238b44fecf506e13dec02b",
-      "version": "0.2.1",
+      "revision": "08ae2adf013a89f7e042973819e53a00c79cc3e0",
+      "version": "0.10.1",
       "role": "earley-engine",
       "adoption": "pinned"
     },
@@ -125,24 +125,24 @@
     {
       "name": "CYK-Parser",
       "repository": "https://github.com/hakkabon/CYK-Parser.git",
-      "revision": "8a4c9f4d0db8d4176e941f391dfe30de1a0504e9",
-      "version": "0.2.1",
+      "revision": "2b7280642e2019d943a3ccad72eae76e817da3ec",
+      "version": "0.3.1",
       "role": "cyk-engine",
       "adoption": "pinned"
     },
     {
       "name": "RNGLR-Parser",
       "repository": "https://github.com/hakkabon/RNGLR-Parser.git",
-      "revision": "80117a6ab5dc327b8cbae5e09ba0a35ff072020b",
-      "version": "0.2.3",
+      "revision": "99ca565448a9b3b36a4f047f32d5f09392aa3280",
+      "version": "0.10.1",
       "role": "rnglr-engine",
       "adoption": "pinned"
     },
     {
       "name": "LR-Parsing",
       "repository": "https://github.com/hakkabon/LR-Parsing.git",
-      "revision": "885a4e5a0c9841b06e3bbad17fc21e0637b7eff5",
-      "version": "0.2.5",
+      "revision": "0dfc464931e11edf36b2e5c3840d0f7bd7dea779",
+      "version": "0.8.1",
       "role": "lr-engine",
       "adoption": "conformance"
     },

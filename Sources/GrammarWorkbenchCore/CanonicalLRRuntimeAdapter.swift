@@ -54,7 +54,14 @@ enum CanonicalLRRuntimeAdapter {
                     recoverySymbol: diagnostic.recoverySymbol, recoveryDetail: diagnostic.recoveryDetail
                 )
             },
-            checkpoints: result.checkpoints.map(workbenchCheckpoint)
+            checkpoints: result.checkpoints.map(workbenchCheckpoint),
+            recoveryEdits: result.recoveryEdits.map { edit in
+                switch edit {
+                case .insert(let symbol, let index): .insert(terminal: symbol, atToken: index)
+                case .delete(let symbol, let index): .delete(terminal: symbol, atToken: index)
+                case .skip(let symbols, let index): .skip(terminals: symbols, fromToken: index)
+                }
+            }
         )
     }
 
